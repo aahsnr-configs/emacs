@@ -658,3 +658,182 @@ appear, ensuring a consistent and predictable windowing layout.
    shackle-inhibit-window-quit-on-same-buffer t))
 #+end_src
 
+* Completion Framework
+*Match the completion framework with my other configurations*
+** Orderless for Advanced Filtering
+#+begin_src emacs-lisp
+(use-package orderless
+  :custom
+  ;; Use orderless as the primary completion style.
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  ;; Use standard completion for file paths for a more predictable experience.
+  (orderless-component-separator #'orderless-escapable-split-on-space)
+  (completion-category-overrides '((file (styles basic partial-completion))))
+  ;; Add dispatchers for more precise filtering (e.g., =literal, %regexp)
+  (orderless-dispatchers
+   '(orderless-consult-dispatch orderless-affix-dispatch)))
+#+end_src
+
+** Vertico: The Vertical Completion UI
+#+begin_src emacs-lisp
+(use-package vertico
+  :init (vertico-mode)
+  :custom
+  (vertico-resize nil)
+  (vertico-cycle t)
+  (vertico-count 10))
+#+end_src
+
+** Marginalia
+#+begin_src emacs-lisp
+(use-package marginalia
+  :init (marginalia-mode))
+#+end_src
+
+** Nerd Icons Completion
+#+begin_src emacs-lisp
+(use-package nerd-icons-completion
+  :demand t
+  :config
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
+  (nerd-icons-completion-mode))
+#+end_src
+
+** Consult
+#+begin_src emacs-lisp
+(use-package consult
+  :hook (completion-list-mode . consult-preview-at-point-mode)
+  :init
+  ;; Tell Consult how to find the root of a project. We use the built-in
+  ;; `project.el` functionality.
+  ;;(setq consult-project-function #'project-roots)
+  ;; Keep the preview advice from the original configuration
+  (advice-add #'register-preview :override #'consult-register-window)
+  (setq register-preview-delay 0.5)
+  (setq consult-prompt-margin 0)
+  (setq consult-preview-key 'any)
+
+  :custom
+  (consult-narrow-key "<")
+  (consult-find-args "fd --hidden --strip-cwd --type f --color=never --follow --exclude .git")
+  (consult-ripgrep-args "rg --null --line-buffered --color=never --smart-case --no-heading --line-number --hidden --glob '!.git/'")
+  ;; Augment the default consult-buffer sources to include recent files and
+  ;; project-specific recent files for a more powerful buffer switcher.
+  (consult-buffer-sources
+   '(;;consult--source-buffer
+     consult--source-recent-file
+     consult--source-project-recent-file
+     consult--source-bookmark))
+
+  :config
+  ;; Configure preview keys for various commands.
+  ;; A delayed preview is used to avoid performance issues.
+  (consult-customize
+   consult-theme :preview-key '(:debounce 0.05 any)
+   consult-ripgrep consult-git-grep consult-grep
+   consult-bookmark consult-recent-file consult-xref
+   consult--source-bookmark consult--source-file-register
+   consult--source-recent-file consult--source-project-recent-file
+   :preview-key '(:debounce 0.1 any)))
+#+end_src
+
+** Embark
+#+begin_src emacs-lisp
+(use-package embark
+  :bind
+  (("C-." . embark-act)         ;; pick some comfortable binding
+   ("C-;" . embark-dwim)        ;; good alternative: M-.
+   ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command)
+  :config
+  (define-key embark-collect-mode-map (kbd "e") #'embark-export)
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
+#+end_src
+
+** Embark Consult
+#+begin_src emacs-lisp
+(use-package embark-consult
+  :after (embark consult)
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+** 📥 TODO Corfu: The Core UI
+*Use different accents for corfu completion and their documentation*
+#+begin_src emacs-lisp
+(defun corfu-precondition-evil ()
+  "Precondition for Corfu to activate only in insert state when evil-mode is active."
+  (or (not evil-mode) (evil-insert-state-p)))
+
+(use-package corfu
+  :init
+  (global-corfu-mode)
+  ;; Enable Corfu's extensions
+  (corfu-popupinfo-mode)
+  (corfu-history-mode)
+  :bind
+  (:map corfu-map
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous))
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-resize nil)
+  (corfu-auto-delay 0.06)
+  (corfu-quit-at-boundary 'separator)
+  (corfu-quit-no-match 'separator)
+  ;; Configure popupinfo delay
+  ;; TODO: show documentation on key input
+  (corfu-popupinfo-delay '(0.5 . 0.06))
+  ;; This line is now in the correct location
+  (corfu-auto-preconditions '(corfu-precondition-evil))
+  :config
+  ;; Persist history
+  (add-to-list 'savehist-additional-variables 'corfu-history))
+#+end_src
+
+** Nerd Icons for Corfu
+#+begin_src emacs-lisp
+(use-package nerd-icons-corfu
+  :after (corfu nerd-icons)
+  :config (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** Cape: Completion Backends
+#+begin_src emacs-lisp
+(use-package cape
+  :commands (cape-dabbrev cape-file cape-keyword)
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-symbol)
+  :config
+  ;; Silence the noisy pcomplete capf
+  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent))
+#+end_src
+
+** Dabbrev
+#+begin_src emacs-lisp
+(use-package dabbrev
+  :ensure nil
+  ;; Swap M-/ and C-M-/
+  :bind (("M-/" . dabbrev-completion)
+         ("C-M-/" . dabbrev-expand))
+  :config
+  (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
+  ;; Available since Emacs 29 (Use `dabbrev-ignored-buffer-regexps' on older Emacs)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
+#+end_src
+
