@@ -61,8 +61,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 
 ;; Block until current queue processed.
 (elpaca-wait)
-    
-(setq use-package-always-defer t)    
 #+end_src
 
 ** Native Compilation
@@ -318,15 +316,17 @@ This section incorporates the sensible defaults and settings from the minimal-em
 *Use distinct different colors for bold, italic and underline texts*
 #+begin_src emacs-lisp
 (use-package doom-themes
+  :demand t
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
-  (doom-themes-treemacs-theme "doom-tokyo-night")
-  :config
-  (load-theme 'doom-tokyo-night t)
   (doom-themes-visual-bell-config)
   (doom-themes-treemacs-config)
   (doom-themes-org-config)
+  (doom-themes-treemacs-theme "doom-tokyo-night")
+  :config
+  (load-theme 'doom-tokyo-night t)
+
   
   ;; Set distinct colors for bold and italic
   (custom-set-faces
@@ -371,7 +371,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ** Modeline
 #+begin_src emacs-lisp
 (use-package doom-modeline
-  :hook (after-init . doom-modeline-mode)
+  :init (doom-modeline-mode 1)
   :custom
   ;; Set the icons and other aesthetic features
   (doom-modeline-icon t)
@@ -407,7 +407,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
-  :defer t
   :init (which-key-mode 1)
   :custom
   (which-key-idle-delay 0.1)
@@ -418,5 +417,100 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ** Hide Modeline
 
 #+begin_src emacs-lisp
+#+end_src
+
+* General Keybindings
+#+begin_src emacs-lisp
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+
+(use-package general
+  :demand t
+  :after evil
+  :config
+  (general-create-definer ar/global-leader
+    :keymaps '(normal insert visual emacs)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+  (ar/global-leader
+   ;; Core
+   "SPC" '(execute-extended-command :wk "M-x")
+   "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
+   "q r" '(ar/reload-config :wk "Reload Config")))
+#+end_src
+
+* Evil (Vim Emulation)
+** Core Evil
+#+begin_src emacs-lisp
+;; Uncomment the following if you are using undo-fu
+(setq evil-undo-system 'undo-fu)
+
+;; Vim emulation
+(use-package evil
+  :demand t
+  :hook (after-init . evil-mode)
+  :init
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+
+  :custom
+  (evil-ex-visual-char-range t)
+  (evil-ex-search-vim-style-regexp t)
+  (evil-split-window-below t)
+  (evil-vsplit-window-right t)
+  (evil-echo-state nil)
+  (evil-move-cursor-back nil)
+  (evil-v$-excludes-newline t)
+  (evil-want-C-h-delete t)
+  (evil-want-C-u-delete t)
+  (evil-want-fine-undo t)
+  (evil-move-beyond-eol t)
+  (evil-search-wrap nil)
+  (evil-want-Y-yank-to-eol t))
+#+end_src
+
+** Evil Collection
+#+begin_src emacs-lisp
+(use-package evil-collection
+  :after evil
+  :init
+  ;; It has to be defined before evil-colllection
+  (setq evil-collection-setup-minibuffer t)
+  :config
+  (evil-collection-init))
+#+end_src
+
+** Evil Extensions
+#+begin_src emacs-lisp
+(use-package evil-surround :hook (evil-mode . global-evil-surround-mode))
+(use-package evil-nerd-commenter :after evil)
+
+(use-package evil-numbers :after evil)
+(use-package evil-args :after evil)
+(use-package evil-anzu :after evil)
+(use-package evil-exchange :after evil :config (evil-exchange-install))
+(use-package evil-indent-plus :after evil :config (evil-indent-plus-default-bindings))
+(use-package evil-visualstar :hook (evil-mode . global-evil-visualstar-mode))
+(use-package evil-matchit :hook (evil-mode . global-evil-matchit-mode))
+(use-package evil-snipe :after evil :config (evil-snipe-mode 1) (evil-snipe-override-mode 1))
+
+(use-package evil-lion
+  :after evil
+  :hook (prog-mode . evil-lion-mode))
+
+(use-package evil-multiedit :after evil :config (evil-multiedit-default-keybinds))
+(use-package evil-goggles :hook (evil-mode . evil-goggles-mode) :custom (evil-goggles-duration 0.1))
+
+(use-package evil-escape
+  :hook (evil-mode . evil-escape-mode)
+  :custom
+  (evil-escape-key-sequence "jk")
+  (evil-escape-delay 0.2)
+  (evil-escape-excluded-modes '(dired-mode)))
+#+end_src
+
+** Keybindings
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil-maps
+  (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
 #+end_src
 

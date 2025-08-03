@@ -2,10 +2,8 @@
 
 ## INSPIRATIONS
 
-## QUESTIONS
-
+## QUESTIONS 
 ---
-
 - [ ] Orderless,vertico, marginalia, nerd-icons-completion, consult, embark, embark-consult, corfu, nerd-icons-corfu, cape, dabbrev. What are some issues that these package face with lsp-mode or dap-mode
 - [ ] Does corfu have native integration with eldoc
 - [ ] How does lsp-mode view documentation.
@@ -13,9 +11,27 @@
 - [ ] Will treesit work with lsp-mode and/or dap-mode
 - [ ] How does paredit work?
 
-## TASKS
+---
+## Combining Configurations:
+- minimal-emacs
+  - [ ]
+  - [ ]
+  - [ ]
+
+- final-emacs
+  - [ ] Doom modeline fix
+  - [ ]
+  - [ ]
+  - [ ]
+
+- doom-config
+  - [ ]
+  - [ ]
+  - [ ]
 
 ---
+## TASKS
+
 
 - [x] Integrate https://github.com/jamescherti/minimal-emacs.d
 - [x] Add lexical binding to all .el files

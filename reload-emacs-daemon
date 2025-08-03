@@ -2,4 +2,4 @@
 emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "config.org")'
 killall emacs
 killall emacs
-emacs
+emacs --daemon
