@@ -1,0 +1,3 @@
+[submodule "lisp/no-littering"]
+	path = lisp/no-littering
+	url = https://github.com/emacscollective/no-littering.git
