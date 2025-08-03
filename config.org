@@ -513,3 +513,148 @@ This section incorporates the sensible defaults and settings from the minimal-em
   (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
 #+end_src
 
+* Editor Behaviour
+** Lines Behaviour
+#+begin_src emacs-lisp
+;; Highlight the current line
+(global-hl-line-mode 1)
+;; Use visual line mode for soft wrapping instead of truncating lines
+(global-visual-line-mode 1)
+#+end_src
+
+** Smartparens
+#+begin_src emacs-lisp
+(use-package smartparens
+  :after evil
+  :hook ((prog-mode . smartparens-mode)
+         (text-mode . smartparens-mode)
+         ;;(markdown-mode . smartparens-mode)
+         (org-mode . smartparens-mode))
+  :config
+  ;;  (smartparens-global-strict-mode 1)
+  ;; --- Doom Emacs-style Keybindings ---
+
+ (with-eval-after-load 'evil-maps
+    (define-key evil-normal-state-map ">" 'sp-slurp-sexp)
+    (define-key evil-normal-state-map "<" 'sp-barf-sexp)
+    ;; Also bind in visual mode for consistency when selecting a region.
+    (define-key evil-visual-state-map ">" 'sp-slurp-sexp)
+    (define-key evil-visual-state-map "<" 'sp-barf-sexp))
+
+  ;; --- UI and Behavior Customizations ---
+  (setq sp-show-pair-delay 0.1
+        sp-show-pair-from-inside t))
+#+end_src
+
+** Rainbow Delimiters
+#+begin_src emacs-lisp
+(use-package rainbow-delimiters
+  :defer t
+  :hook ((text-mode . rainbow-delimiters-mode)
+         (prog-mode . rainbow-delimiters-mode)
+         (org-src-mode-hook . rainbow-delimiters-mode))
+
+  ;; Custom faces updated for the Tokyonight color palette.
+  :custom-face
+  (rainbow-delimiters-depth-1-face ((t (:foreground "#7aa2f7"))))  ; Blue
+  (rainbow-delimiters-depth-2-face ((t (:foreground "#bb9af7"))))  ; Magenta
+  (rainbow-delimiters-depth-3-face ((t (:foreground "#e0af68"))))  ; Yellow
+  (rainbow-delimiters-depth-4-face ((t (:foreground "#73daca"))))  ; Cyan
+  (rainbow-delimiters-depth-5-face ((t (:foreground "#f7768e"))))  ; Red
+  (rainbow-delimiters-depth-6-face ((t (:foreground "#9ece6a"))))  ; Green
+  (rainbow-delimiters-depth-7-face ((t (:foreground "#ff9e64"))))  ; Orange
+  (rainbow-delimiters-depth-8-face ((t (:foreground "#c0caf5"))))  ; Foreground
+  (rainbow-delimiters-depth-9-face ((t (:foreground "#a9b1d6"))))) ; Sub-Foreground
+#+end_src
+
+** Rainbow Mode
+#+begin_src emacs-lisp
+(use-package rainbow-mode
+  :defer t
+  :hook ((prog-mode . rainbow-mode)
+         (org-mode . rainbow-mode)))
+#+end_src
+
+** Scrolling
+Preferring minimal-emacs.d setup over ultra-scroll
+#+begin_src emacs-lisp
+(use-package ultra-scroll
+  :init
+  (setq scroll-conservatively 3 ; or whatever value you prefer, since v0.4
+        scroll-margin 0)        
+  :config
+  (ultra-scroll-mode 1))
+#+end_src
+
+** Undo System
+#+begin_src emacs-lisp
+;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
+;; system, providing more convenient undo/redo functionality.
+(use-package undo-fu
+  :commands (undo-fu-only-undo
+             undo-fu-only-redo
+             undo-fu-only-redo-all
+             undo-fu-disable-checkpoint)
+  :config
+  (global-unset-key (kbd "C-z"))
+  (global-set-key (kbd "C-z") 'undo-fu-only-undo)
+  (global-set-key (kbd "C-S-z") 'undo-fu-only-redo))
+
+;; The undo-fu-session package complements undo-fu by enabling the saving
+;; and restoration of undo history across Emacs sessions, even after restarting.
+(use-package undo-fu-session
+  :commands undo-fu-session-global-mode
+  :hook (after-init . undo-fu-session-global-mode))
+#+end_src
+
+** Buffer Terminator
+#+begin_src emacs-lisp
+(use-package buffer-terminator
+  :custom
+  ;; Enable/Disable verbose mode to log buffer cleanup events
+  (buffer-terminator-verbose nil)
+
+  ;; Set the inactivity timeout (in seconds) after which buffers are considered
+  ;; inactive (default is 30 minutes):
+  (buffer-terminator-inactivity-timeout (* 30 60)) ; 30 minutes
+
+  ;; Define how frequently the cleanup process should run (default is every 10
+  ;; minutes):
+  (buffer-terminator-interval (* 10 60)) ; 10 minutes
+
+  :config
+  (buffer-terminator-mode 1))
+#+end_src
+
+** Inhibit Mouse
+#+begin_src emacs-lisp
+(use-package inhibit-mouse
+  :config
+  (if (daemonp)
+      (add-hook 'server-after-make-frame-hook #'inhibit-mouse-mode)
+    (inhibit-mouse-mode 1)))
+#+end_src
+
+** Shackle for Popup Window Management
+This provides a declarative way to control where and how special-purpose buffers
+appear, ensuring a consistent and predictable windowing layout.
+#+begin_src emacs-lisp
+(use-package shackle
+  :init (shackle-mode)
+  :custom
+  (shackle-rules
+   '(;; Rule for Help buffers
+     ("\\`\\*Help" :align bottom :size 0.3)
+     ;; Rule for compilation/grep/etc.
+     ("^\\*.*compilation.*\\*$" :align bottom :size 0.3)
+     ("^\\*grep.*\\*$" :align bottom :size 0.3)
+     ;; Rule for Embark
+     ("\\`\\*Embark Collect" :align bottom :size 0.25)
+     ;; Rules for the debugger (dape)
+     ("\\`\\*dap-repl" :align right :size 0.4)
+     ("\\`\\*dap-locals" :align right :size 0.4)
+     ("\\`\\*dap-breakpoints" :align right :size 0.4)
+     ("\\`\\*dap-sessions" :align right :size 0.4))
+   shackle-inhibit-window-quit-on-same-buffer t))
+#+end_src
+
