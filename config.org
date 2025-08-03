@@ -441,31 +441,31 @@ This section incorporates the sensible defaults and settings from the minimal-em
 * Evil (Vim Emulation)
 ** Core Evil
 #+begin_src emacs-lisp
-;; Uncomment the following if you are using undo-fu
-(setq evil-undo-system 'undo-fu)
+  ;; Uncomment the following if you are using undo-fu
+  (setq evil-undo-system 'undo-fu)
 
-;; Vim emulation
-(use-package evil
-  :demand t
-  :hook (after-init . evil-mode)
-  :init
-  (setq evil-want-integration t)
-  (setq evil-want-keybinding nil)
+  ;; Vim emulation
+  (use-package evil
+    :demand t
+    :hook (after-init . evil-mode)
+    :init
+    (setq evil-want-integration t)
+    (setq evil-want-keybinding nil)
 
-  :custom
-  (evil-ex-visual-char-range t)
-  (evil-ex-search-vim-style-regexp t)
-  (evil-split-window-below t)
-  (evil-vsplit-window-right t)
-  (evil-echo-state nil)
-  (evil-move-cursor-back nil)
-  (evil-v$-excludes-newline t)
-  (evil-want-C-h-delete t)
-  (evil-want-C-u-delete t)
-  (evil-want-fine-undo t)
-  (evil-move-beyond-eol t)
-  (evil-search-wrap nil)
-  (evil-want-Y-yank-to-eol t))
+    :custom
+    (evil-ex-visual-char-range t)
+    (evil-ex-search-vim-style-regexp t)
+    (evil-split-window-below t)
+    (evil-vsplit-window-right t)
+    (evil-echo-state nil)
+    (evil-move-cursor-back nil)
+    (evil-v$-excludes-newline t)
+    (evil-want-C-h-delete t)
+    (evil-want-C-u-delete t)
+    (evil-want-fine-undo t)
+    (evil-move-beyond-eol t)
+    (evil-search-wrap nil)
+    (evil-want-Y-yank-to-eol t))
 #+end_src
 
 ** Evil Collection
