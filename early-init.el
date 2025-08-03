@@ -16,12 +16,12 @@
 ;;
 
 ; ;; Set the user-emacs-directory to ~/.config/emacs as the first step.
-; (setq user-emacs-directory (file-name-as-directory "~/.config/emacs"))
-;
-; ;; Add your custom lisp directories to the load-path so Emacs can find them.
-; (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
-; (add-to-list 'load-path (expand-file-name "lisp/no-littering" user-emacs-directory))
-;
+(setq user-emacs-directory (file-name-as-directory "~/.config/emacs"))
+
+;; Add your custom lisp directories to the load-path so Emacs can find them.
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "lisp/no-littering" user-emacs-directory))
+
 ; ;; Define custom paths for no-littering BEFORE loading the package.
 ; (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory))
 ; (setq no-littering-etc-directory (expand-file-name "etc" no-littering-var-directory))
