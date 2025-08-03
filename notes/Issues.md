@@ -2,4 +2,5 @@
 - [ ] There is a lag when unfolding large org source code files
 - [ ] pdf-tools does not find the epdfinfo binary even though poppler is installed.
 - [ ] Treemacs does not let you see directories in the side
-- [ ] doom-themes does not activate without :demand t
+- [x] doom-themes does not activate without :demand t
+- [ ] Still some lag while writing when corfu-popupinfo opens and closes
