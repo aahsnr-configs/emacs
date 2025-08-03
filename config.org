@@ -315,7 +315,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 *Use distinct different colors for bold, italic and underline texts*
 #+begin_src emacs-lisp
 (use-package doom-themes
-  :demand t
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
@@ -362,6 +361,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ** Nerd Icons
 #+begin_src emacs-lisp
 (use-package nerd-icons
+  :defer t
   :custom
   (nerd-icons-font-family "JetBrainsMono Nerd Font")
   (nerd-icons-color-icons t))
@@ -406,6 +406,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
+  :defer t
   :init (which-key-mode 1)
   :custom
   (which-key-idle-delay 0.1)
@@ -1274,6 +1275,190 @@ advanced dynamic project task template.
   (evil-org-agenda-set-keys))
 #+end_src
 
+* Workflow Management
+** Dired/Dirvish
+** Workspaces
+#+begin_src emacs-lisp
+(use-package perspective
+  :defer t
+  :init
+  ;; Set the state file location before enabling the mode.
+  (setq persp-state-default-file (expand-file-name "perspectives" user-emacs-directory))
+  (setq persp-mode-prefix-key (kbd "C-c p"))
+  :custom
+  ;; Automatically kill empty perspectives to keep the list clean.
+  (persp-auto-kill-on-last-buffer-close t)
+
+  :config
+  (persp-mode +1)
+
+  ;; Custom function to automatically create or switch to a project-specific perspective.
+  (defun ar/perspective-switch-or-create ()
+    "Switch to a perspective named after the current project, creating it if needed."
+    (interactive)
+    (let ((project-name (projectile-project-name)))
+      (unless (string= project-name "-") ; Ignore if not in a project
+        (if (get-perspective project-name)
+            (persp-switch project-name)
+          (persp-add-new project-name)
+          (persp-switch project-name)))))
+
+  ;; Hook this function into projectile to run after switching projects.
+  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create)
+
+  ;; Load the saved perspectives when Emacs starts.
+  (when (file-exists-p persp-state-default-file)
+    (persp-load-state-from-file persp-state-default-file)))
+
+  ;; Define your custom leader keybindings for workspace management.
+   ;; Workspaces related keybindings
+#+end_src
+
+** Project Management: Deep `projectile` Integration
+#+begin_src emacs-lisp
+(use-package projectile
+  :defer t
+  :custom
+  ;; Use the default completion system, which will be powered by Vertico/Consult.
+  (projectile-completion-system 'default)
+  ;; Define where Projectile should look for your projects.
+  (projectile-project-search-path '("~/Code/" "~/Projects/"))
+  ;; Enable caching for significant performance improvements.
+  (projectile-enable-caching t)
+  ;; When switching projects, immediately open a file prompt within that project.
+  (projectile-switch-project-action #'projectile-find-file)
+
+  :config
+  (projectile-mode +1))
+  ;; Define our extensive project-management keybindings under the "p" prefix.
+
+;; A `consult` source specifically for projectile, if not already provided
+;; by another package. This provides the `consult-projectile` command.
+(use-package consult-projectile
+  :after (consult projectile))
+#+end_src
+
+** Buffer Management: A Project-Aware `ibuffer`
+#+begin_src emacs-lisp
+(use-package ibuffer-projectile
+  :defer t
+  :after (ibuffer projectile)
+  :config
+  ;; This hook automatically creates project-based groups in ibuffer.
+  (add-hook 'ibuffer-hook
+            (lambda ()
+              (ibuffer-projectile-set-filter-groups)
+              (unless (eq ibuffer-sorting-mode 'project-file-relative)
+                (ibuffer-do-sort-by-project-file-relative)))))
+
+;; Integrate nerd-icons for a more modern look, similar to Doom's setup.
+(use-package nerd-icons-ibuffer
+  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+
+#+end_src
+
+** Treemacs
+#+begin_src emacs-lisp
+(use-package treemacs
+  :commands (treemacs
+             treemacs-select-window
+             treemacs-delete-other-windows
+             treemacs-select-directory
+             treemacs-bookmark
+             treemacs-find-file
+             treemacs-find-tag)
+  :init
+  (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+
+  :config
+  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+        treemacs-deferred-git-apply-delay        0.5
+        treemacs-directory-name-transformer      #'identity
+        treemacs-display-in-side-window          t
+        treemacs-eldoc-display                   'simple
+        treemacs-file-event-delay                2000
+        treemacs-file-extension-regex            treemacs-last-period-regex-value
+        treemacs-file-follow-delay               0.2
+        treemacs-file-name-transformer           #'identity
+        treemacs-follow-after-init               t
+        treemacs-expand-after-init               t
+        treemacs-find-workspace-method           'find-for-file-or-pick-first
+        treemacs-git-command-pipe                ""
+        treemacs-goto-tag-strategy               'refetch-index
+        treemacs-header-scroll-indicators        '(nil . "^^^^^^")
+        treemacs-hide-dot-git-directory          t
+        treemacs-indentation                     2
+        treemacs-indentation-string              " "
+        treemacs-is-never-other-window           nil
+        treemacs-max-git-entries                 5000
+        treemacs-missing-project-action          'ask
+        treemacs-move-files-by-mouse-dragging    t
+        treemacs-move-forward-on-expand          nil
+        treemacs-no-png-images                   nil
+        treemacs-no-delete-other-windows         t
+        treemacs-project-follow-cleanup          nil
+        treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+        treemacs-position                        'left
+        treemacs-read-string-input               'from-child-frame
+        treemacs-recenter-distance               0.1
+        treemacs-recenter-after-file-follow      nil
+        treemacs-recenter-after-tag-follow       nil
+        treemacs-recenter-after-project-jump     'always
+        treemacs-recenter-after-project-expand   'on-distance
+        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
+        treemacs-project-follow-into-home        nil
+        treemacs-show-cursor                     nil
+        treemacs-show-hidden-files               t
+        treemacs-silent-filewatch                nil
+        treemacs-silent-refresh                  nil
+        treemacs-sorting                         'alphabetic-asc
+        treemacs-select-when-already-in-treemacs 'move-back
+        treemacs-space-between-root-nodes        t
+        treemacs-tag-follow-cleanup              t
+        treemacs-tag-follow-delay                1.5
+        treemacs-text-scale                      nil
+        treemacs-user-mode-line-format           nil
+        treemacs-user-header-line-format         nil
+        treemacs-wide-toggle-width               70
+        treemacs-width                           35
+        treemacs-width-increment                 1
+        treemacs-width-is-initially-locked       t
+        treemacs-workspace-switch-cleanup        nil)
+
+  ;; The default width and height of the icons is 22 pixels. If you are
+  ;; using a Hi-DPI display, uncomment this to double the icon size.
+  ;; (treemacs-resize-icons 44)
+
+  (treemacs-follow-mode t)
+  (treemacs-filewatch-mode t)
+  (treemacs-fringe-indicator-mode 'always)
+
+  ;;(when treemacs-python-executable
+  ;;  (treemacs-git-commit-diff-mode t))
+
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null treemacs-python-executable)))
+    (`(t . t)
+     (treemacs-git-mode 'deferred))
+    (`(t . _)
+     (treemacs-git-mode 'simple)))
+
+  (treemacs-hide-gitignored-files-mode nil))
+
+;; Evil mode integration for vim-like navigation.
+(use-package treemacs-evil
+  :after (treemacs evil))
+
+;; Projectile integration.
+(use-package treemacs-projectile
+  :after (treemacs projectile))
+
+;; Magit integration.
+; (use-package treemacs-magit
+;   :after (treemacs magit))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
@@ -1291,7 +1476,19 @@ advanced dynamic project task template.
     "SPC" '(execute-extended-command :wk "M-x")
     "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
     "q r" '(ar/reload-config :wk "Reload Config")
-    
+
+  ;; Buffer management
+  "b" '(:ignore t :wk "buffers")
+  "b b" '(consult-buffer :wk "switch buffer")
+  ;; This keybinding now opens the project-aware ibuffer.
+  "b i" '(ibuffer :wk "ibuffer (by project)")
+  "b k" '(kill-current-buffer :wk "kill buffer")
+  "b n" '(next-buffer :wk "next buffer")
+  "b p" '(previous-buffer :wk "previous buffer")
+  "b r" '(revert-buffer :wk "revert buffer")
+  "b s" '(save-buffer :wk "save buffer")
+
+
     ;; Org-mode specific bindings
     "o" '(:ignore t :wk "org")
     "o a" '(org-agenda :wk "agenda")
@@ -1306,7 +1503,35 @@ advanced dynamic project task template.
     "o r i" '(org-roam-node-insert :wk "insert node")
     "o r c" '(org-roam-capture :wk "roam capture")
     "o r g" '(org-roam-graph :wk "show graph")
-    "o r t" '(org-roam-tag-add :wk "add tag")))
+    "o r t" '(org-roam-tag-add :wk "add tag")
+
+    ;; Project related keybindings 
+    "p" '(:ignore t :wk "project")
+    "p p" '(projectile-switch-project :wk "switch project")
+    "p f" '(consult-projectile :wk "find file in project")
+    "p d" '(projectile-find-dir :wk "find directory in project")
+    "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
+    "p g" '(consult-ripgrep :wk "grep in project")
+    "p s" '(:ignore t :wk "save/kill")
+    "p s s" '(projectile-save-project-buffers :wk "save project buffers")
+    "p s k" '(projectile-kill-buffers :wk "kill project buffers")
+    "p c" '(projectile-compile-project :wk "compile project")
+    "p t" '(projectile-run-tests :wk "run project tests")
+    "p R" '(projectile-replace :wk "replace in project")
+
+
+   ;; workspace related keybindings
+   "w" '(:ignore t :wk "workspaces")
+   "w n" '(persp-next :wk "next workspace")
+   "w p" '(persp-prev :wk "previous workspace")
+   "w s" '(persp-switch :wk "switch workspace")
+   "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
+   "w c" '(persp-add-new :wk "create workspace")
+   "w r" '(persp-rename :wk "rename workspace")
+   "w k" '(persp-kill :wk "kill workspace")
+
+
+	    ))
 #+end_src
 
 
