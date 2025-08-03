@@ -27,7 +27,7 @@ echo ""
 emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "config.org")'
 killall emacs
 killall emacs
-emacs --daemon --init-directory . &>"$LOG_FILE"
+emacs &>"$LOG_FILE"
 
 # This part of the script will only execute after Emacs has been closed.
 echo ""

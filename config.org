@@ -159,6 +159,31 @@ This section incorporates the sensible defaults and settings from the minimal-em
 (setq confirm-nonexistent-file-or-buffer nil)
 #+end_src
 
+** Editing and Indentation
+#+begin_src emacs-lisp
+;; Set default indentation.
+(setq-default indent-tabs-mode nil
+              tab-width 2
+              fill-column 80)
+
+;; Enable multi-line commenting.
+(setq comment-multi-line t)
+(setq comment-empty-lines t)
+
+;; Continue wrapped lines at whitespace.
+(setq-default word-wrap t)
+;; But truncate lines by default for performance. (visual-line-mode will override this)
+(setq-default truncate-lines t)
+
+;; Improve `show-paren-mode` behavior.
+(setq show-paren-delay 0.1
+      show-paren-when-point-inside-paren t)
+(setq blink-matching-paren nil) ; Don't blink, it's distracting.
+
+;; Delete selected text when typing.
+(delete-selection-mode 1)
+#+end_src
+
 ** Setup User
 #+begin_src emacs-lisp
 (setq user-full-name "Ahsanur Rahman"
