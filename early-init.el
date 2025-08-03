@@ -22,30 +22,30 @@
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "lisp/no-littering" user-emacs-directory))
 
-; ;; Define custom paths for no-littering BEFORE loading the package.
-; (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory))
-; (setq no-littering-etc-directory (expand-file-name "etc" no-littering-var-directory))
-;
-; ;; --- Pre-configure Elpaca's location ---
-; ;; By defining `elpaca-directory` here, we ensure that when the standard
-; ;; Elpaca bootstrap snippet is run from `init.el`, it will use this path
-; ;; instead of its default. This redirects the Elpaca repository itself.
-; (defvar elpaca-directory (expand-file-name "elpaca/" no-littering-var-directory))
-;
-; ;; Load no-littering to apply the new path conventions.
-; (require 'no-littering)
-;
-; ;; For Emacs 29+, redirect the native compilation cache into the var directory.
-; (when (fboundp 'startup-redirect-eln-cache)
-;   (startup-redirect-eln-cache
-;    (expand-file-name "eln-cache" no-littering-var-directory)))
-;
-; ;; Relocate core Emacs-generated files into the `var` directory.
-; (setq backup-directory-alist `(("." . ,(expand-file-name "backups" no-littering-var-directory))))
-; (setq auto-save-file-name-transforms `((".*" ,(expand-file-name "auto-saves" no-littering-var-directory) t)))
-; (setq auto-save-list-file-prefix (expand-file-name "auto-save-list/" no-littering-var-directory))
-; (setq server-dir (expand-file-name "server" no-littering-var-directory))
-;
+;; Define custom paths for no-littering BEFORE loading the package.
+(setq no-littering-var-directory (expand-file-name "var" user-emacs-directory))
+(setq no-littering-etc-directory (expand-file-name "etc" no-littering-var-directory))
+
+;; --- Pre-configure Elpaca's location ---
+;; By defining `elpaca-directory` here, we ensure that when the standard
+;; Elpaca bootstrap snippet is run from `init.el`, it will use this path
+;; instead of its default. This redirects the Elpaca repository itself.
+(defvar elpaca-directory (expand-file-name "elpaca/" no-littering-var-directory))
+
+;; Load no-littering to apply the new path conventions.
+(require 'no-littering)
+
+;; For Emacs 29+, redirect the native compilation cache into the var directory.
+(when (fboundp 'startup-redirect-eln-cache)
+  (startup-redirect-eln-cache
+   (expand-file-name "eln-cache" no-littering-var-directory)))
+
+;; Relocate core Emacs-generated files into the `var` directory.
+(setq backup-directory-alist `(("." . ,(expand-file-name "backups" no-littering-var-directory))))
+(setq auto-save-file-name-transforms `((".*" ,(expand-file-name "auto-saves" no-littering-var-directory) t)))
+(setq auto-save-list-file-prefix (expand-file-name "auto-save-list/" no-littering-var-directory))
+(setq server-dir (expand-file-name "server" no-littering-var-directory))
+
 
 ;;
 ;; --- 2. Performance & Startup Optimizations ---

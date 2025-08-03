@@ -1,3 +1,10 @@
-var/
-custom.el
-config.el
+*
+!README.md
+!notes/
+!lisp/
+!config.org
+!early-init.el
+!init.el
+!emacs-log.sh
+!reload-emacs
+!reload-emacs-daemon
