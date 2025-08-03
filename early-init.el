@@ -1,6 +1,14 @@
 ;;; early-init.el --- sets stuff before init.el -*- no-byte-compile: t; lexical-binding: t; -*-
 ;;; Code:
 
+;; Ensure Emacs loads the most recent byte-compiled files.
+(setq load-prefer-newer t)
+
+;; Make Emacs Native-compile .elc files asynchronously by setting
+;; `native-comp-jit-compilation' to t.
+(setq native-comp-jit-compilation t)
+(setq native-comp-deferred-compilation native-comp-jit-compilation)  ; Deprecated
+
 ;;
 ;; --- 1. File & Directory Configuration (no-littering & Elpaca) ---
 ;; This section MUST come first to ensure all subsequent operations
@@ -84,6 +92,10 @@
 ;; optimization as it is consulted on every `load` and `require`.
 (defvar my/file-name-handler-alist-original file-name-handler-alist)
 (setq file-name-handler-alist nil)
+
+;; Disable Warnings
+(setq byte-compile-warnings nil) ;; Suppress byte-compiler warnings
+(setq native-comp-async-report-warnings-errors 'silent) ;; Suppress native-comp warnings
 
 ;; Add a hook to restore deferred settings after Emacs has fully started.
 (add-hook 'emacs-startup-hook
