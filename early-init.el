@@ -1,8 +1,12 @@
 ;;; early-init.el --- sets stuff before init.el -*- no-byte-compile: t; lexical-binding: t; -*-
 ;;; Code:
+;;; -*- lexical-binding: t; no-byte-compile: t; -*-
+;;; early-init.el --- Ultimate clean Emacs startup configuration.
+
+;;; Code:
 
 ;;
-;; --- 1. File & Directory Configuration (no-littering) ---
+;; --- 1. File & Directory Configuration (no-littering & Elpaca) ---
 ;; This section MUST come first to ensure all subsequent operations
 ;; use the correct paths.
 ;;
@@ -17,6 +21,12 @@
 ;; Define custom paths for no-littering BEFORE loading the package.
 (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory))
 (setq no-littering-etc-directory (expand-file-name "etc" no-littering-var-directory))
+
+;; --- Pre-configure Elpaca's location ---
+;; By defining `elpaca-directory` here, we ensure that when the standard
+;; Elpaca bootstrap snippet is run from `init.el`, it will use this path
+;; instead of its default. This redirects the Elpaca repository itself.
+(defvar elpaca-directory (expand-file-name "elpaca/" no-littering-var-directory))
 
 ;; Load no-littering to apply the new path conventions.
 (require 'no-littering)
@@ -76,7 +86,6 @@
 
 ;; Temporarily disable file-name-handler-alist. This is a significant
 ;; optimization as it is consulted on every `load` and `require`.
-;; A hook will restore it after startup is complete.
 (defvar my/file-name-handler-alist-original file-name-handler-alist)
 (setq file-name-handler-alist nil)
 
@@ -91,6 +100,6 @@
             (setq read-process-output-max (* 2 1024 1024)) ;; 2MB
             ;; Restore the modeline.
             (setq-default mode-line-format (default-value 'mode-line-format)))
-          100) ; Run with high priority to ensure it runs before other startup hooks.
+          100) ; Run with high priority.
 
-;;; early-init.el ends here
+;;; early-init.el ends here;;; early-init.el ends here
