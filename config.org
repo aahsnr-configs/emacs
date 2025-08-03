@@ -423,7 +423,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
 (use-package general
-  :demand t
   :after evil
   :config
   (general-create-definer ar/global-leader
@@ -445,8 +444,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 
   ;; Vim emulation
   (use-package evil
-    :demand t
-    :init
+     :init
     (setq evil-want-integration t)
     (setq evil-want-keybinding nil)
     (setq evil-undo-system 'undo-fu)
