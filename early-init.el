@@ -1,9 +1,5 @@
 ;;; early-init.el --- sets stuff before init.el -*- no-byte-compile: t; lexical-binding: t; -*-
 ;;; Code:
-;;; -*- lexical-binding: t; no-byte-compile: t; -*-
-;;; early-init.el --- Ultimate clean Emacs startup configuration.
-
-;;; Code:
 
 ;;
 ;; --- 1. File & Directory Configuration (no-littering & Elpaca) ---
