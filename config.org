@@ -1628,6 +1628,50 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :init (apheleia-global-mode +1))
 #+end_src
 
+** Tree-sitter for syntax highlighting
+#+begin_src emacs-lisp
+(use-package treesit-auto
+  :when (treesit-available-p)
+  :config
+  (setq treesit-auto-langs '(bash c cpp css python toml yaml))
+  (treesit-auto-add-to-auto-mode-alist 'all)
+  (global-treesit-auto-mode))
+
+(use-package treesit-fold
+  :hook (treesit-auto-mode-hook . treesit-fold-mode))
+
+(use-package evil-textobj-tree-sitter
+  :after evil
+  :config
+  ;; Goto start of next function
+  (define-key evil-normal-state-map
+              (kbd "]f")
+              (lambda ()
+                (interactive)
+                (evil-textobj-tree-sitter-goto-textobj "function.outer")))
+  
+  ;; Goto start of previous function
+  (define-key evil-normal-state-map
+              (kbd "[f")
+              (lambda ()
+                (interactive)
+                (evil-textobj-tree-sitter-goto-textobj "function.outer" t)))
+  
+  ;; Goto end of next function
+  (define-key evil-normal-state-map
+              (kbd "]F")
+              (lambda ()
+                (interactive)
+                (evil-textobj-tree-sitter-goto-textobj "function.outer" nil t)))
+  
+  ;; Goto end of previous function
+  (define-key evil-normal-state-map
+              (kbd "[F")
+            (lambda ()
+              (interactive)
+              (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
+#+end_src
+
 * General Tools
 ** Helpful
 Helpful is an alternative to the built-in Emacs help that provides much more
