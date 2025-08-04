@@ -1,6 +1,10 @@
 ;;; early-init.el --- sets stuff before init.el -*- no-byte-compile: t; lexical-binding: t; -*-
 ;;; Code:
 
+;; Add custom lisp directories to the load-path. [1]
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "lisp/no-littering" user-emacs-directory))
+
 ;; Ensure Emacs loads the most recent byte-compiled files.
 (setq load-prefer-newer t)
 
@@ -13,13 +17,6 @@
 ;; This section MUST come first to ensure all subsequent operations
 ;; use the correct paths.
 ;;
-
-;; Set the user-emacs-directory to ~/.config/emacs. [2, 15]
-(setq user-emacs-directory (file-name-as-directory "~/.config/emacs"))
-
-;; Add custom lisp directories to the load-path.
-(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
-
 ;; Define custom paths for no-littering BEFORE loading the package. [8, 10]
 (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory)
       no-littering-etc-directory (expand-file-name "etc" user-emacs-directory))
@@ -45,7 +42,7 @@
 (setq elpaca-directory (expand-file-name "elpaca/" user-emacs-directory)
       package-user-dir (expand-file-name "elpa" no-littering-var-directory)) ; [7, 13]
 
-;; Persist the scratch buffer across sessions. [1, 17]
+;; Persist the scratch buffer across sessions.
 (setq persistent-scratch-save-file (expand-file-name "scratch" no-littering-var-directory))
 
 ;; Load no-littering to apply the new path conventions. [8, 10]
