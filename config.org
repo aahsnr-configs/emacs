@@ -40,11 +40,7 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
   (push "/init.el" compile-angel-excluded-files)
   (push "/early-init.el" compile-angel-excluded-files)
   (push "/config.el" compile-angel-excluded-files)
-
-  ;; Exclude built-in packages that use dynamic scoping by design.
-  (push "recentf.el" compile-angel-excluded-files)
-  (push "savehist.el" compile-angel-excluded-files)
-  (push "recentf-save.el" compile-angel-excluded-files)
+  (push "/custom.el" compile-angel-excluded-files)
   (compile-angel-on-load-mode))
 #+end_src
 
@@ -1540,6 +1536,77 @@ Eglot performance using eglot booster
   :after eglot
   :config
   (eglot-booster-mode))
+#+end_src
+
+** Consult Integration
+#+begin_src emacs-lisp
+;; Configure xref to use the powerful UI provided by the main consult package.
+;; This is the most robust way to ensure consult is loaded first.
+(with-eval-after-load 'consult
+  (setq xref-show-definitions-function #'consult-xref-show-definitions)
+  (setq xref-show-references-function #'consult-xref-show-references))
+
+;; Provides a powerful consult interface for Eglot's LSP features.
+(use-package consult-eglot
+  :after (consult eglot))
+
+;; Integrates consult-eglot sources with Embark actions.
+(use-package consult-eglot-embark
+  :after (consult-eglot embark))
+#+end_src
+
+** Eldoc Box
+Display eldoc documentation in a popup frame at point.
+#+begin_src emacs-lisp
+(use-package eldoc-box
+  :hook (eldoc-mode . eldoc-box-hover-mode)
+  :custom
+  ;; Only show the popup if there is actual documentation.
+  (eldoc-box-show-if-no-doc nil)
+  ;; Disable the default minibuffer display since we have a popup.
+  (eldoc-echo-area-display-truncation-p nil)
+  :custom-face
+  ;; Style the popup to match the doom-tokyo-night theme.
+  (eldoc-box-border ((t (:foreground "#3b4261"))))
+  (eldoc-highlight-symbol-face ((t (:foreground "#7aa2f7" :weight bold)))))
+#+end_src
+
+** Robust Debugger UI
+We use *dape* for debugging. The UI for debugger windows is cleanly managed by the enhanced *shackle* configuration in my *Editor Behaviour* section.
+#+begin_src emacs-lisp
+(use-package dape
+  :commands (dape dape-debug-recent)
+  :hook
+  ;; Use GUD's tooltip mode for mouse-hover variable inspection.
+  (dape-session-mode-hook . gud-tooltip-mode)
+  :config
+  ;; Persist breakpoints across Emacs sessions.
+  (add-hook 'kill-emacs-hook #'dape-breakpoint-save)
+  (add-hook 'after-init-hook #'dape-breakpoint-load))
+#+end_src
+
+** Syntax Checking
+This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymake-collection* for easy linter integration, and *apheleia* for automatic, on-save formatting.
+#+begin_src emacs-lisp
+;; Use the built-in flymake for syntax checking.
+(use-package flymake
+  :ensure nil
+  :hook (prog-mode . flymake-mode)
+  :custom
+  (flymake-check-syntax-automatically '(save mode-enabled idle-change))
+  (flymake-idle-change-delay 0.4))
+
+;; A much cleaner way to add support for checkers like pylint and flake8.
+(use-package flymake-collection
+  :after flymake
+  :config
+  (flymake-collection-hook-setup))
+
+;; Install from github
+;; Display flymake errors in a popup frame instead of the echo area.
+(use-package flymake-posframe
+  :after flymake
+  :hook (flymake-mode . flymake-posframe-mode))
 #+end_src
 
 * General Tools
