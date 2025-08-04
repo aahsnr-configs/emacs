@@ -18,7 +18,7 @@
 
 ;; Define custom paths for no-littering BEFORE loading the package. [8, 10]
 (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory)
-      no-littering-etc-directory (expand-file-name "etc" no-littering-etc-directory))
+      no-littering-etc-directory (expand-file-name "etc" no-littering-var-directory))
 
 ;; For Emacs 29+, redirect the native compilation cache.
 (when (fboundp 'startup-redirect-eln-cache)
