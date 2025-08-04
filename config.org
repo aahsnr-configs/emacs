@@ -755,7 +755,8 @@ appear, ensuring a consistent and predictable windowing layout.
   (corfu-auto-preconditions '(corfu-precondition-evil))
   :config
   ;; Persist history
-  (add-to-list 'savehist-additional-variables 'corfu-history))
+  (with-eval-after-load 'corfu
+  (add-to-list 'savehist-additional-variables 'corfu-history)))
 #+end_src
 
 ** Nerd Icons for Corfu
@@ -1535,13 +1536,13 @@ Eglot performance using eglot booster
   ;; Associate python-ts-mode with pyright for best-in-class Python support.
   (add-to-list 'eglot-server-programs '(python-ts-mode . ("pyright-langserver" "--stdio"))))
 
-(use-package eglot-booster
-  :ensure (eglot-booster :type git
-                         :host nil
-                         :repo "https://github.com/jdtsmith/eglot-booster")
-  :after eglot
-  :config
-  (eglot-booster-mode))
+;; (use-package eglot-booster
+;;   :ensure (eglot-booster :type git
+;;                          :host nil
+;;                          :repo "https://github.com/jdtsmith/eglot-booster")
+;;   :after eglot
+;;   :config
+;;   (eglot-booster-mode))
 #+end_src
 
 * General Tools
