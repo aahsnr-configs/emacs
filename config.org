@@ -23,7 +23,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 
 (require 'use-package)
 (setq use-package-always-ensure t
-      use-package-always-defer t
       use-package-expand-minimally t)
 #+end_src
 
@@ -1536,13 +1535,11 @@ Eglot performance using eglot booster
   ;; Associate python-ts-mode with pyright for best-in-class Python support.
   (add-to-list 'eglot-server-programs '(python-ts-mode . ("pyright-langserver" "--stdio"))))
 
-;; (use-package eglot-booster
-;;   :ensure (eglot-booster :type git
-;;                          :host nil
-;;                          :repo "https://github.com/jdtsmith/eglot-booster")
-;;   :after eglot
-;;   :config
-;;   (eglot-booster-mode))
+(use-package eglot-booster
+  :vc (:url "https://github.com/jdtsmith/eglot-booster" :branch main)
+  :after eglot
+  :config
+  (eglot-booster-mode))
 #+end_src
 
 * General Tools

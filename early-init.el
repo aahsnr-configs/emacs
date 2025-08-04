@@ -4,7 +4,15 @@
 ;; Add custom lisp directories to the load-path. [1]
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "lisp/no-littering" user-emacs-directory))
-;;
+
+;; Ensure that quitting only occurs once Emacs finishes native compiling,
+;; preventing incomplete or leftover compilation files in `/tmp`.
+(setq native-comp-async-query-on-exit t)
+(setq confirm-kill-processes t)
+
+;; Non-nil means to native compile packages as part of their installation.
+(setq package-native-compile t)
+
 ;; Load no-littering to apply the new path conventions. [8, 10]
 (require 'no-littering)
 
