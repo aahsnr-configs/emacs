@@ -131,7 +131,7 @@ This section seamlessly connects development tools with your existing `consult`,
 
 We use `dape` for debugging. The UI for debugger windows is cleanly managed by the enhanced `shackle` configuration in your `* Editor Behaviour` section.
 
-```emacs-lisp
+```el
 (use-package dape
   :commands (dape dape-debug-recent)
   :hook
@@ -162,6 +162,7 @@ This setup uses the built-in `flymake` for live diagnostics, enhanced by `flymak
   :config
   (flymake-collection-hook-setup))
 
+;; Install from github
 ;; Display flymake errors in a popup frame instead of the echo area.
 (use-package flymake-posframe
   :after flymake

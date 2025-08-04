@@ -1469,6 +1469,278 @@ advanced dynamic project task template.
 ;   :after (treemacs magit))
 #+end_src
 
+* File Management
+** Dired
+This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
+#+begin_src emacs-lisp
+(use-package fd-dired
+  :defer t
+  :config
+  (setq fd-dired-use-gnu-find-syntax t))
+
+;; Provides commands to open files with external applications.
+(use-package dired-open
+  :defer t
+  :config
+  (setq dired-open-extensions '(("png" . "imv") ("mp4" . "mpv"))))
+
+(use-package dired
+  :ensure nil
+  :commands (dired dired-jump)
+  :hook (dired-mode . dired-hide-dotfiles-mode)
+  :custom
+  (dired-listing-switches "-agho --group-directories-first")
+  (dired-auto-revert-buffer t)
+  (dired-dwim-target t)
+  (dired-recursive-deletes 'always)
+  (dired-recursive-copies 'always)
+  :config
+  ;; Enable git gutter information asynchronously.
+  (add-hook 'dired-mode-hook 'dired-git-info-mode)
+
+  ;; Define evil-mode keys for a vim-like experience.
+  (evil-define-key 'normal dired-mode-map
+    ;; Navigation
+    (kbd "h") 'dired-up-directory
+    (kbd "l") 'dired-find-file-other-window ; Open in other window is often more useful
+    (kbd "j") 'dired-next-line
+    (kbd "k") 'dired-previous-line
+    (kbd "G") 'dired-goto-file
+    (kbd "gg") 'dired-first-line
+    (kbd "^") 'dired-goto-root-directory
+    (kbd "~") 'dired-home
+    (kbd "RET") 'dired-find-file
+    (kbd "i") 'dired-maybe-insert-subdir
+    ;; Marking
+    (kbd "m") 'dired-mark
+    (kbd "u") 'dired-unmark
+    (kbd "U") 'dired-unmark-all-marks
+    (kbd "t") 'dired-toggle-marks
+    ;; File Operations
+    (kbd "C-n") 'dired-create-file
+    (kbd "C-d") 'dired-create-directory
+    (kbd "R") 'dired-do-rename
+    (kbd "D") 'dired-do-delete
+    (kbd "C") 'dired-do-copy
+    (kbd "X") 'dired-open-file ; Use dired-open to open externally
+    (kbd "M") 'dired-do-chmod
+    (kbd "O") 'dired-do-chown))
+
+;; dired-x for additional functionality
+(use-package dired-x
+  :ensure nil
+  :after dired
+  :custom (dired-x-hands-off-my-keys nil)
+  :config
+  ;; Define dired-omit-files to prevent void-variable errors
+  (setq dired-omit-files "^\\.[^.]\\|^#\\|^\\.$\\|^\\.\\.$\\|\\.pyc$\\|\\.o$")
+  (setq dired-omit-verbose nil))
+
+;; Asynchronously display git status in Dired. Highly performant.
+(use-package dired-git-info
+  :defer t
+  :commands dired-git-info-mode)
+
+;; Adds Nerd Font icons to Dired.
+(use-package nerd-icons-dired
+  :hook (dired-mode . nerd-icons-dired-mode))
+
+;; Allows editing directory listings directly (wdired) with ranger-like keys.
+(use-package dired-ranger
+  :after dired
+  :config
+  (define-key dired-mode-map (kbd "y") 'dired-ranger-copy)
+  (define-key dired-mode-map (kbd "p") 'dired-ranger-paste)
+  (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
+#+end_src
+
+* Development Environment
+** Language Server Protocol: Eglot & Eglot Booster
+Eglot is the built-in LSP client. It will automatically use the correct
+language server from the PATH set by your direnv-managed environment. Boost
+Eglot performance using eglot booster
+#+begin_src emacs-lisp
+(use-package eglot
+  :ensure nil
+  :hook ((prog-mode . eglot-ensure)
+         ;; Explicitly hook into org-src-mode for LSP in code blocks.
+         (org-src-mode . eglot-ensure))
+  :custom
+  (eglot-autoshutdown t)
+  :config
+  ;; Associate python-ts-mode with pyright for best-in-class Python support.
+  (add-to-list 'eglot-server-programs '(python-ts-mode . ("pyright-langserver" "--stdio"))))
+
+(use-package eglot-booster
+  :ensure (eglot-booster :type git
+                         :host nil
+                         :repo "https://github.com/jdtsmith/eglot-booster")
+  :after eglot
+  :config
+  (eglot-booster-mode))
+#+end_src
+
+* General Tools
+** Helpful
+Helpful is an alternative to the built-in Emacs help that provides much more
+contextual information.
+#+begin_src emacs-lisp
+(use-package helpful
+  :ensure t
+  :commands (helpful-callable
+             helpful-variable
+             helpful-key
+             helpful-command
+             helpful-at-point
+             helpful-function)
+  :bind
+  ([remap describe-command] . helpful-command)
+  ([remap describe-function] . helpful-callable)
+  ([remap describe-key] . helpful-key)
+  ([remap describe-symbol] . helpful-symbol)
+  ([remap describe-variable] . helpful-variable)
+  :custom
+  (helpful-max-buffers 7))
+#+end_src
+
+** Wgrep: Writable Grep
+#+begin_src emacs-lisp
+(use-package wgrep
+  :commands (wgrep-change-to-wgrep-mode)
+  :config
+  ;; evil-collection provides bindings like :wq to save and :q! to abort.
+  (setq wgrep-auto-save-buffer t))
+#+end_src
+
+** Version Control
+*** Magit
+#+begin_src emacs-lisp
+(use-package magit
+  :commands (magit-status magit-blame)
+  :custom
+  ;; For a focused view, display the Magit status buffer in its own frame.
+  (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
+  ;; Automatically save file-visiting buffers before staging changes.
+  (magit-save-repository-buffers 'dont-confirm)
+  :config
+  ;; When quitting Magit, this ensures the previous window configuration is restored.
+  ;; The `magit-display-buffer-fullframe-status-v1` function saves the layout
+  ;; to the `:magit-fullscreen` register, which we jump back to.
+  (defun ar/magit-quit-and-restore-windows ()
+    "Kill the Magit buffer and restore the previous window configuration."
+    (interactive)
+    (kill-buffer (current-buffer))
+    (when (get-register :magit-fullscreen)
+      (jump-to-register :magit-fullscreen)))
+
+  ;; Bind "q" in the status buffer to our custom quitting function.
+  (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows))
+#+end_src
+
+*** Forge
+`forge` provides integration with online Git forges (e.g., GitHub, GitLab).
+#+begin_src emacs-lisp
+(use-package forge
+  :after magit)
+#+end_src
+
+*** Magit Todos
+`magit-todos` displays TODO items from your project files in the status buffer.
+#+begin_src emacs-lisp
+(use-package magit-todos
+  :after magit
+  :hook (magit-mode . magit-todos-mode))
+#+end_src
+
+*** Git Timemachine
+#+begin_src emacs-lisp
+(use-package git-timemachine
+  :after git-timemachine
+  :config
+  (evil-define-key 'normal git-timemachine-mode-map (kbd "C-j") 'git-timemachine-show-previous-revision)
+  (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
+#+end_src
+
+** PDF-Tools
+*** Core
+#+begin_src emacs-lisp
+(use-package pdf-tools
+  :magic ("%PDF" . pdf-view-mode)
+  :hook (pdf-view-mode . pdf-view-midnight-minor-mode)
+
+  ;; Theme customization to match doom-tokyo-night.
+  :custom
+  ;; Use the specific Tokyonight background and foreground colors for the PDF view.
+  (pdf-view-midnight-colors '("#1a1b26" . "#c0caf5"))
+  ;; Enable continuous scrolling for a smoother experience.
+  (pdf-view-continuous t)
+
+  :custom-face
+  ;; Customize other faces to match the Tokyonight aesthetic.
+  (pdf-view-highlight-face ((t (:background "#e0af68" :foreground "#1a1b26")))) ; Yellow
+  (pdf-view-link-face ((t (:foreground "#7aa2f7"))))      ; Blue
+  (pdf-view-active-link-face ((t (:foreground "#bb9af7")))); Magenta
+
+  :config
+  ;; Automatically build the server executable if it's missing.
+  ;; `pdf-tools-install` is idempotent and will only build if necessary.
+  (pdf-tools-install :no-query)
+
+  ;; Ensure Org mode integration is set up after Org itself is loaded.
+  (with-eval-after-load 'org
+    (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
+    (setq org-pdftools-link-prefix "pdf")))
+#+end_src
+
+*** org-noter
+#+begin_src emacs-lisp
+(use-package org-noter
+  :after (org pdf-view)
+  :custom
+  ;; Store all notes inside the dedicated `noter` directory.
+  (org-noter-notes-search-path (list my/org-noter-directory))
+  ;; Use a consistent naming scheme for note files.
+  (org-noter-notes-file-name "%s.org")
+  ;; Automatically create a new heading for each note.
+  (org-noter-insert-note-no-questions t)
+  ;; Keep the notes window focused after creating a note.
+  (org-noter-always-focus-on-notes-buffer t)
+  ;; Customize the note heading template.
+  (org-noter-heading-application-function 'org-noter-insert-heading-at-point)
+  (org-noter-note-heading-template "* %s\n:PROPERTIES:\n:NOTER_PAGE: %p\n:NOTER_LEFT: %l\n:NOTER_RIGHT: %r\n:END:\n\n")
+
+  :config
+  ;; Custom function to create a new notes file if one doesn't exist
+  ;; or find the existing one and open it side-by-side.
+  (defun ar/org-noter-find-or-create-notes ()
+    "Find the notes for the current PDF or create a new notes file.
+Opens the notes in a split window to the right."
+    (interactive)
+    (let ((pdf-path (buffer-file-name)))
+      (unless pdf-path
+        (error "Current buffer is not visiting a file"))
+      (let* ((pdf-name (file-name-nondirectory pdf-path))
+             (notes-file (expand-file-name (format "%s.org" (file-name-sans-extension pdf-name)) my/org-noter-directory)))
+        (if (file-exists-p notes-file)
+            (find-file notes-file)
+          (progn
+            (find-file notes-file)
+            (insert (format "#+title: Notes on %s\n\n" pdf-name))))
+        (delete-other-windows)
+        (split-window-right)
+        (windmove-right)
+        (find-file pdf-path)))))
+#+end_src
+
+* Perform Garbage Collection When Idle
+This is a good practice to keep Emacs responsive.
+#+begin_src emacs-lisp
+(add-hook 'after-focus-change-hook
+          (lambda ()
+            (unless (frame-focus-state)
+              (garbage-collect))))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
@@ -1487,17 +1759,38 @@ advanced dynamic project task template.
     "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
     "q r" '(ar/reload-config :wk "Reload Config")
 
-  ;; Buffer management
-  "b" '(:ignore t :wk "buffers")
-  "b b" '(consult-buffer :wk "switch buffer")
-  ;; This keybinding now opens the project-aware ibuffer.
-  "b i" '(ibuffer :wk "ibuffer (by project)")
-  "b k" '(kill-current-buffer :wk "kill buffer")
-  "b n" '(next-buffer :wk "next buffer")
-  "b p" '(previous-buffer :wk "previous buffer")
-  "b r" '(revert-buffer :wk "revert buffer")
-  "b s" '(save-buffer :wk "save buffer")
+    ;; Buffer management
+    "b" '(:ignore t :wk "buffers")
+    "b b" '(consult-buffer :wk "switch buffer")
+    "b i" '(ibuffer :wk "ibuffer (by project)")
+    "b k" '(kill-current-buffer :wk "kill buffer")
+    "b n" '(next-buffer :wk "next buffer")
+    "b p" '(previous-buffer :wk "previous buffer")
+    "b r" '(revert-buffer :wk "revert buffer")
+    "b s" '(save-buffer :wk "save buffer")
 
+    ;; file management
+    "f" '(:ignore t :wk "file")
+    "f f" '(find-file :wk "find file")
+    "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
+    "f r" '(consult-recent-file :wk "find recent file")
+    "f t" '(treemacs-find-file :wk "find file in treemacs")
+    "f d" '(treemacs-find-dir :wk "find directory in treemacs")
+
+    ;; version management
+    "g" '(:ignore t :wk "git")
+    "g s" '(magit-status :wk "status")
+    "g c" '(magit-commit :wk "commit")
+    "g C" '(magit-commit-amend :wk "commit amend")
+    "g p" '(magit-push-current-to-pushremote :wk "push")
+    "g P" '(magit-pull-from-upstream :wk "pull")
+    "g b" '(magit-branch :wk "branches")
+    "g l" '(magit-log-buffer-file :wk "log current file")
+    "g L" '(magit-log-current :wk "log current branch")
+    "g d" '(magit-diff-unstaged :wk "diff")
+    "g f" '(magit-fetch :wk "fetch")
+    "g m" '(magit-merge :wk "merge")
+    "g r" '(magit-rebase :wk "rebase")
 
     ;; Org-mode specific bindings
     "o" '(:ignore t :wk "org")
@@ -1515,6 +1808,10 @@ advanced dynamic project task template.
     "o r g" '(org-roam-graph :wk "show graph")
     "o r t" '(org-roam-tag-add :wk "add tag")
 
+    "o n" '(:ignore t :which-key "org noter")
+    "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
+    "o n i" '(org-noter-insert-note :wk "Insert Note")
+
     ;; Project related keybindings 
     "p" '(:ignore t :wk "project")
     "p p" '(projectile-switch-project :wk "switch project")
@@ -1529,19 +1826,17 @@ advanced dynamic project task template.
     "p t" '(projectile-run-tests :wk "run project tests")
     "p R" '(projectile-replace :wk "replace in project")
 
-
-   ;; workspace related keybindings
-   "w" '(:ignore t :wk "workspaces")
-   "w n" '(persp-next :wk "next workspace")
-   "w p" '(persp-prev :wk "previous workspace")
-   "w s" '(persp-switch :wk "switch workspace")
-   "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
-   "w c" '(persp-add-new :wk "create workspace")
-   "w r" '(persp-rename :wk "rename workspace")
-   "w k" '(persp-kill :wk "kill workspace")
-
-
+    ;; workspace related keybindings
+    "w" '(:ignore t :wk "workspaces")
+    "w n" '(persp-next :wk "next workspace")
+    "w p" '(persp-prev :wk "previous workspace")
+    "w s" '(persp-switch :wk "switch workspace")
+    "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
+    "w c" '(persp-add-new :wk "create workspace")
+    "w r" '(persp-rename :wk "rename workspace")
+    "w k" '(persp-kill :wk "kill workspace")
+    
+    
 	    ))
 #+end_src
-
 

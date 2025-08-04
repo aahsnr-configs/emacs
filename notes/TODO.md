@@ -77,6 +77,7 @@
 - [ ] Make sure embark integrates with eglot
 - [ ] For debugging, use dape and related packages
 - [ ] For syntax-checking, use flymake and related packages
+- [ ] Add flymake-posfrome into the syntax-checking
 - [ ] For formatting apheleia is fine
 - [ ] For spell-checking, use jinx with hunspell; make sure it is selectively on and off for certain modes
 - [ ] Setup programming for python as IDE and org-mode
