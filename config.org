@@ -1622,6 +1622,12 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :hook (flymake-mode . flymake-posframe-mode))
 #+end_src
 
+** Formatting
+#+begin_src emacs-lisp
+(use-package apheleia
+  :init (apheleia-global-mode +1))
+#+end_src
+
 * General Tools
 ** Helpful
 Helpful is an alternative to the built-in Emacs help that provides much more
