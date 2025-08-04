@@ -1672,6 +1672,58 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
               (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
 #+end_src
 
+* Python & Jupyter for Org Mode
+#+begin_src emacs-lisp
+;; Provides Jupyter integration for Emacs.
+(use-package jupyter
+  :custom
+  ;; Ensure Jupyter uses the Python from the project's virtual environment.
+  (jupyter-python-executable-command (executable-find "python")))
+
+;; Integrates Jupyter kernels with Org Babel for a rich, notebook-like experience.
+(use-package ob-jupyter
+  :after org
+  :config
+  ;; Ensure that inline images are displayed whenever an Org buffer is opened.
+  (add-hook 'org-mode-hook #'org-display-inline-images)
+  ;; Prioritize rich output formats to mimic JupyterLab.
+  (setq ob-jupyter-response-mime-type-priorities
+        '("text/html" "image/png" "image/jpeg" "text/plain"))
+  ;; Load the jupyter language into babel.
+  (org-babel-do-load-languages 'org-babel-load-languages '((jupyter . t)))
+  ;; Make python blocks use jupyter by default for a stateful, interactive experience.
+  (add-to-list 'org-babel-default-header-args:python
+               '((:session . "jupyter-python")
+                 (:kernel . "python3")
+                 (:results . "output file")
+                 (:exports . "results")
+                 (:dir . "./.jupyter-exports/")))
+  (setq ob-jupyter-startup-timeout 30))
+
+;; --- Debugging Functionality for both .py files and Org blocks ---
+(defun ar/dape-debug-org-src-block ()
+  "Tangle the current Org src block to a temp file and debug it."
+  (interactive)
+  (when (derived-mode-p 'org-mode)
+    (let* ((tmp-file (make-temp-file "emacs-babel-" nil ".py"))
+           (info (org-babel-get-src-block-info 'light)))
+      (with-temp-file tmp-file (insert (nth 2 info)))
+      (message "Debugging tangled block in %s" tmp-file)
+      (dape--debug
+       (lambda (template)
+         (let ((new-template (copy-tree template)))
+           (setf (plist-get new-template :program) tmp-file)
+           new-template))
+       "Python :: Run Current File (debugpy)"))))
+
+(with-eval-after-load 'dape
+  (dape-register-debug-template
+   "Python :: Run Current File (debugpy)"
+   '(:type "python" :request "launch" :justMyCode t
+     :program #'buffer-file-name
+     :cwd #'projectile-project-root)))
+#+end_src
+
 * General Tools
 ** Helpful
 Helpful is an alternative to the built-in Emacs help that provides much more
@@ -1862,6 +1914,18 @@ This is a good practice to keep Emacs responsive.
     "b r" '(revert-buffer :wk "revert buffer")
     "b s" '(save-buffer :wk "save buffer")
 
+    ;; Debugging Keybindings (DApE)
+    "d" '(:ignore t :wk "debug (dape)")
+    "d b" '(dape-toggle-breakpoint-at-point :wk "breakpoint")
+    "d c" '(dape-continue :wk "continue")
+    "d n" '(dape-next :wk "next")
+    "d i" '(dape-step-in :wk "step in")
+    "d o" '(dape-step-out :wk "step out")
+    "d q" '(dape-disconnect :wk "quit")
+    "d r" '(dape-debug-recent :wk "debug recent")
+    "d e" '(dape :wk "debug new")
+    "d B" '(ar/dape-debug-org-src-block :wk "debug org block")
+    
     ;; file management
     "f" '(:ignore t :wk "file")
     "f f" '(find-file :wk "find file")
@@ -1893,6 +1957,14 @@ This is a good practice to keep Emacs responsive.
     "o d" '(org-deadline :wk "deadline")
     "o t" '(org-set-tags-command :wk "set tags")
 
+    ;; Org Jupyter Keybindings
+    "o" '(:ignore t :which-key "org")
+    "o j" '(:ignore t :which-key "jupyter")
+    "o j r" '(jupyter-restart-kernel :wk "restart kernel")
+    "o j i" '(jupyter-interrupt-kernel :wk "interrupt kernel")
+    "o j c" '(jupyter-connect-to-kernel :wk "connect to kernel")
+    "o j l" '(jupyter-list-kernels :wk "list kernels")
+    
     ;; Org-roam specific bindings under "org roam"
     "o r" '(:ignore t :wk "roam")
     "o r f" '(org-roam-node-find :wk "find node")
@@ -1930,6 +2002,6 @@ This is a good practice to keep Emacs responsive.
     "w k" '(persp-kill :wk "kill workspace")
     
     
-	    ))
+	  ))
 #+end_src
 
