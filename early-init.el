@@ -4,19 +4,10 @@
 ;; Add custom lisp directories to the load-path. [1]
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "lisp/no-littering" user-emacs-directory))
-
-;; Ensure Emacs loads the most recent byte-compiled files.
-(setq load-prefer-newer t)
-
-;; Make Emacs Native-compile .elc files asynchronously.
-(setq native-comp-jit-compilation t)
-(setq native-comp-deferred-compilation t) ; For older Emacs versions
-
 ;;
-;; --- 1. File & Directory Configuration (no-littering & Elpaca) ---
-;; This section MUST come first to ensure all subsequent operations
-;; use the correct paths.
-;;
+;; Load no-littering to apply the new path conventions. [8, 10]
+(require 'no-littering)
+
 ;; Define custom paths for no-littering BEFORE loading the package. [8, 10]
 (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory)
       no-littering-etc-directory (expand-file-name "etc" user-emacs-directory))
@@ -44,9 +35,6 @@
 
 ;; Persist the scratch buffer across sessions.
 (setq persistent-scratch-save-file (expand-file-name "scratch" no-littering-var-directory))
-
-;; Load no-littering to apply the new path conventions. [8, 10]
-(require 'no-littering)
 
 ;;
 ;; --- 2. Performance & Startup Optimizations ---
