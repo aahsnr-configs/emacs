@@ -610,6 +610,18 @@ appear, ensuring a consistent and predictable windowing layout.
    shackle-inhibit-window-quit-on-same-buffer t))
 #+end_src
 
+** Combobulate
+#+begin_src emacs-lisp
+(use-package combobulate
+   :custom
+   ;; You can customize Combobulate's key prefix here.
+   ;; Note that you may have to restart Emacs for this to take effect!
+   (combobulate-key-prefix "C-c o")
+   :hook ((prog-mode . combobulate-mode))
+   ;; Amend this to the directory where you keep Combobulate's source
+   ;; code.
+   :load-path ("~/.config/emacs/lisp/combobulate"))
+#+end_src
 * Completion Framework
 *Match the completion framework with my other configurations*
 ** Orderless for Advanced Filtering
@@ -1605,6 +1617,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 ;; Install from github
 ;; Display flymake errors in a popup frame instead of the echo area.
 (use-package flymake-posframe
+  :load-path ("~/.config/emacs/lisp/flymake-posframe")
   :after flymake
   :hook (flymake-mode . flymake-posframe-mode))
 #+end_src
