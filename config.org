@@ -1709,13 +1709,18 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
 ** Syntax Checking
 This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymake-collection* for easy linter integration, and *apheleia* for automatic, on-save formatting.
 #+begin_src emacs-lisp
-;; Use the built-in flymake for syntax checking.
 (use-package flymake
   :ensure nil
   :hook (prog-mode . flymake-mode)
   :custom
   (flymake-check-syntax-automatically '(save mode-enabled idle-change))
-  (flymake-idle-change-delay 0.4))
+  (flymake-idle-change-delay 0.4)
+  ;; Define theme-aware faces for diagnostics to match doom-tokyo-night.
+  :custom-face
+  (flymake-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil)))) ; Tokyonight Red
+  (flymake-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil)))) ; Tokyonight Yellow
+  (flymake-note    ((t (:underline (:style wave :color "#73daca") :inherit nil)))) ; Tokyonight Cyan
+  )
 
 ;; A much cleaner way to add support for checkers like pylint and flake8.
 (use-package flymake-collection
@@ -1737,9 +1742,18 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 #+begin_src emacs-lisp
 (use-package posframe)
 
+;; Themed success message function for Apheleia
+(defun ar/apheleia-format-message (formatter)
+  "Display a themed success message in the echo area after formatting."
+  (message (propertize (format "Apheleia formatted with %s" formatter)
+                       'face '(:foreground "#9ece6a" :weight bold)))) ; Tokyonight Green for success
+
 (use-package apheleia
   :defer t
-  :init (apheleia-global-mode +1))
+  :init (apheleia-global-mode +1)
+  :config
+  ;; Add a themed hook to provide clear, theme-consistent feedback on success.
+  (add-hook 'apheleia-post-format-hook #'ar/apheleia-format-message))
 #+end_src
 
 ** Tree-sitter for syntax highlighting
