@@ -39,3 +39,29 @@ The PGTK build of Emacs can have issues with window management and running as a 
 * **Daemon and `emacsclient` Problems:** There are reports of `emacsclient -c` failing to open new graphical frames when Emacs is run as a daemon, often accompanied by GTK-related errors.
 * **Lack of Fallback to Terminal Mode:** Unlike the X11 build, if the PGTK version of Emacs is launched in an environment without a Wayland display, it will fail to start instead of automatically falling back to a terminal (`-nw`) interface.
 * **Missing X11-Specific Features:** Some features that rely on X11-specific frame properties are not implemented in the PGTK build.
+
+``````org
+* PGTK/Wayland Mitigations
+This section contains settings specifically to mitigate performance and input
+issues when running the Pure GTK (PGTK) build of Emacs on Wayland.
+
+#+begin_src emacs-lisp
+;; This function is only available on PGTK builds. This conditionally applies
+;; settings to avoid errors on other systems (X11, Mac, Windows).
+(when (fboundp 'pgtk-use-im-context)
+  ;; Mitigate Input Lag:
+  ;; As noted in reports, GTK input methods can cause significant input lag,
+  ;; especially on HiDPI displays with fractional scaling. Disabling it makes
+  ;; Emacs handle input directly, which is much faster.
+  ;; NOTE: This may disable the Compose key or dead keys for typing special
+  ;; characters. If you need those, you may have to tolerate the lag.
+  (pgtk-use-im-context nil))
+
+;; Mitigate Rendering Sluggishness:
+;; The PGTK backend relies on CPU-intensive rendering. Disabling bidirectional
+;; text reordering reduces the complexity of drawing each line, which can
+;; improve general responsiveness and scrolling performance. Only disable this
+;; if you do not work with right-to-left languages (like Arabic or Hebrew).
+(setq-default bidi-display-reordering nil)
+#+end_src
+``````

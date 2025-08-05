@@ -1700,16 +1700,20 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :config
   (flymake-collection-hook-setup))
 
+(use-package posframe)
+
 ;; Install from github
 ;; Display flymake errors in a popup frame instead of the echo area.
 (use-package flymake-posframe
   :load-path ("~/.config/emacs/lisp/flymake-posframe")
-  :after flymake
+  :after (flymake posframe)
   :hook (flymake-mode . flymake-posframe-mode))
 #+end_src
 
 ** Formatting
 #+begin_src emacs-lisp
+(use-package posframe)
+
 (use-package apheleia
   :defer t
   :init (apheleia-global-mode +1))
