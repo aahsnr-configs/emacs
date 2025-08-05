@@ -408,6 +408,11 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 #+end_src
 
 * Evil (Vim Emulation)
+** Disable Evil Collection for Forge
+#+begin_src emacs-lisp
+(setq evil-collection-disabled-packages '(forge))
+#+end_src
+
 ** Core Evil
 #+begin_src emacs-lisp
   ;; Uncomment the following if you are using undo-fu
@@ -644,14 +649,6 @@ appear, ensuring a consistent and predictable windowing layout.
    ;; code.
    :load-path ("~/.config/emacs/lisp/combobulate"))
 #+end_src
-** Window Numbering with *winum*
-Provides easy window selection using M-<number>.
-#+begin_src emacs-lisp
-(use-package winum
-  :config
-  (winum-mode))
-#+end_src
-
 * Completion Framework
 *Match the completion framework with my other configurations*
 ** Orderless for Advanced Filtering
@@ -1382,7 +1379,10 @@ advanced dynamic project task template.
   (projectile-switch-project-action #'projectile-find-file)
 
   :config
-  (projectile-mode +1))
+  (projectile-mode +1)
+  ;; Do not treat the emacs 'var' directory as a project.
+  (add-to-list 'projectile-ignored-projects
+               (expand-file-name "var" user-emacs-directory)))
   ;; Define our extensive project-management keybindings under the "p" prefix.
 
 ;; A `consult` source specifically for projectile, if not already provided
@@ -1434,93 +1434,61 @@ advanced dynamic project task template.
   "b s" '(save-buffer :wk "save buffer"))
 #+end_src
 
-** Treemacs: Core Configuration and Integrations
+** File Management
+*** Treemacs: Core Configuration and Integrations
 A robust, modern, and reliable configuration for the Treemacs file explorer,
 designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
 related packages to ensure correct load order and a seamless user experience.
 #+begin_src emacs-lisp
-;; --- Core Toggle Function (for SPC t t) ---
-(defun ar/toggle-treemacs-project ()
-  "A reliable, Doom-style command to toggle the Treemacs project drawer.
-If the Treemacs buffer is visible, close it. Otherwise, open
-Treemacs focused on the current project's root."
-  (interactive) ; FIX: Add (interactive) to make this a user-callable command.
-  (if (treemacs-visible-p)
-        (treemacs-close)
-    (treemacs-projectile)))
-
 (use-package treemacs
   :defer t
-  :after (evil projectile magit perspective winum)
-  :bind
+  :init
+  (with-eval-after-load 'evil
+    (evil-set-initial-state 'treemacs-mode 'emacs))
+
   :config
-  ;; --- Appearance ---
-  (setq treemacs-display-in-side-window          t
-        treemacs-position                        'left
-        treemacs-width                           35
-        treemacs-width-is-initially-locked       t
-        treemacs-indentation                     2
-        ;; Use nerd-icons for the theme, provided by treemacs-nerd-icons.
-        treemacs-theme                           "nerd-icons")
-  ;; --- Behavior ---
-  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
-        treemacs-expand-after-init               t
-        treemacs-follow-after-init               t
-        treemacs-recenter-after-project-jump     'always
-        treemacs-goto-tag-strategy               'refetch-index
-        treemacs-is-never-other-window           nil
-        treemacs-no-delete-other-windows         t)
-
-  ;; --- File Watching & Git ---
-  (setq treemacs-show-hidden-files               t
-        treemacs-hide-dot-git-directory          t
-        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask"))
-
-  ;; --- Persistence ---
-  (setq treemacs-persist-file (expand-file-name "treemacs-persist" no-littering-var-directory))
-
-  ;; Activate essential modes for a dynamic experience
-  (treemacs-follow-mode t)
-  (treemacs-filewatch-mode t)
-  (treemacs-fringe-indicator-mode 'always)
-
-  ;; Configure git integration based on system capabilities
-  (pcase (cons (not (null (executable-find "git")))
-               (not (null treemacs-python-executable)))
-    (`(t . t) (treemacs-git-mode 'deferred))
-    (`(t . _) (treemacs-git-mode 'simple)))
-  (treemacs-hide-gitignored-files-mode nil)
-
-  (ar/global-leader
-    ;; Toggle Stuff
-    "t" '(:ignore t :wk "toggle")
-    "t t" '(ar/toggle-treemacs-project :wk "Treemacs"))
-  )
-
-;; --- Treemacs Integrations ---
-;; These blocks ensure the necessary extension packages are loaded after Treemacs.
-
-(use-package treemacs-nerd-icons
-  :config
-  (treemacs-load-theme "nerd-icons"))
+  (setq treemacs-git-mode 'simple)
+  (setq treemacs-collapse-dirs
+        (cond
+         ((executable-find "python3") 3)
+         ((executable-find "python") 3)
+         (t 0))) ; Fallback if no python is found
+  ;; Disable automatic file following for performance. Use `f` inside treemacs to find manually.
+  (setq treemacs-follow-after-init          nil)
+  (setq treemacs-is-never-other-window      nil) ; Allow `C-x o` to switch to treemacs
+  (setq treemacs-missing-project-action     'remove)
+  (setq treemacs-goto-tag-strategy          'ref-history)
+  (setq treemacs-expand-after-init          t)
+  (setq treemacs-sorting                    'alphabetic-asc)
+  (setq treemacs-position                   'left)
+  (setq treemacs-width                      35)
+  (setq treemacs-indentation                2)
+  (setq treemacs-display-in-side-window     t)
+  (setq treemacs-show-hidden-files          t)
+  (setq treemacs-space-between-root-nodes   t))
 
 (use-package treemacs-evil
-  :after treemacs)
+  :after (treemacs evil))
 
 (use-package treemacs-projectile
-  :after treemacs)
+  :after (treemacs projectile))
 
 (use-package treemacs-magit
-  :after treemacs)
+  :after (treemacs magit))
 
 (use-package treemacs-perspective
   :after (treemacs perspective)
   :config
-  (treemacs-set-scope-type 'Perspectives))
+  ;; Enable perspective integration mode for per-perspective workspaces
+  (treemacs-perspective-mode))
+
+(use-package treemacs-nerd-icons
+  :after treemacs
+  :config
+  (treemacs-load-theme "nerd-icons"))
 #+end_src
 
-* File Management
-** Dired
+*** Dired
 This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
 #+begin_src emacs-lisp
 (use-package fd-dired
@@ -1604,7 +1572,7 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
 #+end_src
 
-** Keybindings
+*** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
  "f" '(:ignore t :wk "file")
@@ -1682,6 +1650,8 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   ;; Use GUD's tooltip mode for mouse-hover variable inspection.
   (dape-session-mode-hook . gud-tooltip-mode)
   :config
+  ;; Set the breakpoint file location to be inside the var directory.
+  (setq dape-breakpoint-file (expand-file-name "dape-breakpoints" no-littering-var-directory))
   ;; Persist breakpoints across Emacs sessions.
   (add-hook 'kill-emacs-hook #'dape-breakpoint-save)
   (add-hook 'after-init-hook #'dape-breakpoint-load))
@@ -1975,9 +1945,23 @@ contextual information.
 #+end_src
 
 ** Version Control
+*** Helper Function for Forge
+#+begin_src emacs-lisp
+(defun ar/init-forge-for-magit ()
+  "Load Forge and its Evil Collection bindings.
+This is called from `magit-status-mode-hook` to ensure Magit is
+fully initialized before Forge tries to add its keybindings."
+  (require 'forge)
+  ;; Manually run the evil-collection setup for forge now that
+  ;; both magit and forge are fully loaded.
+  (evil-collection-forge-setup))
+#+end_src
+
 *** Magit
 #+begin_src emacs-lisp
 (use-package magit
+  :init
+  (setq magit-auto-revert-mode nil)
   :commands (magit-status magit-blame)
   :custom
   ;; For a focused view, display the Magit status buffer in its own frame.
@@ -1996,14 +1980,15 @@ contextual information.
       (jump-to-register :magit-fullscreen)))
 
   ;; Bind "q" in the status buffer to our custom quitting function.
-  (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows))
+  (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows)
+  (add-hook 'magit-status-mode-hook #'ar/init-forge-for-magit))
 #+end_src
 
 *** Forge
 *forge* provides integration with online Git forges (e.g., GitHub, GitLab).
 #+begin_src emacs-lisp
 (use-package forge
-  :after magit)
+  :defer t)
 #+end_src
 
 *** Magit Todos
