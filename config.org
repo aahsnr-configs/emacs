@@ -1320,7 +1320,6 @@ advanced dynamic project task template.
 #+end_src
 
 * Workflow Management
-** Dired/Dirvish
 ** Workspaces
 #+begin_src emacs-lisp
 (use-package perspective
@@ -1502,7 +1501,8 @@ Treemacs focused on the current project's root."
 ;; These blocks ensure the necessary extension packages are loaded after Treemacs.
 
 (use-package treemacs-nerd-icons
-  :after treemacs)
+  :config
+  (treemacs-load-theme "nerd-icons"))
 
 (use-package treemacs-evil
   :after treemacs)
