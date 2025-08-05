@@ -1642,7 +1642,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 #+begin_src emacs-lisp
 (use-package apheleia
   :defer t
-  :init (apheleia-global-mode +1))
+  :config (apheleia-global-mode +1))
 #+end_src
 
 ** Tree-sitter for syntax highlighting
