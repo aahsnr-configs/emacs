@@ -1470,12 +1470,15 @@ related packages to ensure correct load order and a seamless user experience.
   :after (treemacs evil))
 
 (use-package treemacs-projectile
+  :defer t
   :after (treemacs projectile))
 
 (use-package treemacs-magit
+  :defer t
   :after (treemacs magit))
 
 (use-package treemacs-perspective
+  :defer t
   :after (treemacs perspective))
 
 (use-package treemacs-nerd-icons
