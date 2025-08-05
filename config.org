@@ -1676,19 +1676,16 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 #+begin_src emacs-lisp
 ;; Provides Jupyter integration for Emacs.
 (use-package jupyter
+  :after org
+  :hook (org-mode . org-display-inline-images)
   :custom
   ;; Ensure Jupyter uses the Python from the project's virtual environment.
-  (jupyter-python-executable-command (executable-find "python")))
-
-;; Integrates Jupyter kernels with Org Babel for a rich, notebook-like experience.
-(use-package ob-jupyter
-  :after org
-  :config
-  ;; Ensure that inline images are displayed whenever an Org buffer is opened.
-  (add-hook 'org-mode-hook #'org-display-inline-images)
+  (jupyter-python-executable-command (executable-find "python"))
   ;; Prioritize rich output formats to mimic JupyterLab.
-  (setq ob-jupyter-response-mime-type-priorities
-        '("text/html" "image/png" "image/jpeg" "text/plain"))
+  (ob-jupyter-response-mime-type-priorities
+   '("text/html" "image/png" "image/jpeg" "text/plain"))
+  (ob-jupyter-startup-timeout 30)
+  :config
   ;; Load the jupyter language into babel.
   (org-babel-do-load-languages 'org-babel-load-languages '((jupyter . t)))
   ;; Make python blocks use jupyter by default for a stateful, interactive experience.
@@ -1697,8 +1694,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
                  (:kernel . "python3")
                  (:results . "output file")
                  (:exports . "results")
-                 (:dir . "./.jupyter-exports/")))
-  (setq ob-jupyter-startup-timeout 30))
+                 (:dir . "./.jupyter-exports/"))))
 
 ;; --- Debugging Functionality for both .py files and Org blocks ---
 (defun ar/dape-debug-org-src-block ()
@@ -1914,7 +1910,7 @@ This is a good practice to keep Emacs responsive.
     "b r" '(revert-buffer :wk "revert buffer")
     "b s" '(save-buffer :wk "save buffer")
 
-    ;; Debugging Keybindings (DApE)
+    ;; Debugging Keybindings (DAPE)
     "d" '(:ignore t :wk "debug (dape)")
     "d b" '(dape-toggle-breakpoint-at-point :wk "breakpoint")
     "d c" '(dape-continue :wk "continue")
@@ -1948,7 +1944,23 @@ This is a good practice to keep Emacs responsive.
     "g f" '(magit-fetch :wk "fetch")
     "g m" '(magit-merge :wk "merge")
     "g r" '(magit-rebase :wk "rebase")
-
+    
+    ;; LSP/XRef Keybindings (Eglot, enhanced by Consult)
+    "l" '(:ignore t :which-key "lsp (eglot)")
+    "l a" '(eglot-code-actions :wk "code actions")
+    "l d" '(xref-find-definitions :wk "go to definition")
+    "l D" '(xref-find-declarations :wk "go to declaration")
+    "l i" '(xref-find-implementations :wk "go to implementation")
+    "l r" '(xref-find-references :wk "find references")
+    "l s" '(consult-imenu :wk "buffer symbols")
+    "l S" '(consult-eglot-symbols :wk "project symbols")
+    "l R" '(eglot-rename :wk "rename")
+    "l f" '(apheleia-format-buffer :wk "format buffer")
+    "l e" '(consult-flymake :wk "buffer errors")
+    "l E" '(consult-eglot-diagnostics :wk "project errors")
+    "l h" '(:ignore t :which-key "help")
+    "l h h" '(eldoc-doc-buffer :wk "show full documentation")
+    
     ;; Org-mode specific bindings
     "o" '(:ignore t :wk "org")
     "o a" '(org-agenda :wk "agenda")
