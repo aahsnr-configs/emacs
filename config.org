@@ -1477,9 +1477,7 @@ related packages to ensure correct load order and a seamless user experience.
 
 (use-package treemacs-perspective
   :after (treemacs perspective)
-  :config
-  ;; Enable perspective integration mode for per-perspective workspaces
-  (treemacs-perspective-mode 1))
+  :init (treemacs-perspective-mode 1))
 
 (use-package treemacs-nerd-icons
   :after treemacs
