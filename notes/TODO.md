@@ -85,12 +85,13 @@
 - [ ] Add combobulate
   - Check seagle0128/.emacs.d for lsp-mode completion in source code blocks
 - [ ] Setup LaTeX typesetting as IDE and org-mode
-- [ ] Refine configuration with emacs-modded.md
+- [x] Refine configuration with emacs-modded.md
 - [ ] Setup transient and crux once using emacs full time
 - [ ] Add Deadgrep later on
 - [ ] Add vim-tab-bar
-- [ ] Add smartparensn and paredit
-- [ ] Write a more comprehensive shackles configuration
+- [ ] Add smartparens and paredit
+- [x] Write a more comprehensive shackles configuration
+- [ ] Make package-install load faster
 - [ ] Make sure pdf-tools install epdinfo automatically
 - [x] Emulate ivy, ivy-rich and ivy-rich-nerd-icons features into my configuration; not installing these packages, just emulating them
 - [ ] Heavily borrow from https://github.com/seagle0128/.emacs.d

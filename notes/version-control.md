@@ -13,7 +13,7 @@ This new configuration replaces your existing "Version Control" section. It simp
 ** Git Gutter (Live Diff Highlighting)
 ;; git-gutter provides live, inline diff indicators in the fringe, showing
 ;; which lines have been added, modified, or deleted. This is a crucial
-"feature for at-a-glance understanding of changes."
+;; feature for at-a-glance understanding of changes.
 (use-package git-gutter
   :hook (prog-mode . git-gutter-mode)
   :custom
