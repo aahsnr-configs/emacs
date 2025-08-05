@@ -37,6 +37,15 @@
       bookmark-default-file (expand-file-name "bookmarks" no-littering-var-directory)
       tramp-persistency-file-name (expand-file-name "tramp" no-littering-var-directory))
 
+(dolist (dir
+         (list
+          (expand-file-name "backups" no-littering-var-directory)
+          (expand-file-name "auto-saves" no-littering-var-directory)
+          (expand-file-name "server" no-littering-var-directory)))
+  (unless (file-directory-p dir)
+    (make-directory dir t)))
+
+
 ;; Configure Elpaca directories. [29, 31]
 (setq package-user-dir (expand-file-name "elpa" no-littering-var-directory)) ; [7, 13]
 
@@ -92,7 +101,7 @@
 (add-hook 'emacs-startup-hook
           (defun my/restore-startup-settings ()
             "Restore settings that were deferred during startup."
-            (setq gc-cons-threshold (* 2 1024 1024)) ; 100MB
+            (setq gc-cons-threshold (* 100 1024 1024)) ; 100MB
             (setq file-name-handler-alist my/file-name-handler-alist-original)
             (setq read-process-output-max (* 2 1024 1024)) ; 2MB
             (setq-default mode-line-format (default-value 'mode-line-format)))

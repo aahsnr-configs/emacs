@@ -244,6 +244,25 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (auto-save-visited-mode 1)     
 #+end_src
 
+* General Keybindings
+#+begin_src emacs-lisp
+(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+
+(use-package general
+  :after evil
+  :config
+  (general-create-definer ar/global-leader
+    :keymaps '(normal insert visual emacs)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+  
+  (ar/global-leader
+    ;; Core
+    "SPC" '(execute-extended-command :wk "M-x")
+    "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
+    "q r" '(ar/reload-config :wk "Reload Config")))
+#+end_src
+
 * UI & Theming
 ** Fonts
 #+begin_src emacs-lisp
@@ -595,7 +614,10 @@ appear, ensuring a consistent and predictable windowing layout.
   :init (shackle-mode)
   :custom
   (shackle-rules
-   '(;; Rule for Help buffers
+   '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
+     ;; This allows Treemacs to use its own logic for side-window placement.
+     ("^\\*treemacs.*\\*$" :ignore t)
+     ;; Rule for Help buffers
      ("\\`\\*Help" :align bottom :size 0.3)
      ;; Rule for compilation/grep/etc.
      ("^\\*.*compilation.*\\*$" :align bottom :size 0.3)
@@ -622,6 +644,14 @@ appear, ensuring a consistent and predictable windowing layout.
    ;; code.
    :load-path ("~/.config/emacs/lisp/combobulate"))
 #+end_src
+** Window Numbering with *winum*
+Provides easy window selection using M-<number>.
+#+begin_src emacs-lisp
+(use-package winum
+  :config
+  (winum-mode))
+#+end_src
+
 * Completion Framework
 *Match the completion framework with my other configurations*
 ** Orderless for Advanced Filtering
@@ -1257,6 +1287,38 @@ advanced dynamic project task template.
   (evil-org-agenda-set-keys))
 #+end_src
 
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ ;; Org-mode specific bindings
+ "o" '(:ignore t :wk "org")
+ "o a" '(org-agenda :wk "agenda")
+ "o c" '(org-capture :wk "capture")
+ "o s" '(org-schedule :wk "schedule")
+ "o d" '(org-deadline :wk "deadline")
+ "o t" '(org-set-tags-command :wk "set tags")
+ 
+ ;; Org Jupyter Keybindings
+ "o" '(:ignore t :which-key "org")
+ "o j" '(:ignore t :which-key "jupyter")
+ "o j r" '(jupyter-restart-kernel :wk "restart kernel")
+ "o j i" '(jupyter-interrupt-kernel :wk "interrupt kernel")
+ "o j c" '(jupyter-connect-to-kernel :wk "connect to kernel")
+ "o j l" '(jupyter-list-kernels :wk "list kernels")
+ 
+ ;; Org-roam specific bindings under "org roam"
+ "o r" '(:ignore t :wk "roam")
+ "o r f" '(org-roam-node-find :wk "find node")
+ "o r i" '(org-roam-node-insert :wk "insert node")
+ "o r c" '(org-roam-capture :wk "roam capture")
+ "o r g" '(org-roam-graph :wk "show graph")
+ "o r t" '(org-roam-tag-add :wk "add tag")
+
+ "o n" '(:ignore t :which-key "org noter")
+ "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
+ "o n i" '(org-noter-insert-note :wk "Insert Note"))
+#+end_src
+
 * Workflow Management
 ** Dired/Dirvish
 ** Workspaces
@@ -1292,11 +1354,21 @@ advanced dynamic project task template.
   (when (file-exists-p persp-state-default-file)
     (persp-load-state-from-file persp-state-default-file)))
 
-  ;; Define your custom leader keybindings for workspace management.
-   ;; Workspaces related keybindings
+;; Define your custom leader keybindings for workspace management.
+;; Workspaces related keybindings
+(ar/global-leader
+ ;; workspace related keybindings
+ "w" '(:ignore t :wk "workspaces")
+ "w n" '(persp-next :wk "next workspace")
+ "w p" '(persp-prev :wk "previous workspace")
+ "w s" '(persp-switch :wk "switch workspace")
+ "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
+ "w c" '(persp-add-new :wk "create workspace")
+ "w r" '(persp-rename :wk "rename workspace")
+ "w k" '(persp-kill :wk "kill workspace"))
 #+end_src
 
-** Project Management: Deep `projectile` Integration
+** Project Management: Deep *projectile* Integration
 #+begin_src emacs-lisp
 (use-package projectile
   :defer t
@@ -1318,9 +1390,23 @@ advanced dynamic project task template.
 ;; by another package. This provides the `consult-projectile` command.
 (use-package consult-projectile
   :after (consult projectile))
+
+(ar/global-leader
+ "p" '(:ignore t :wk "project")
+ "p p" '(projectile-switch-project :wk "switch project")
+ "p f" '(consult-projectile :wk "find file in project")
+ "p d" '(projectile-find-dir :wk "find directory in project")
+ "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
+ "p g" '(consult-ripgrep :wk "grep in project")
+ "p s" '(:ignore t :wk "save/kill")
+ "p s s" '(projectile-save-project-buffers :wk "save project buffers")
+ "p s k" '(projectile-kill-buffers :wk "kill project buffers")
+ "p c" '(projectile-compile-project :wk "compile project")
+ "p t" '(projectile-run-tests :wk "run project tests")
+ "p R" '(projectile-replace :wk "replace in project"))
 #+end_src
 
-** Buffer Management: A Project-Aware `ibuffer`
+** Buffer Management: A Project-Aware *ibuffer*
 #+begin_src emacs-lisp
 (use-package ibuffer-projectile
   :defer t
@@ -1337,68 +1423,64 @@ advanced dynamic project task template.
 (use-package nerd-icons-ibuffer
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
 
+(ar/global-leader
+  ;; Buffer management
+  "b" '(:ignore t :wk "buffers")
+  "b b" '(consult-buffer :wk "switch buffer")
+  "b i" '(ibuffer :wk "ibuffer (by project)")
+  "b k" '(kill-current-buffer :wk "kill buffer")
+  "b n" '(next-buffer :wk "next buffer")
+  "b p" '(previous-buffer :wk "previous buffer")
+  "b r" '(revert-buffer :wk "revert buffer")
+  "b s" '(save-buffer :wk "save buffer"))
 #+end_src
 
-** Treemacs
+** Treemacs: Core Configuration and Integrations
+A robust, modern, and reliable configuration for the Treemacs file explorer,
+designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
+related packages to ensure correct load order and a seamless user experience.
 #+begin_src emacs-lisp
-(use-package treemacs
-  ;; Defer loading until our custom toggle command is called.
-  :commands (ar/toggle-treemacs)
-  ;; Bind the winum key for selecting the treemacs window.
-  :bind (:map winum-keymap
-              ("M-0" . treemacs-select-window))
-  :config
-  ;; --- Core Functionality ---
-  (defun ar/toggle-treemacs ()
-    "A reliable command to open or close Treemacs.
+;; --- Core Toggle Function (for SPC t t) ---
+(defun ar/toggle-treemacs-project ()
+  "A reliable, Doom-style command to toggle the Treemacs project drawer.
 If the Treemacs buffer is visible, close it. Otherwise, open
-Treemacs and focus on the current file."
-    (interactive)
-    (if (treemacs-visible-p)
+Treemacs focused on the current project's root."
+  (interactive) ; FIX: Add (interactive) to make this a user-callable command.
+  (if (treemacs-visible-p)
         (treemacs-close)
-      (treemacs-find-file)))
+    (treemacs-projectile)))
 
+(use-package treemacs
+  :defer t
+  :after (evil projectile magit perspective winum)
+  :bind
+  :config
   ;; --- Appearance ---
   (setq treemacs-display-in-side-window          t
         treemacs-position                        'left
         treemacs-width                           35
         treemacs-width-is-initially-locked       t
-        treemacs-width-increment                 1
         treemacs-indentation                     2
-        treemacs-indentation-string              " "
-        treemacs-header-scroll-indicators        '(nil . "^^^^^^")
-        treemacs-space-between-root-nodes        t
-        treemacs-show-cursor                     nil
-        treemacs-directory-name-transformer      #'identity
-        treemacs-file-name-transformer           #'identity
-        treemacs-no-png-images                   nil)
-
+        ;; Use nerd-icons for the theme, provided by treemacs-nerd-icons.
+        treemacs-theme                           "nerd-icons")
   ;; --- Behavior ---
   (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
         treemacs-expand-after-init               t
         treemacs-follow-after-init               t
         treemacs-recenter-after-project-jump     'always
         treemacs-goto-tag-strategy               'refetch-index
-        treemacs-missing-project-action          'ask
         treemacs-is-never-other-window           nil
-        treemacs-no-delete-other-windows         t
-        treemacs-select-when-already-in-treemacs 'move-back)
+        treemacs-no-delete-other-windows         t)
 
   ;; --- File Watching & Git ---
-  (setq treemacs-file-event-delay                2000
-        treemacs-file-follow-delay               0.2
-        treemacs-git-command-pipe                ""
-        treemacs-max-git-entries                 5000
-        treemacs-silent-filewatch                nil
-        treemacs-silent-refresh                  nil
-        treemacs-show-hidden-files               t
-        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
-        treemacs-hide-dot-git-directory          t)
+  (setq treemacs-show-hidden-files               t
+        treemacs-hide-dot-git-directory          t
+        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask"))
 
   ;; --- Persistence ---
   (setq treemacs-persist-file (expand-file-name "treemacs-persist" no-littering-var-directory))
-  
-  ;; Activate essential modes
+
+  ;; Activate essential modes for a dynamic experience
   (treemacs-follow-mode t)
   (treemacs-filewatch-mode t)
   (treemacs-fringe-indicator-mode 'always)
@@ -1406,24 +1488,35 @@ Treemacs and focus on the current file."
   ;; Configure git integration based on system capabilities
   (pcase (cons (not (null (executable-find "git")))
                (not (null treemacs-python-executable)))
-    (`(t . t)
-     (treemacs-git-mode 'deferred))
-    (`(t . _)
-     (treemacs-git-mode 'simple)))
+    (`(t . t) (treemacs-git-mode 'deferred))
+    (`(t . _) (treemacs-git-mode 'simple)))
+  (treemacs-hide-gitignored-files-mode nil)
 
-  (treemacs-hide-gitignored-files-mode nil))
+  (ar/global-leader
+    ;; Toggle Stuff
+    "t" '(:ignore t :wk "toggle")
+    "t t" '(ar/toggle-treemacs-project :wk "Treemacs"))
+  )
 
-;; Evil mode integration for vim-like navigation.
+;; --- Treemacs Integrations ---
+;; These blocks ensure the necessary extension packages are loaded after Treemacs.
+
+(use-package treemacs-nerd-icons
+  :after treemacs)
+
 (use-package treemacs-evil
-  :after (treemacs evil))
+  :after treemacs)
 
-;; Projectile integration.
 (use-package treemacs-projectile
-  :after (treemacs projectile))
+  :after treemacs)
 
-;; Magit integration.
 (use-package treemacs-magit
-  :after (treemacs magit))
+  :after treemacs)
+
+(use-package treemacs-perspective
+  :after (treemacs perspective)
+  :config
+  (treemacs-set-scope-type 'Perspectives))
 #+end_src
 
 * File Management
@@ -1511,6 +1604,17 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
 #+end_src
 
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ "f" '(:ignore t :wk "file")
+ "f f" '(find-file :wk "find file")
+ "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
+ "f r" '(consult-recent-file :wk "find recent file")
+ "f t" '(treemacs-find-file :wk "find file in treemacs")
+ "f d" '(treemacs-select-directory :wk "find directory in treemacs"))
+#+end_src
+
 * Development Environment
 ** Language Server Protocol: Eglot & Eglot Booster
 Eglot is the built-in LSP client. It will automatically use the correct
@@ -1572,6 +1676,7 @@ Display eldoc documentation in a popup frame at point.
 We use *dape* for debugging. The UI for debugger windows is cleanly managed by the enhanced *shackle* configuration in my *Editor Behaviour* section.
 #+begin_src emacs-lisp
 (use-package dape
+  :defer t
   :commands (dape dape-debug-recent)
   :hook
   ;; Use GUD's tooltip mode for mouse-hover variable inspection.
@@ -1580,6 +1685,19 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   ;; Persist breakpoints across Emacs sessions.
   (add-hook 'kill-emacs-hook #'dape-breakpoint-save)
   (add-hook 'after-init-hook #'dape-breakpoint-load))
+
+(ar/global-leader
+ ;; Debugging Keybindings (DAPE)
+ "d" '(:ignore t :wk "debug (dape)")
+ "d b" '(dape-toggle-breakpoint-at-point :wk "breakpoint")
+ "d c" '(dape-continue :wk "continue")
+ "d n" '(dape-next :wk "next")
+ "d i" '(dape-step-in :wk "step in")
+ "d o" '(dape-step-out :wk "step out")
+ "d q" '(dape-disconnect :wk "quit")
+ "d r" '(dape-debug-recent :wk "debug recent")
+ "d e" '(dape :wk "debug new")
+ "d B" '(ar/dape-debug-org-src-block :wk "debug org block"))
 #+end_src
 
 ** Syntax Checking
@@ -1610,6 +1728,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 ** Formatting
 #+begin_src emacs-lisp
 (use-package apheleia
+  :defer t
   :init (apheleia-global-mode +1))
 #+end_src
 
@@ -1657,11 +1776,31 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
               (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
 #+end_src
 
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ "l" '(:ignore t :which-key "lsp (eglot)")
+ "l a" '(eglot-code-actions :wk "code actions")
+ "l d" '(xref-find-definitions :wk "go to definition")
+ "l D" '(xref-find-declarations :wk "go to declaration")
+ "l i" '(xref-find-implementations :wk "go to implementation")
+ "l r" '(xref-find-references :wk "find references")
+ "l s" '(consult-imenu :wk "buffer symbols")
+ "l S" '(consult-eglot-symbols :wk "project symbols")
+ "l R" '(eglot-rename :wk "rename")
+ "l f" '(apheleia-format-buffer :wk "format buffer")
+ "l e" '(consult-flymake :wk "buffer errors")
+ "l E" '(consult-eglot-diagnostics :wk "project errors")
+ "l h" '(:ignore t :which-key "help")
+ "l h h" '(eldoc-doc-buffer :wk "show full documentation"))
+#+end_src
+
 * Python & Jupyter for Org Mode
 #+begin_src emacs-lisp
-(use-package zmq)
+(use-package zmq :defer t)
 ;; Provides Jupyter integration for Emacs.
 (use-package jupyter
+  :defer t
   :after org
   :hook (org-mode . org-display-inline-images)
   :custom
@@ -1728,16 +1867,19 @@ that all other Markdown packages will depend on.
   ;; Fontify code blocks using their native major modes for rich highlighting.
   (setq markdown-fontify-code-blocks-natively t)
 
-  ;; Define keybindings for both standard and Tree-sitter modes
+  ;; Define keybindings for both standard and Tree-sitter modes,
+  ;; ensuring the keymap variables exist before trying to modify them.
   (dolist (m-map '(markdown-mode-map markdown-ts-mode-map))
-    (define-key m-map (kbd "C-c C-b") #'markdown-toggle-bold)
-    (define-key m-map (kbd "C-c C-s") #'markdown-toggle-italic)
-    (define-key m-map (kbd "C-c C-q") #'markdown-toggle-blockquote)
-    (define-key m-map (kbd "C-c C-l") #'markdown-insert-link)
-    (define-key m-map (kbd "C-c C-i") #'markdown-insert-image)
-    (define-key m-map (kbd "C-c t") #'markdown-edit-table)
-    (define-key m-map (kbd "C-c p") #'markdown-open)
-    (define-key m-map (kbd "C-c o") #'imenu-list-smart-toggle))
+    (when (boundp m-map)
+      (let ((map (symbol-value m-map)))
+        (define-key map (kbd "C-c C-b") #'markdown-toggle-bold)
+        (define-key map (kbd "C-c C-s") #'markdown-toggle-italic)
+        (define-key map (kbd "C-c C-q") [cite_start]#'markdown-toggle-blockquote) [cite: 223]
+        (define-key map (kbd "C-c C-l") [cite_start]#'markdown-insert-link) [cite: 223]
+        (define-key map (kbd "C-c C-i") [cite_start]#'markdown-insert-image) [cite: 223]
+        (define-key map (kbd "C-c t") [cite_start]#'markdown-edit-table) [cite: 223]
+        (define-key map (kbd "C-c p") [cite_start]#'markdown-open) [cite: 223]
+        (define-key map (kbd "C-c o") #'imenu-list-smart-toggle))))
 
   ;; Add folding support to both modes.
   (add-hook 'markdown-mode-hook #'treesit-fold-mode)
@@ -1781,7 +1923,7 @@ Provides a dynamic, clickable table of contents for easy navigation.
 #+end_src
 
 ** Live Linting with *flymake-markdownlint*
-Integrates `markdownlint` with Flymake for on-the-fly style checking.
+Integrates *markdownlint* with Flymake for on-the-fly style checking.
 #+begin_src emacs-lisp
 (use-package flymake-markdownlint
   :after markdown-mode
@@ -1790,7 +1932,7 @@ Integrates `markdownlint` with Flymake for on-the-fly style checking.
 #+end_src
 
 ** Auto-formatting with Apheleia
-This configures `apheleia` to use `prettier` for auto-formatting.
+This configures *apheleia* to use *prettier* for auto-formatting.
 #+begin_src emacs-lisp
 (with-eval-after-load 'apheleia
   (setf (alist-get 'gfm-mode apheleia-formatters)
@@ -1805,7 +1947,7 @@ Helpful is an alternative to the built-in Emacs help that provides much more
 contextual information.
 #+begin_src emacs-lisp
 (use-package helpful
-  :ensure t
+  :defer t
   :commands (helpful-callable
              helpful-variable
              helpful-key
@@ -1825,6 +1967,7 @@ contextual information.
 ** Wgrep: Writable Grep
 #+begin_src emacs-lisp
 (use-package wgrep
+  :defer t
   :commands (wgrep-change-to-wgrep-mode)
   :config
   ;; evil-collection provides bindings like :wq to save and :q! to abort.
@@ -1835,7 +1978,6 @@ contextual information.
 *** Magit
 #+begin_src emacs-lisp
 (use-package magit
-  :ensure nil ;built-in
   :commands (magit-status magit-blame)
   :custom
   ;; For a focused view, display the Magit status buffer in its own frame.
@@ -1858,14 +2000,14 @@ contextual information.
 #+end_src
 
 *** Forge
-`forge` provides integration with online Git forges (e.g., GitHub, GitLab).
+*forge* provides integration with online Git forges (e.g., GitHub, GitLab).
 #+begin_src emacs-lisp
 (use-package forge
   :after magit)
 #+end_src
 
 *** Magit Todos
-`magit-todos` displays TODO items from your project files in the status buffer.
+*magit-todos* displays TODO items from your project files in the status buffer.
 #+begin_src emacs-lisp
 (use-package magit-todos
   :after magit
@@ -1875,10 +2017,28 @@ contextual information.
 *** Git Timemachine
 #+begin_src emacs-lisp
 (use-package git-timemachine
-  :after git-timemachine
+  :after magit
   :config
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-j") 'git-timemachine-show-previous-revision)
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
+#+end_src
+
+*** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ "g" '(:ignore t :wk "git")
+ "g s" '(magit-status :wk "status")
+ "g c" '(magit-commit :wk "commit")
+ "g C" '(magit-commit-amend :wk "commit amend")
+ "g p" '(magit-push-current-to-pushremote :wk "push")
+ "g P" '(magit-pull-from-upstream :wk "pull")
+ "g b" '(magit-branch :wk "branches")
+ "g l" '(magit-log-buffer-file :wk "log current file")
+ "g L" '(magit-log-current :wk "log current branch")
+ "g d" '(magit-diff-unstaged :wk "diff")
+ "g f" '(magit-fetch :wk "fetch")
+ "g m" '(magit-merge :wk "merge")
+ "g r" '(magit-rebase :wk "rebase"))
 #+end_src
 
 ** PDF-Tools
@@ -1959,144 +2119,5 @@ This is a good practice to keep Emacs responsive.
           (lambda ()
             (unless (frame-focus-state)
               (garbage-collect))))
-#+end_src
-
-* General Keybindings
-#+begin_src emacs-lisp
-(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
-
-(use-package general
-  :after evil
-  :config
-  (general-create-definer ar/global-leader
-    :keymaps '(normal insert visual emacs)
-    :prefix "SPC"
-    :global-prefix "C-SPC")
-  
-  (ar/global-leader
-    ;; Core
-    "SPC" '(execute-extended-command :wk "M-x")
-    "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
-    "q r" '(ar/reload-config :wk "Reload Config")
-
-    ;; Buffer management
-    "b" '(:ignore t :wk "buffers")
-    "b b" '(consult-buffer :wk "switch buffer")
-    "b i" '(ibuffer :wk "ibuffer (by project)")
-    "b k" '(kill-current-buffer :wk "kill buffer")
-    "b n" '(next-buffer :wk "next buffer")
-    "b p" '(previous-buffer :wk "previous buffer")
-    "b r" '(revert-buffer :wk "revert buffer")
-    "b s" '(save-buffer :wk "save buffer")
-
-    ;; Debugging Keybindings (DAPE)
-    "d" '(:ignore t :wk "debug (dape)")
-    "d b" '(dape-toggle-breakpoint-at-point :wk "breakpoint")
-    "d c" '(dape-continue :wk "continue")
-    "d n" '(dape-next :wk "next")
-    "d i" '(dape-step-in :wk "step in")
-    "d o" '(dape-step-out :wk "step out")
-    "d q" '(dape-disconnect :wk "quit")
-    "d r" '(dape-debug-recent :wk "debug recent")
-    "d e" '(dape :wk "debug new")
-    "d B" '(ar/dape-debug-org-src-block :wk "debug org block")
-    
-    ;; file management
-    "f" '(:ignore t :wk "file")
-    "f f" '(find-file :wk "find file")
-    "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
-    "f r" '(consult-recent-file :wk "find recent file")
-    "f t" '(treemacs-find-file :wk "find file in treemacs")
-    "f d" '(treemacs-select-directory :wk "find directory in treemacs")
-
-    ;; version management
-    "g" '(:ignore t :wk "git")
-    "g s" '(magit-status :wk "status")
-    "g c" '(magit-commit :wk "commit")
-    "g C" '(magit-commit-amend :wk "commit amend")
-    "g p" '(magit-push-current-to-pushremote :wk "push")
-    "g P" '(magit-pull-from-upstream :wk "pull")
-    "g b" '(magit-branch :wk "branches")
-    "g l" '(magit-log-buffer-file :wk "log current file")
-    "g L" '(magit-log-current :wk "log current branch")
-    "g d" '(magit-diff-unstaged :wk "diff")
-    "g f" '(magit-fetch :wk "fetch")
-    "g m" '(magit-merge :wk "merge")
-    "g r" '(magit-rebase :wk "rebase")
-    
-    ;; LSP/XRef Keybindings (Eglot, enhanced by Consult)
-    "l" '(:ignore t :which-key "lsp (eglot)")
-    "l a" '(eglot-code-actions :wk "code actions")
-    "l d" '(xref-find-definitions :wk "go to definition")
-    "l D" '(xref-find-declarations :wk "go to declaration")
-    "l i" '(xref-find-implementations :wk "go to implementation")
-    "l r" '(xref-find-references :wk "find references")
-    "l s" '(consult-imenu :wk "buffer symbols")
-    "l S" '(consult-eglot-symbols :wk "project symbols")
-    "l R" '(eglot-rename :wk "rename")
-    "l f" '(apheleia-format-buffer :wk "format buffer")
-    "l e" '(consult-flymake :wk "buffer errors")
-    "l E" '(consult-eglot-diagnostics :wk "project errors")
-    "l h" '(:ignore t :which-key "help")
-    "l h h" '(eldoc-doc-buffer :wk "show full documentation")
-    
-    ;; Org-mode specific bindings
-    "o" '(:ignore t :wk "org")
-    "o a" '(org-agenda :wk "agenda")
-    "o c" '(org-capture :wk "capture")
-    "o s" '(org-schedule :wk "schedule")
-    "o d" '(org-deadline :wk "deadline")
-    "o t" '(org-set-tags-command :wk "set tags")
-
-    ;; Org Jupyter Keybindings
-    "o" '(:ignore t :which-key "org")
-    "o j" '(:ignore t :which-key "jupyter")
-    "o j r" '(jupyter-restart-kernel :wk "restart kernel")
-    "o j i" '(jupyter-interrupt-kernel :wk "interrupt kernel")
-    "o j c" '(jupyter-connect-to-kernel :wk "connect to kernel")
-    "o j l" '(jupyter-list-kernels :wk "list kernels")
-    
-    ;; Org-roam specific bindings under "org roam"
-    "o r" '(:ignore t :wk "roam")
-    "o r f" '(org-roam-node-find :wk "find node")
-    "o r i" '(org-roam-node-insert :wk "insert node")
-    "o r c" '(org-roam-capture :wk "roam capture")
-    "o r g" '(org-roam-graph :wk "show graph")
-    "o r t" '(org-roam-tag-add :wk "add tag")
-
-    "o n" '(:ignore t :which-key "org noter")
-    "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
-    "o n i" '(org-noter-insert-note :wk "Insert Note")
-
-    ;; Project related keybindings 
-    "p" '(:ignore t :wk "project")
-    "p p" '(projectile-switch-project :wk "switch project")
-    "p f" '(consult-projectile :wk "find file in project")
-    "p d" '(projectile-find-dir :wk "find directory in project")
-    "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
-    "p g" '(consult-ripgrep :wk "grep in project")
-    "p s" '(:ignore t :wk "save/kill")
-    "p s s" '(projectile-save-project-buffers :wk "save project buffers")
-    "p s k" '(projectile-kill-buffers :wk "kill project buffers")
-    "p c" '(projectile-compile-project :wk "compile project")
-    "p t" '(projectile-run-tests :wk "run project tests")
-    "p R" '(projectile-replace :wk "replace in project")
-
-    ;; Toggle Stuff
-    "t" '(:ignore t :wk "toggle")
-    "t t" '(ar/open-treemacs-project :wk "Treemacs")
-    
-    ;; workspace related keybindings
-    "w" '(:ignore t :wk "workspaces")
-    "w n" '(persp-next :wk "next workspace")
-    "w p" '(persp-prev :wk "previous workspace")
-    "w s" '(persp-switch :wk "switch workspace")
-    "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
-    "w c" '(persp-add-new :wk "create workspace")
-    "w r" '(persp-rename :wk "rename workspace")
-    "w k" '(persp-kill :wk "kill workspace")
-    
-    
-	  ))
 #+end_src
 
