@@ -68,12 +68,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (setq require-final-newline t)
 
 ;; Move point to top/bottom of buffer before signaling a scrolling error.
-(setq scroll-error-top-bottom t)
-
-;; If `scroll-conservatively' is set above 100, the window is never
-;; automatically recentered.
-(setq scroll-conservatively 101)
-
 ;; Number of lines of margin at the top and bottom of a window.
 (setq scroll-margin 0)
 
@@ -134,7 +128,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 
 ** Source Scripts
 #+begin_src emacs-lisp
-(add-to-list 'load-path "~/.emacs.d/lisp/")
 (require 'reload-config)
 ;;(require 'buffer-move)
 ;; (require 'garbage-collect)
@@ -579,6 +572,7 @@ Preferring minimal-emacs.d setup over ultra-scroll
 ** Buffer Terminator
 #+begin_src emacs-lisp
 (use-package buffer-terminator
+  :defer t
   :custom
   ;; Enable/Disable verbose mode to log buffer cleanup events
   (buffer-terminator-verbose nil)
@@ -598,6 +592,7 @@ Preferring minimal-emacs.d setup over ultra-scroll
 ** Inhibit Mouse
 #+begin_src emacs-lisp
 (use-package inhibit-mouse
+  :defer t
   :config
   (if (daemonp)
       (add-hook 'server-after-make-frame-hook #'inhibit-mouse-mode)
@@ -612,9 +607,9 @@ appear, ensuring a consistent and predictable windowing layout.
   :init (shackle-mode)
   :custom
   (shackle-rules
-   '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
-     ;; This allows Treemacs to use its own logic for side-window placement.
-     ("^\\*treemacs.*\\*$" :ignore t)
+   '(;; Add a rule to prevent Shackle from managing Neotree.
+     ;; This allows Neotree to use its own logic for side-window placement.
+     ("^\\*NeoTree\\*$" :ignore t)
      ;; Rule for Help buffers
      ("\\`\\*Help" :align bottom :size 0.3)
      ;; Rule for compilation/grep/etc.
@@ -633,6 +628,7 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Combobulate
 #+begin_src emacs-lisp
 (use-package combobulate
+   :defer t
    :custom
    ;; You can customize Combobulate's key prefix here.
    ;; Note that you may have to restart Emacs for this to take effect!
@@ -642,14 +638,6 @@ appear, ensuring a consistent and predictable windowing layout.
    ;; code.
    :load-path ("~/.config/emacs/lisp/combobulate"))
 #+end_src
-** Window Numbering with *winum*
-Provides easy window selection using M-<number>.
-#+begin_src emacs-lisp
-(use-package winum
-  :config
-  (winum-mode))
-#+end_src
-
 * Completion Framework
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
@@ -1299,7 +1287,6 @@ advanced dynamic project task template.
 #+end_src
 
 * Workflow Management
-** Dired/Dirvish
 ** Workspaces
 #+begin_src emacs-lisp
 (use-package perspective
@@ -1362,8 +1349,10 @@ advanced dynamic project task template.
   (projectile-switch-project-action #'projectile-find-file)
 
   :config
-  (projectile-mode +1))
-  ;; Define our extensive project-management keybindings under the "p" prefix.
+  (projectile-mode +1)
+  ;; Do not treat the emacs 'var' directory as a project.
+  (add-to-list 'projectile-ignored-projects
+               (expand-file-name "var" user-emacs-directory)))
 
 ;; A `consult` source specifically for projectile, if not already provided
 ;; by another package. This provides the `consult-projectile` command.
@@ -1414,91 +1403,6 @@ advanced dynamic project task template.
   "b s" '(save-buffer :wk "save buffer"))
 #+end_src
 
-** Treemacs: Core Configuration and Integrations
-A robust, modern, and reliable configuration for the Treemacs file explorer,
-designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
-related packages to ensure correct load order and a seamless user experience.
-#+begin_src emacs-lisp
-;; --- Core Toggle Function (for SPC t t) ---
-(defun ar/toggle-treemacs-project ()
-  "A reliable, Doom-style command to toggle the Treemacs project drawer.
-If the Treemacs buffer is visible, close it. Otherwise, open
-Treemacs focused on the current project's root."
-  (interactive) ; FIX: Add (interactive) to make this a user-callable command.
-  (if (treemacs-visible-p)
-        (treemacs-close)
-    (treemacs-projectile)))
-
-(use-package treemacs
-  :defer t
-  :after (evil projectile magit perspective winum)
-  :bind
-  :config
-  ;; --- Appearance ---
-  (setq treemacs-display-in-side-window          t
-        treemacs-position                        'left
-        treemacs-width                           35
-        treemacs-width-is-initially-locked       t
-        treemacs-indentation                     2
-        ;; Use nerd-icons for the theme, provided by treemacs-nerd-icons.
-        treemacs-theme                           "nerd-icons")
-  ;; --- Behavior ---
-  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
-        treemacs-expand-after-init               t
-        treemacs-follow-after-init               t
-        treemacs-recenter-after-project-jump     'always
-        treemacs-goto-tag-strategy               'refetch-index
-        treemacs-is-never-other-window           nil
-        treemacs-no-delete-other-windows         t)
-
-  ;; --- File Watching & Git ---
-  (setq treemacs-show-hidden-files               t
-        treemacs-hide-dot-git-directory          t
-        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask"))
-
-  ;; --- Persistence ---
-  (setq treemacs-persist-file (expand-file-name "treemacs-persist" no-littering-var-directory))
-
-  ;; Activate essential modes for a dynamic experience
-  (treemacs-follow-mode t)
-  (treemacs-filewatch-mode t)
-  (treemacs-fringe-indicator-mode 'always)
-
-  ;; Configure git integration based on system capabilities
-  (pcase (cons (not (null (executable-find "git")))
-               (not (null treemacs-python-executable)))
-    (`(t . t) (treemacs-git-mode 'deferred))
-    (`(t . _) (treemacs-git-mode 'simple)))
-  (treemacs-hide-gitignored-files-mode nil)
-
-  (ar/global-leader
-    ;; Toggle Stuff
-    "t" '(:ignore t :wk "toggle")
-    "t t" '(ar/toggle-treemacs-project :wk "Treemacs"))
-  )
-
-;; --- Treemacs Integrations ---
-;; These blocks ensure the necessary extension packages are loaded after Treemacs.
-
-(use-package treemacs-nerd-icons
-  :after treemacs)
-
-(use-package treemacs-evil
-  :after treemacs)
-
-(use-package treemacs-projectile
-  :after treemacs)
-
-(use-package treemacs-magit
-  :after treemacs)
-
-(use-package treemacs-perspective
-  :after (treemacs perspective)
-  :config
-  (treemacs-set-scope-type 'Perspectives))
-#+end_src
-
-* File Management
 ** Dired
 This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
 #+begin_src emacs-lisp
@@ -1583,15 +1487,63 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
 #+end_src
 
-** Keybindings
+** Neotree
+#+begin_src emacs-lisp
+(use-package neotree
+  :defer t
+  :commands (neo-toggle neotree-projectile-action)
+  :config
+  ;; --- Appearance & Theme ---
+  ;; Use icons if in a GUI, otherwise use arrows.
+  (setq neo-theme (if (display-graphic-p) 'icons 'arrow))
+  (setq neo-window-width 35)
+  (setq neo-window-position 'left)
+  (setq neo-hide-dot-files t)
+  (setq neo-show-hidden-files nil) ; Controlled by a toggle
+  (setq neo-confirm-message nil)
+
+  ;; --- Behavior ---
+  (setq neo-smart-open t)
+  ;; Close neotree buffer after opening a file.
+  (setq neo-auto-close-node (lambda (node) (not (neo-buffer--directory-p (neo-node--path node)))))
+  (setq neo-show-git-status t)
+  (setq neo-git-status-hide-unmodified t) ; Keep the view clean
+
+  ;; --- Projectile Integration ---
+  ;; When switching projects, open neotree.
+  (setq projectile-switch-project-action #'neotree-projectile-action)
+
+  ;; --- Keybindings for an Evil-like experience ---
+  (with-eval-after-load 'evil
+    (let ((map neotree-mode-map))
+      (define-key map (kbd "j") 'neotree-next-line)
+      (define-key map (kbd "k") 'neotree-previous-line)
+      (define-key map (kbd "h") 'neotree-select-up-node)
+      (define-key map (kbd "l") 'neotree-enter)
+      (define-key map (kbd "o") 'neotree-enter)
+      (define-key map (kbd "RET") 'neotree-enter)
+      (define-key map (kbd "TAB") 'neotree-quick-look)
+      (define-key map (kbd "q") 'neotree-hide)
+      (define-key map (kbd "A") 'neotree-stretch-toggle)
+      (define-key map (kbd "H") 'neotree-toggle-hidden-files)
+      (define-key map (kbd "g") 'neotree-refresh)
+      (define-key map (kbd "C") 'neotree-create-node)
+      (define-key map (kbd "R") 'neotree-rename-node)
+      (define-key map (kbd "D") 'neotree-delete-node)
+      (define-key map (kbd "y") 'neotree-copy-node-path)
+      (define-key map (kbd "x") 'neotree-move-node)
+      (define-key map (kbd "c") 'neotree-copy-node)
+      (define-key map (kbd "s") 'neotree-select-split-right-enter)
+      (define-key map (kbd "v") 'neotree-select-vsplit-right-enter))))
+#+end_src
+
+** File Management Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
  "f" '(:ignore t :wk "file")
  "f f" '(find-file :wk "find file")
  "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
- "f r" '(consult-recent-file :wk "find recent file")
- "f t" '(treemacs-find-file :wk "find file in treemacs")
- "f d" '(treemacs-select-directory :wk "find directory in treemacs"))
+ "f r" '(consult-recent-file :wk "find recent file"))
 #+end_src
 
 * Development Environment
@@ -1603,7 +1555,6 @@ Eglot performance using eglot booster
 (use-package eglot
   :ensure nil
   :hook ((prog-mode . eglot-ensure)
-         ;; Explicitly hook into org-src-mode for LSP in code blocks.
          (org-src-mode . eglot-ensure))
   :custom
   (eglot-autoshutdown t)
@@ -1655,13 +1606,14 @@ Display eldoc documentation in a popup frame at point.
 We use *dape* for debugging. The UI for debugger windows is cleanly managed by the enhanced *shackle* configuration in my *Editor Behaviour* section.
 #+begin_src emacs-lisp
 (use-package dape
-  :defer t
   :commands (dape dape-debug-recent)
   :hook
   ;; Use GUD's tooltip mode for mouse-hover variable inspection.
   (dape-session-mode-hook . gud-tooltip-mode)
   :config
-  ;; Persist breakpoints across Emacs sessions.
+  ;; Set the breakpoint file location to be inside the var directory.
+  (setq dape-breakpoint-file (expand-file-name "dape-breakpoints" no-littering-var-directory))
+    ;; Persist breakpoints across Emacs sessions.
   (add-hook 'kill-emacs-hook #'dape-breakpoint-save)
   (add-hook 'after-init-hook #'dape-breakpoint-load))
 
@@ -1918,6 +1870,14 @@ This configures *apheleia* to use *prettier* for auto-formatting.
         '("prettier" "--prose-wrap" "always"))
   (setf (alist-get 'markdown-ts-mode apheleia-formatters)
         '("prettier" "--prose-wrap" "always")))
+#+end_src
+
+* Toggling Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ ;; Toggle Neotree file explorer
+ "t" '(:ignore t :wk "toggle")
+ "t t" '(neo-toggle :wk "Toggle Neotree"))
 #+end_src
 
 * General Tools
