@@ -1674,6 +1674,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 * Python & Jupyter for Org Mode
 #+begin_src emacs-lisp
+(use-package zmq)
 ;; Provides Jupyter integration for Emacs.
 (use-package jupyter
   :after org
