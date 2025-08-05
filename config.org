@@ -1924,28 +1924,6 @@ This configures *apheleia* to use *prettier* for auto-formatting.
 #+end_src
 
 * Version Control
-** Git Gutter: Live Diff Highlighting
-git-gutter provides live, inline diff indicators in the fringe, showing
-which lines have been added, modified, or deleted. This is a crucial
-feature for at-a-glance understanding of changes.
-#+begin_src emacs-lisp
-(use-package git-gutter
-  :hook (prog-mode . git-gutter-mode)
-  :custom
-  ;; Only update the gutter when the buffer is saved, for performance.
-  (git-gutter:update-on-save t)
-  ;; Use a lighter touch for updates; avoids refreshing on every change.
-  (git-gutter:update-method "idle")
-  :config
-  ;; Define keybindings for evil-mode for navigating between hunks.
-  (with-eval-after-load 'evil
-    (define-key evil-normal-state-map (kbd "]g") 'git-gutter:next-hunk)
-    (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk))
-
-  ;; Add a keybinding to stage the current hunk directly.
-  (define-key git-gutter-mode-map (kbd "C-x C-s") 'git-gutter:stage-hunk))
-#+end_src
-
 ** Magit: The Core Git Client
 *magit* is the central hub for all Git operations. This configuration
 ensures it works seamlessly with a full-frame UI and other packages.
@@ -1958,7 +1936,7 @@ ensures it works seamlessly with a full-frame UI and other packages.
   ;; For a focused view, display the Magit status buffer in its own frame.
   (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
   ;; Automatically save file-visiting buffers before staging changes.
-  (magit-save-repository-buffers 'dont-confirm)
+  (magit-save-repository-buffers 'dont-confirmk)
   :config
   ;; When quitting Magit, this ensures the previous window configuration is restored.
   ;; The `magit-display-buffer-fullframe-status-v1` function saves the layout
@@ -1996,6 +1974,28 @@ ensures it works seamlessly with a full-frame UI and other packages.
   :config
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-j") 'git-timemachine-show-previous-revision)
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
+#+end_src
+
+** Git Gutter: Live Diff Highlighting
+git-gutter provides live, inline diff indicators in the fringe, showing
+which lines have been added, modified, or deleted. This is a crucial
+feature for at-a-glance understanding of changes.
+#+begin_src emacs-lisp
+(use-package git-gutter
+  :hook (prog-mode . git-gutter-mode)
+  :custom
+  ;; Only update the gutter when the buffer is saved, for performance.
+  (git-gutter:update-on-save t)
+  ;; Use a lighter touch for updates; avoids refreshing on every change.
+  (git-gutter:update-method "idle")
+  :config
+  ;; Define keybindings for evil-mode for navigating between hunks.
+  (with-eval-after-load 'evil
+    (define-key evil-normal-state-map (kbd "]g") 'git-gutter:next-hunk)
+    (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk))
+
+  ;; Add a keybinding to stage the current hunk directly.
+  (define-key git-gutter-mode-map (kbd "C-x C-s") 'git-gutter:stage-hunk))
 #+end_src
 
 ** Keybindings
