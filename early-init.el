@@ -13,12 +13,12 @@
 ;; Non-nil means to native compile packages as part of their installation.
 (setq package-native-compile t)
 
-;; Load no-littering to apply the new path conventions. [8, 10]
-(require 'no-littering)
-
 ;; Define custom paths for no-littering BEFORE loading the package. [8, 10]
 (setq no-littering-var-directory (expand-file-name "var" user-emacs-directory)
       no-littering-etc-directory (expand-file-name "etc" no-littering-var-directory))
+
+;; Load no-littering to apply the new path conventions. [8, 10]
+(require 'no-littering)
 
 ;; For Emacs 29+, redirect the native compilation cache.
 (when (fboundp 'startup-redirect-eln-cache)
