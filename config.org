@@ -68,14 +68,14 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (setq require-final-newline t)
 
 ;; Move point to top/bottom of buffer before signaling a scrolling error.
-(setq scroll-error-top-bottom t)
+;; (setq scroll-error-top-bottom t)
 
 ;; If `scroll-conservatively' is set above 100, the window is never
 ;; automatically recentered.
-(setq scroll-conservatively 101)
+;; (setq scroll-conservatively 101)
 
 ;; Number of lines of margin at the top and bottom of a window.
-(setq scroll-margin 0)
+;; (setq scroll-margin 0)
 
 ;; Prefer vertical splits over horizontal ones.
 (setq split-width-threshold 170
@@ -90,11 +90,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 ;; Disable automatic backups and lockfiles.
 (setq make-backup-files nil
       create-lockfiles nil)
-
-;; Auto-revert buffers when the underlying file changes.
-(global-auto-revert-mode 1)
-(setq global-auto-revert-non-file-buffers t)
-(setq revert-without-query '(".")) ; Do not prompt for revert.
 
 ;; Ask the user whether to terminate async compilations on exit.
 (setq native-comp-async-query-on-exit t)
@@ -822,7 +817,8 @@ appear, ensuring a consistent and predictable windowing layout.
         ("TAB" . corfu-next)
         ([tab] . corfu-next)
         ("S-TAB" . corfu-previous)
-        ([backtab] . corfu-previous))
+        ([backtab] . corfu-previous)
+        ("M-d" . corfu-info-documentation))
   :custom
   (corfu-cycle t)
   (corfu-auto t)
@@ -838,7 +834,7 @@ appear, ensuring a consistent and predictable windowing layout.
   :config
   ;; Persist history
   (with-eval-after-load 'savehist
-  (add-to-list 'savehist-additional-variables 'corfu-history)))
+    (add-to-list 'savehist-additional-variables 'corfu-history)))
 #+end_src
 
 ** Nerd Icons for Corfu
