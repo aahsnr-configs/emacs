@@ -3,4 +3,3 @@
   (when (file-exists-p custom-config)
     (load-file custom-config)))
 ;;; init.el ends here
-
