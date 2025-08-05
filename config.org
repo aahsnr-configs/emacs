@@ -101,6 +101,9 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 
 ;; Skip confirmation prompts when creating a new file or buffer
 (setq confirm-nonexistent-file-or-buffer nil)
+
+;; Disable cursor blink for a more responsive feel.
+(blink-cursor-mode -1)
 #+end_src
 
 ** Editing and Indentation
