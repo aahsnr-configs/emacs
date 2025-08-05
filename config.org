@@ -1320,6 +1320,206 @@ advanced dynamic project task template.
 #+end_src
 
 * Workflow Management
+** Dired/Dirvish
+** Workspaces
+#+begin_src emacs-lisp
+(use-package perspective
+  :defer t
+  :init
+  ;; Set the state file location before enabling the mode.
+  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
+  (setq persp-mode-prefix-key (kbd "C-c p"))
+  :custom
+  ;; Automatically kill empty perspectives to keep the list clean.
+  (persp-auto-kill-on-last-buffer-close t)
+
+  :config
+  (persp-mode +1)
+
+  ;; Custom function to automatically create or switch to a project-specific perspective.
+  (defun ar/perspective-switch-or-create ()
+    "Switch to a perspective named after the current project, creating it if needed."
+    (interactive)
+    (let ((project-name (projectile-project-name)))
+      (unless (string= project-name "-") ; Ignore if not in a project
+        (if (get-perspective project-name)
+            (persp-switch project-name)
+          (persp-add-new project-name)
+          (persp-switch project-name)))))
+
+  ;; Hook this function into projectile to run after switching projects.
+  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create)
+
+  ;; Load the saved perspectives when Emacs starts.
+  (when (file-exists-p persp-state-default-file)
+    (persp-load-state-from-file persp-state-default-file)))
+
+;; Define your custom leader keybindings for workspace management.
+;; Workspaces related keybindings
+(ar/global-leader
+ ;; workspace related keybindings
+ "w" '(:ignore t :wk "workspaces")
+ "w n" '(persp-next :wk "next workspace")
+ "w p" '(persp-prev :wk "previous workspace")
+ "w s" '(persp-switch :wk "switch workspace")
+ "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
+ "w c" '(persp-add-new :wk "create workspace")
+ "w r" '(persp-rename :wk "rename workspace")
+ "w k" '(persp-kill :wk "kill workspace"))
+#+end_src
+
+** Project Management: Deep *projectile* Integration
+#+begin_src emacs-lisp
+(use-package projectile
+  :defer t
+  :custom
+  ;; Use the default completion system, which will be powered by Vertico/Consult.
+  (projectile-completion-system 'default)
+  ;; Define where Projectile should look for your projects.
+  (projectile-project-search-path '("~/Code/" "~/Projects/"))
+  ;; Enable caching for significant performance improvements.
+  (projectile-enable-caching t)
+  ;; When switching projects, immediately open a file prompt within that project.
+  (projectile-switch-project-action #'projectile-find-file)
+
+  :config
+  (projectile-mode +1))
+  ;; Define our extensive project-management keybindings under the "p" prefix.
+
+;; A `consult` source specifically for projectile, if not already provided
+;; by another package. This provides the `consult-projectile` command.
+(use-package consult-projectile
+  :after (consult projectile))
+
+(ar/global-leader
+ "p" '(:ignore t :wk "project")
+ "p p" '(projectile-switch-project :wk "switch project")
+ "p f" '(consult-projectile :wk "find file in project")
+ "p d" '(projectile-find-dir :wk "find directory in project")
+ "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
+ "p g" '(consult-ripgrep :wk "grep in project")
+ "p s" '(:ignore t :wk "save/kill")
+ "p s s" '(projectile-save-project-buffers :wk "save project buffers")
+ "p s k" '(projectile-kill-buffers :wk "kill project buffers")
+ "p c" '(projectile-compile-project :wk "compile project")
+ "p t" '(projectile-run-tests :wk "run project tests")
+ "p R" '(projectile-replace :wk "replace in project"))
+#+end_src
+
+** Buffer Management: A Project-Aware *ibuffer*
+#+begin_src emacs-lisp
+(use-package ibuffer-projectile
+  :defer t
+  :after (ibuffer projectile)
+  :config
+  ;; This hook automatically creates project-based groups in ibuffer.
+  (add-hook 'ibuffer-hook
+            (lambda ()
+              (ibuffer-projectile-set-filter-groups)
+              (unless (eq ibuffer-sorting-mode 'project-file-relative)
+                (ibuffer-do-sort-by-project-file-relative)))))
+
+;; Integrate nerd-icons for a more modern look, similar to Doom's setup.
+(use-package nerd-icons-ibuffer
+  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+
+(ar/global-leader
+  ;; Buffer management
+  "b" '(:ignore t :wk "buffers")
+  "b b" '(consult-buffer :wk "switch buffer")
+  "b i" '(ibuffer :wk "ibuffer (by project)")
+  "b k" '(kill-current-buffer :wk "kill buffer")
+  "b n" '(next-buffer :wk "next buffer")
+  "b p" '(previous-buffer :wk "previous buffer")
+  "b r" '(revert-buffer :wk "revert buffer")
+  "b s" '(save-buffer :wk "save buffer"))
+#+end_src
+
+** Treemacs: Core Configuration and Integrations
+A robust, modern, and reliable configuration for the Treemacs file explorer,
+designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
+related packages to ensure correct load order and a seamless user experience.
+#+begin_src emacs-lisp
+;; --- Core Toggle Function (for SPC t t) ---
+(defun ar/toggle-treemacs-project ()
+  "A reliable, Doom-style command to toggle the Treemacs project drawer.
+If the Treemacs buffer is visible, close it. Otherwise, open
+Treemacs focused on the current project's root."
+  (interactive) ; FIX: Add (interactive) to make this a user-callable command.
+  (if (treemacs-visible-p)
+        (treemacs-close)
+    (treemacs-projectile)))
+
+(use-package treemacs
+  :defer t
+  :after (evil projectile magit perspective winum)
+  :bind
+  :config
+  ;; --- Appearance ---
+  (setq treemacs-display-in-side-window          t
+        treemacs-position                        'left
+        treemacs-width                           35
+        treemacs-width-is-initially-locked       t
+        treemacs-indentation                     2
+        ;; Use nerd-icons for the theme, provided by treemacs-nerd-icons.
+        treemacs-theme                           "nerd-icons")
+  ;; --- Behavior ---
+  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+        treemacs-expand-after-init               t
+        treemacs-follow-after-init               t
+        treemacs-recenter-after-project-jump     'always
+        treemacs-goto-tag-strategy               'refetch-index
+        treemacs-is-never-other-window           nil
+        treemacs-no-delete-other-windows         t)
+
+  ;; --- File Watching & Git ---
+  (setq treemacs-show-hidden-files               t
+        treemacs-hide-dot-git-directory          t
+        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask"))
+
+  ;; --- Persistence ---
+  (setq treemacs-persist-file (expand-file-name "treemacs-persist" no-littering-var-directory))
+
+  ;; Activate essential modes for a dynamic experience
+  (treemacs-follow-mode t)
+  (treemacs-filewatch-mode t)
+  (treemacs-fringe-indicator-mode 'always)
+
+  ;; Configure git integration based on system capabilities
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null treemacs-python-executable)))
+    (`(t . t) (treemacs-git-mode 'deferred))
+    (`(t . _) (treemacs-git-mode 'simple)))
+  (treemacs-hide-gitignored-files-mode nil)
+
+  (ar/global-leader
+    ;; Toggle Stuff
+    "t" '(:ignore t :wk "toggle")
+    "t t" '(ar/toggle-treemacs-project :wk "Treemacs"))
+  )
+
+;; --- Treemacs Integrations ---
+;; These blocks ensure the necessary extension packages are loaded after Treemacs.
+
+(use-package treemacs-nerd-icons
+  :after treemacs)
+
+(use-package treemacs-evil
+  :after treemacs)
+
+(use-package treemacs-projectile
+  :after treemacs)
+
+(use-package treemacs-magit
+  :after treemacs)
+
+(use-package treemacs-perspective
+  :after (treemacs perspective)
+  :config
+  (treemacs-set-scope-type 'Perspectives))
+#+end_src
+
+* File Management
 ** Dired
 This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
 #+begin_src emacs-lisp
@@ -1402,129 +1602,17 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
   (define-key dired-mode-map (kbd "y") 'dired-ranger-copy)
   (define-key dired-mode-map (kbd "p") 'dired-ranger-paste)
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
+#+end_src
 
+** Keybindings
+#+begin_src emacs-lisp
 (ar/global-leader
  "f" '(:ignore t :wk "file")
  "f f" '(find-file :wk "find file")
  "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
- "f r" '(consult-recent-file :wk "find recent file"))
-#+end_src
-
-** Workspaces
-#+begin_src emacs-lisp
-(use-package perspective
-  :defer t
-  :init
-  ;; Set the state file location before enabling the mode.
-  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
-  (setq persp-mode-prefix-key (kbd "C-c p"))
-  :custom
-  ;; Automatically kill empty perspectives to keep the list clean.
-  (persp-auto-kill-on-last-buffer-close t)
-
-  :config
-  (persp-mode +1)
-
-  ;; Custom function to automatically create or switch to a project-specific perspective.
-  (defun ar/perspective-switch-or-create ()
-    "Switch to a perspective named after the current project, creating it if needed."
-    (interactive)
-    (let ((project-name (projectile-project-name)))
-      (unless (string= project-name "-") ; Ignore if not in a project
-        (if (get-perspective project-name)
-            (persp-switch project-name)
-          (persp-add-new project-name)
-          (persp-switch project-name)))))
-
-  ;; Hook this function into projectile to run after switching projects.
-  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create)
-
-  ;; Load the saved perspectives when Emacs starts.
-  (when (file-exists-p persp-state-default-file)
-    (persp-load-state-from-file persp-state-default-file)))
-
-;; Define your custom leader keybindings for workspace management.
-;; Workspaces related keybindings
-(ar/global-leader
- ;; workspace related keybindings
- "w" '(:ignore t :wk "workspaces")
- "w n" '(persp-next :wk "next workspace")
- "w p" '(persp-prev :wk "previous workspace")
- "w s" '(persp-switch :wk "switch workspace")
- "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
- "w c" '(persp-add-new :wk "create workspace")
- "w r" '(persp-rename :wk "rename workspace")
- "w k" '(persp-kill :wk "kill workspace"))
-#+end_src
-
-** Project Management: Deep *projectile* Integration
-#+begin_src emacs-lisp
-(use-package projectile
-  :defer t
-  :custom
-  ;; Use the default completion system, which will be powered by Vertico/Consult.
-  (projectile-completion-system 'default)
-  ;; Define where Projectile should look for your projects.
-  (projectile-project-search-path '("~/Code/" "~/Projects/"))
-  ;; Enable caching for significant performance improvements.
-  (projectile-enable-caching t)
-  ;; When switching projects, immediately open a file prompt within that project.
-  (projectile-switch-project-action #'projectile-find-file)
-
-  :config
-  (projectile-mode +1)
-  ;; Do not treat the emacs 'var' directory as a project.
-  (add-to-list 'projectile-ignored-projects
-               (expand-file-name "var" user-emacs-directory)))
-  ;; Define our extensive project-management keybindings under the "p" prefix.
-
-;; A `consult` source specifically for projectile, if not already provided
-;; by another package. This provides the `consult-projectile` command.
-(use-package consult-projectile
-  :after (consult projectile))
-
-(ar/global-leader
- "p" '(:ignore t :wk "project")
- "p p" '(projectile-switch-project :wk "switch project")
- "p f" '(consult-projectile :wk "find file in project")
- "p d" '(projectile-find-dir :wk "find directory in project")
- "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
- "p g" '(consult-ripgrep :wk "grep in project")
- "p s" '(:ignore t :wk "save/kill")
- "p s s" '(projectile-save-project-buffers :wk "save project buffers")
- "p s k" '(projectile-kill-buffers :wk "kill project buffers")
- "p c" '(projectile-compile-project :wk "compile project")
- "p t" '(projectile-run-tests :wk "run project tests")
- "p R" '(projectile-replace :wk "replace in project"))
-#+end_src
-
-** Buffer Management: A Project-Aware *ibuffer*
-#+begin_src emacs-lisp
-(use-package ibuffer-projectile
-  :defer t
-  :after (ibuffer projectile)
-  :config
-  ;; This hook automatically creates project-based groups in ibuffer.
-  (add-hook 'ibuffer-hook
-            (lambda ()
-              (ibuffer-projectile-set-filter-groups)
-              (unless (eq ibuffer-sorting-mode 'project-file-relative)
-                (ibuffer-do-sort-by-project-file-relative)))))
-
-;; Integrate nerd-icons for a more modern look, similar to Doom's setup.
-(use-package nerd-icons-ibuffer
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
-(ar/global-leader
-  ;; Buffer management
-  "b" '(:ignore t :wk "buffers")
-  "b b" '(consult-buffer :wk "switch buffer")
-  "b i" '(ibuffer :wk "ibuffer (by project)")
-  "b k" '(kill-current-buffer :wk "kill buffer")
-  "b n" '(next-buffer :wk "next buffer")
-  "b p" '(previous-buffer :wk "previous buffer")
-  "b r" '(revert-buffer :wk "revert buffer")
-  "b s" '(save-buffer :wk "save buffer"))
+ "f r" '(consult-recent-file :wk "find recent file")
+ "f t" '(treemacs-find-file :wk "find file in treemacs")
+ "f d" '(treemacs-select-directory :wk "find directory in treemacs"))
 #+end_src
 
 * Development Environment
@@ -1594,9 +1682,6 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   ;; Use GUD's tooltip mode for mouse-hover variable inspection.
   (dape-session-mode-hook . gud-tooltip-mode)
   :config
-  ;; Set the breakpoint file location to be inside the var directory.
-  (setq dape-breakpoint-file (expand-file-name "dape-breakpoints" no-littering-var-directory))
-
   ;; Persist breakpoints across Emacs sessions.
   (add-hook 'kill-emacs-hook #'dape-breakpoint-save)
   (add-hook 'after-init-hook #'dape-breakpoint-load))
