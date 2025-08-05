@@ -1633,7 +1633,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 (use-package treesit-auto
   :when (treesit-available-p)
   :config
-  (setq treesit-auto-langs '(bash c cpp css python toml yaml))
+  (setq treesit-auto-langs '(bash c cpp css python markdown toml yaml))
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
 
