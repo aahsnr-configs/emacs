@@ -257,7 +257,30 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
   :hook (emacs-startup . so-long-mode))
 #+end_src
 
-* General Keybindings
+** PGTK/Wayland Mitigations
+This section contains settings specifically to mitigate performance and input
+issues when running the Pure GTK (PGTK) build of Emacs on Wayland.
+
+#+begin_src emacs-lisp
+;; Mitigate Rendering Sluggishness:
+;; The PGTK backend relies on CPU-intensive rendering. Disabling bidirectional
+;; text reordering can improve responsiveness. This setting is safe to call
+;; early as it does not depend on a graphical frame.
+(setq-default bidi-display-reordering nil)
+
+;; Mitigate Input Lag by disabling GTK input methods.
+;; The function `pgtk-use-im-context` MUST be called after a frame is
+;; created, otherwise it will error. We hook it into `after-make-frame-functions`
+;; to ensure it runs at the correct time, both on startup and for new frames
+;; created by emacsclient in daemon mode.
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
+#+end_src
+
+*General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
