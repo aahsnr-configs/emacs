@@ -16,24 +16,6 @@
 - [ ] How does paredit work?
 
 ---
-## Combining Configurations:
-- minimal-emacs
-  - [ ]
-  - [ ]
-  - [ ]
-
-- final-emacs
-  - [ ] Doom modeline fix
-  - [ ]
-  - [ ]
-  - [ ]
-
-- doom-config
-  - [ ]
-  - [ ]
-  - [ ]
-
----
 ## TASKS
 
 
@@ -58,27 +40,16 @@
 - [x] Integrate org settings from elken/doom
 - [x] Borrow modern emacs from my doom branch of aahsnr/emacs
 - [x] Setup projectile, ibuffer, treemacs, persp-mode: **There are errors in this configuration**
-- [ ] Setup eglot and dape
-      [Note]: - Some people experienced performance issues between lsp-mode and corfu.
-      Minad suggested the following solution:
-      _(advice-add #'lsp-completion-at-point :around #'cape-wrap-noninterruptible)_
-
-      - Maybe also add emacs-lsp-booster configuration
-
-      - Look at the site below for lsp-mode issue for orderless:
-        *https://magnus.therning.org/2024-05-04-orderless-completion-in-lsp-mode.html*
-
+- [x] Setup eglot and dape
 - [ ] Integrate the completion framework with eglot and dape
-      [Note]: To bridge the gap between company and corfu, use this adapter from cape
-      _cape-company-to-capf_
+- [ ] For corfu, print the current selection candidate to buffer.
 - [x] Set gc-cons-threshold to 100mb
 - [ ] Set corfu to display documentation only on key input 
 - [ ] Add cape-company-to-capf backend to cape
-- [ ] Look at https://emacs-lsp.github.io/lsp-mode/page/performance/ after finishing the configuration.
 - [ ] Use Scimax to setup many things
 - [ ] Dired/Dirvish: Copy doom emacs's setup; [Note]: Don't use gemini
-- [ ] For LSP, use eglot and related packages;
-- [ ] For eglot configuration, make sure to have the latest eglot version.
+- [x] For LSP, use eglot and related packages;
+- [ ] For eglot configuration, add a configuration option so that emacs has the latest eglot version.
 - [ ] Make sure embark integrates with eglot
 - [ ] For debugging, use dape and related packages
 - [ ] For syntax-checking, use flymake and related packages
