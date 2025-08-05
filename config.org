@@ -1680,8 +1680,9 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :after org
   :hook (org-mode . org-display-inline-images)
   :custom
+  (jupyter-channel-build-if-needed t)
   ;; Ensure Jupyter uses the Python from the project's virtual environment.
-  (jupyter-python-executable-command (executable-find "python"))
+  (jupyter-python-executable-command (executable-find "python3"))
   ;; Prioritize rich output formats to mimic JupyterLab.
   (ob-jupyter-response-mime-type-priorities
    '("text/html" "image/png" "image/jpeg" "text/plain"))
