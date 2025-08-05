@@ -480,7 +480,7 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
   :after evil
   :hook ((prog-mode . smartparens-mode)
          (text-mode . smartparens-mode)
-         ;;(markdown-mode . smartparens-mode)
+         (markdown-mode . smartparens-mode)
          (org-mode . smartparens-mode))
   :config
   ;;  (smartparens-global-strict-mode 1)
@@ -1342,83 +1342,68 @@ advanced dynamic project task template.
 ** Treemacs
 #+begin_src emacs-lisp
 (use-package treemacs
-  :commands (treemacs
-             treemacs-select-window
-             treemacs-delete-other-windows
-             treemacs-select-directory
-             treemacs-bookmark
-             treemacs-find-file
-             treemacs-find-tag)
-  :init
-  (with-eval-after-load 'winum
-    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
-
+  ;; Defer loading until our custom toggle command is called.
+  :commands (ar/toggle-treemacs)
+  ;; Bind the winum key for selecting the treemacs window.
+  :bind (:map winum-keymap
+              ("M-0" . treemacs-select-window))
   :config
-  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
-        treemacs-deferred-git-apply-delay        0.5
-        treemacs-directory-name-transformer      #'identity
-        treemacs-display-in-side-window          t
-        treemacs-eldoc-display                   'simple
-        treemacs-file-event-delay                2000
-        treemacs-file-extension-regex            treemacs-last-period-regex-value
-        treemacs-file-follow-delay               0.2
-        treemacs-file-name-transformer           #'identity
-        treemacs-follow-after-init               t
-        treemacs-expand-after-init               t
-        treemacs-find-workspace-method           'find-for-file-or-pick-first
-        treemacs-git-command-pipe                ""
-        treemacs-goto-tag-strategy               'refetch-index
-        treemacs-header-scroll-indicators        '(nil . "^^^^^^")
-        treemacs-hide-dot-git-directory          t
+  ;; --- Core Functionality ---
+  (defun ar/toggle-treemacs ()
+    "A reliable command to open or close Treemacs.
+If the Treemacs buffer is visible, close it. Otherwise, open
+Treemacs and focus on the current file."
+    (interactive)
+    (if (treemacs-visible-p)
+        (treemacs-close)
+      (treemacs-find-file)))
+
+  ;; --- Appearance ---
+  (setq treemacs-display-in-side-window          t
+        treemacs-position                        'left
+        treemacs-width                           35
+        treemacs-width-is-initially-locked       t
+        treemacs-width-increment                 1
         treemacs-indentation                     2
         treemacs-indentation-string              " "
-        treemacs-is-never-other-window           nil
-        treemacs-max-git-entries                 5000
-        treemacs-missing-project-action          'ask
-        treemacs-move-files-by-mouse-dragging    t
-        treemacs-move-forward-on-expand          nil
-        treemacs-no-png-images                   nil
-        treemacs-no-delete-other-windows         t
-        treemacs-project-follow-cleanup          nil
-        treemacs-persist-file                    (expand-file-name "treemacs-persist" no-littering-var-directory)
-        treemacs-position                        'left
-        treemacs-read-string-input               'from-child-frame
-        treemacs-recenter-distance               0.1
-        treemacs-recenter-after-file-follow      nil
-        treemacs-recenter-after-tag-follow       nil
-        treemacs-recenter-after-project-jump     'always
-        treemacs-recenter-after-project-expand   'on-distance
-        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
-        treemacs-project-follow-into-home        nil
+        treemacs-header-scroll-indicators        '(nil . "^^^^^^")
+        treemacs-space-between-root-nodes        t
         treemacs-show-cursor                     nil
-        treemacs-show-hidden-files               t
+        treemacs-directory-name-transformer      #'identity
+        treemacs-file-name-transformer           #'identity
+        treemacs-no-png-images                   nil)
+
+  ;; --- Behavior ---
+  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+        treemacs-expand-after-init               t
+        treemacs-follow-after-init               t
+        treemacs-recenter-after-project-jump     'always
+        treemacs-goto-tag-strategy               'refetch-index
+        treemacs-missing-project-action          'ask
+        treemacs-is-never-other-window           nil
+        treemacs-no-delete-other-windows         t
+        treemacs-select-when-already-in-treemacs 'move-back)
+
+  ;; --- File Watching & Git ---
+  (setq treemacs-file-event-delay                2000
+        treemacs-file-follow-delay               0.2
+        treemacs-git-command-pipe                ""
+        treemacs-max-git-entries                 5000
         treemacs-silent-filewatch                nil
         treemacs-silent-refresh                  nil
-        treemacs-sorting                         'alphabetic-asc
-        treemacs-select-when-already-in-treemacs 'move-back
-        treemacs-space-between-root-nodes        t
-        treemacs-tag-follow-cleanup              t
-        treemacs-tag-follow-delay                1.5
-        treemacs-text-scale                      nil
-        treemacs-user-mode-line-format           nil
-        treemacs-user-header-line-format         nil
-        treemacs-wide-toggle-width               70
-        treemacs-width                           35
-        treemacs-width-increment                 1
-        treemacs-width-is-initially-locked       t
-        treemacs-workspace-switch-cleanup        nil)
+        treemacs-show-hidden-files               t
+        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
+        treemacs-hide-dot-git-directory          t)
 
-  ;; The default width and height of the icons is 22 pixels. If you are
-  ;; using a Hi-DPI display, uncomment this to double the icon size.
-  ;; (treemacs-resize-icons 44)
-
+  ;; --- Persistence ---
+  (setq treemacs-persist-file (expand-file-name "treemacs-persist" no-littering-var-directory))
+  
+  ;; Activate essential modes
   (treemacs-follow-mode t)
   (treemacs-filewatch-mode t)
   (treemacs-fringe-indicator-mode 'always)
 
-  ;;(when treemacs-python-executable
-  ;;  (treemacs-git-commit-diff-mode t))
-
+  ;; Configure git integration based on system capabilities
   (pcase (cons (not (null (executable-find "git")))
                (not (null treemacs-python-executable)))
     (`(t . t)
@@ -1437,8 +1422,8 @@ advanced dynamic project task template.
   :after (treemacs projectile))
 
 ;; Magit integration.
-; (use-package treemacs-magit
-;   :after (treemacs magit))
+(use-package treemacs-magit
+  :after (treemacs magit))
 #+end_src
 
 * File Management
@@ -1722,6 +1707,98 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
      :cwd #'projectile-project-root)))
 #+end_src
 
+* Markdown Environment
+A production-ready setup for a modern Markdown workflow in Emacs 30. This
+configuration provides live rendering, a table of contents, superior code block
+highlighting, powerful table editing, linting, and auto-formatting, with
+intelligent conflict resolution and a robust loading order.
+** Core Markdown Mode with Tree-sitter and Enhancements
+This configures `markdown-mode` as the foundation. It is the core component
+that all other Markdown packages will depend on.
+#+begin_src emacs-lisp
+(use-package markdown-mode
+  :commands (markdown-mode gfm-mode)
+  :mode (("\\.md\\'" . gfm-mode)
+         ("\\.markdown\\'" . gfm-mode))
+  :init
+  ;; For Emacs 30+, use treesitter as the default markdown mode.
+  (when (treesit-available-p)
+    (setq markdown-mode-default-major-mode 'markdown-ts-mode))
+  :config
+  ;; Fontify code blocks using their native major modes for rich highlighting.
+  (setq markdown-fontify-code-blocks-natively t)
+
+  ;; Define keybindings for both standard and Tree-sitter modes
+  (dolist (m-map '(markdown-mode-map markdown-ts-mode-map))
+    (define-key m-map (kbd "C-c C-b") #'markdown-toggle-bold)
+    (define-key m-map (kbd "C-c C-s") #'markdown-toggle-italic)
+    (define-key m-map (kbd "C-c C-q") #'markdown-toggle-blockquote)
+    (define-key m-map (kbd "C-c C-l") #'markdown-insert-link)
+    (define-key m-map (kbd "C-c C-i") #'markdown-insert-image)
+    (define-key m-map (kbd "C-c t") #'markdown-edit-table)
+    (define-key m-map (kbd "C-c p") #'markdown-open)
+    (define-key m-map (kbd "C-c o") #'imenu-list-smart-toggle))
+
+  ;; Add folding support to both modes.
+  (add-hook 'markdown-mode-hook #'treesit-fold-mode)
+  (add-hook 'markdown-ts-mode-hook #'treesit-fold-mode))
+#+end_src
+
+** Live In-Buffer Rendering with *md-roam*
+This package provides "website-like" rendering. It depends on `markdown-mode`.
+#+begin_src emacs-lisp
+(use-package md-roam
+  :vc (:url "https://github.com/nobiot/md-roam" :branch main)
+  :after markdown-mode
+  :hook ((markdown-mode . md-roam-mode)
+         (markdown-ts-mode . md-roam-mode))
+  :config
+  (with-eval-after-load 'markdown-mode
+    (advice-add #'markdown-indent-line :before-until #'completion-at-point))
+  
+  (defun ar/configure-md-roam-faces ()
+    "Set md-roam faces to match theme and resolve font conflicts."
+    (setq-local markdown-fontify-code-blocks-natively nil)
+    (set-face-attribute 'md-roam-h1-face nil :foreground "#7aa2f7" :height 1.4 :weight 'bold)
+    (set-face-attribute 'md-roam-h2-face nil :foreground "#73daca" :height 1.3 :weight 'bold)
+    (set-face-attribute 'md-roam-h3-face nil :foreground "#bb9af7" :height 1.2 :weight 'bold)
+    (set-face-attribute 'md-roam-h4-face nil :foreground "#e0af68" :height 1.1 :weight 'bold)
+    (set-face-attribute 'md-roam-h5-face nil :foreground "#ff9e64" :height 1.0 :weight 'bold)
+    (set-face-attribute 'md-roam-h6-face nil :foreground "#c0caf5" :height 1.0 :weight 'bold)
+    (set-face-attribute 'md-roam-code-face nil :background "#2f3c22")
+    (set-face-attribute 'md-roam-blockquote-face nil :slant 'italic :foreground "#565f89"))
+  (add-hook 'md-roam-mode-hook #'ar/configure-md-roam-faces))
+#+end_src
+
+** Table of Contents Sidebar with *imenu-list*
+Provides a dynamic, clickable table of contents for easy navigation.
+#+begin_src emacs-lisp
+(use-package imenu-list
+  :after markdown-mode
+  :custom
+  (imenu-list-focus-after-activation t)
+  (imenu-list-auto-update t)) ; FIX: This is a variable, not a function.
+#+end_src
+
+** Live Linting with *flymake-markdownlint*
+Integrates `markdownlint` with Flymake for on-the-fly style checking.
+#+begin_src emacs-lisp
+(use-package flymake-markdownlint
+  :after markdown-mode
+  :hook ((markdown-mode . flymake-markdownlint-enable)
+         (markdown-ts-mode . flymake-markdownlint-enable)))
+#+end_src
+
+** Auto-formatting with Apheleia
+This configures `apheleia` to use `prettier` for auto-formatting.
+#+begin_src emacs-lisp
+(with-eval-after-load 'apheleia
+  (setf (alist-get 'gfm-mode apheleia-formatters)
+        '("prettier" "--prose-wrap" "always"))
+  (setf (alist-get 'markdown-ts-mode apheleia-formatters)
+        '("prettier" "--prose-wrap" "always")))
+#+end_src
+
 * General Tools
 ** Helpful
 Helpful is an alternative to the built-in Emacs help that provides much more
@@ -1930,7 +2007,7 @@ This is a good practice to keep Emacs responsive.
     "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
     "f r" '(consult-recent-file :wk "find recent file")
     "f t" '(treemacs-find-file :wk "find file in treemacs")
-    "f d" '(treemacs-find-dir :wk "find directory in treemacs")
+    "f d" '(treemacs-select-directory :wk "find directory in treemacs")
 
     ;; version management
     "g" '(:ignore t :wk "git")
@@ -2005,6 +2082,10 @@ This is a good practice to keep Emacs responsive.
     "p t" '(projectile-run-tests :wk "run project tests")
     "p R" '(projectile-replace :wk "replace in project")
 
+    ;; Toggle Stuff
+    "t" '(:ignore t :wk "toggle")
+    "t t" '(ar/open-treemacs-project :wk "Treemacs")
+    
     ;; workspace related keybindings
     "w" '(:ignore t :wk "workspaces")
     "w n" '(persp-next :wk "next workspace")
