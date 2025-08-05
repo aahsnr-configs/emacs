@@ -490,6 +490,273 @@ Enable line numbers for some modes
   (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
 #+end_src
 
+* Workflow Management
+** Workspaces
+#+begin_src emacs-lisp
+(use-package perspective
+  :defer t
+  :init
+  ;; Set the state file location before enabling the mode.
+  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
+  (setq persp-mode-prefix-key (kbd "C-c p"))
+  :custom
+  ;; Automatically kill empty perspectives to keep the list clean.
+  (persp-auto-kill-on-last-buffer-close t)
+
+  :config
+  (persp-mode +1)
+
+  ;; Custom function to automatically create or switch to a project-specific perspective.
+  (defun ar/perspective-switch-or-create ()
+    "Switch to a perspective named after the current project, creating it if needed."
+    (interactive)
+    (let ((project-name (projectile-project-name)))
+      (unless (string= project-name "-") ; Ignore if not in a project
+        (if (get-perspective project-name)
+            (persp-switch project-name)
+          (persp-add-new project-name)
+          (persp-switch project-name)))))
+
+  ;; Hook this function into projectile to run after switching projects.
+  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create)
+
+  ;; Load the saved perspectives when Emacs starts.
+  (when (file-exists-p persp-state-default-file)
+    (persp-load-state-from-file persp-state-default-file)))
+
+;; Define your custom leader keybindings for workspace management.
+;; Workspaces related keybindings
+(ar/global-leader
+ ;; workspace related keybindings
+ "w" '(:ignore t :wk "workspaces")
+ "w n" '(persp-next :wk "next workspace")
+ "w p" '(persp-prev :wk "previous workspace")
+ "w s" '(persp-switch :wk "switch workspace")
+ "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
+ "w c" '(persp-add-new :wk "create workspace")
+ "w r" '(persp-rename :wk "rename workspace")
+ "w k" '(persp-kill :wk "kill workspace"))
+#+end_src
+
+** Project Management: Deep *projectile* Integration
+#+begin_src emacs-lisp
+(use-package projectile
+  :defer t
+  :custom
+  ;; Use the default completion system, which will be powered by Vertico/Consult.
+  (projectile-completion-system 'default)
+  ;; Define where Projectile should look for your projects.
+  (projectile-project-search-path '("~/Code/" "~/Projects/"))
+  ;; Enable caching for significant performance improvements.
+  (projectile-enable-caching t)
+  ;; When switching projects, immediately open a file prompt within that project.
+  (projectile-switch-project-action #'projectile-find-file)
+
+  :config
+  (projectile-mode +1)
+  ;; Do not treat the emacs 'var' directory as a project.
+  (add-to-list 'projectile-ignored-projects
+               (expand-file-name "var" user-emacs-directory)))
+  ;; Define our extensive project-management keybindings under the "p" prefix.
+
+;; A `consult` source specifically for projectile, if not already provided
+;; by another package. This provides the `consult-projectile` command.
+(use-package consult-projectile
+  :after (consult projectile))
+
+(ar/global-leader
+ "p" '(:ignore t :wk "project")
+ "p p" '(projectile-switch-project :wk "switch project")
+ "p f" '(consult-projectile :wk "find file in project")
+ "p d" '(projectile-find-dir :wk "find directory in project")
+ "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
+ "p g" '(consult-ripgrep :wk "grep in project")
+ "p s" '(:ignore t :wk "save/kill")
+ "p s s" '(projectile-save-project-buffers :wk "save project buffers")
+ "p s k" '(projectile-kill-buffers :wk "kill project buffers")
+ "p c" '(projectile-compile-project :wk "compile project")
+ "p t" '(projectile-run-tests :wk "run project tests")
+ "p R" '(projectile-replace :wk "replace in project"))
+#+end_src
+
+** Buffer Management: A Project-Aware *ibuffer*
+#+begin_src emacs-lisp
+(use-package ibuffer-projectile
+  :defer t
+  :after (ibuffer projectile)
+  :config
+  ;; This hook automatically creates project-based groups in ibuffer.
+  (add-hook 'ibuffer-hook
+            (lambda ()
+              (ibuffer-projectile-set-filter-groups)
+              (unless (eq ibuffer-sorting-mode 'project-file-relative)
+                (ibuffer-do-sort-by-project-file-relative)))))
+
+;; Integrate nerd-icons for a more modern look, similar to Doom's setup.
+(use-package nerd-icons-ibuffer
+  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
+
+(ar/global-leader
+  ;; Buffer management
+  "b" '(:ignore t :wk "buffers")
+  "b b" '(consult-buffer :wk "switch buffer")
+  "b i" '(ibuffer :wk "ibuffer (by project)")
+  "b k" '(kill-current-buffer :wk "kill buffer")
+  "b n" '(next-buffer :wk "next buffer")
+  "b p" '(previous-buffer :wk "previous buffer")
+  "b r" '(revert-buffer :wk "revert buffer")
+  "b s" '(save-buffer :wk "save buffer"))
+#+end_src
+
+** File Management
+*** Treemacs: Core Configuration and Integrations
+A robust, modern, and reliable configuration for the Treemacs file explorer,
+designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
+related packages to ensure correct load order and a seamless user experience.
+#+begin_src emacs-lisp
+(use-package treemacs
+  :defer t
+  :init
+  (with-eval-after-load 'evil
+    (evil-set-initial-state 'treemacs-mode 'emacs))
+
+  :config
+  (setq treemacs-git-mode 'simple)
+  (setq treemacs-collapse-dirs
+        (cond
+         ((executable-find "python3") 3)
+         ((executable-find "python") 3)
+         (t 0))) ; Fallback if no python is found
+  ;; Disable automatic file following for performance. Use `f` inside treemacs to find manually.
+  (setq treemacs-follow-after-init          nil)
+  (setq treemacs-is-never-other-window      nil) ; Allow `C-x o` to switch to treemacs
+  (setq treemacs-missing-project-action     'remove)
+  (setq treemacs-goto-tag-strategy          'ref-history)
+  (setq treemacs-expand-after-init          t)
+  (setq treemacs-sorting                    'alphabetic-asc)
+  (setq treemacs-position                   'left)
+  (setq treemacs-width                      35)
+  (setq treemacs-indentation                2)
+  (setq treemacs-display-in-side-window     t)
+  (setq treemacs-show-hidden-files          nil)
+  (setq treemacs-space-between-root-nodes   t))
+
+(use-package treemacs-evil
+  :after (treemacs evil))
+
+(use-package treemacs-projectile
+  :defer t
+  :after (treemacs projectile))
+
+(use-package treemacs-magit
+  :defer t
+  :after (treemacs magit))
+
+(use-package treemacs-perspective
+  :defer t
+  :after (treemacs perspective))
+
+(use-package treemacs-nerd-icons
+  :after treemacs
+  :config
+  (treemacs-load-theme "nerd-icons"))
+#+end_src
+
+*** Dired
+This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
+#+begin_src emacs-lisp
+(use-package fd-dired
+  :defer t
+  :config
+  (setq fd-dired-use-gnu-find-syntax t))
+
+;; Provides commands to open files with external applications.
+(use-package dired-open
+  :defer t
+  :config
+  (setq dired-open-extensions '(("png" . "imv") ("mp4" . "mpv"))))
+
+(use-package dired
+  :ensure nil
+  :commands (dired dired-jump)
+  :hook (dired-mode . dired-hide-dotfiles-mode)
+  :custom
+  (dired-listing-switches "-agho --group-directories-first")
+  (dired-auto-revert-buffer t)
+  (dired-dwim-target t)
+  (dired-recursive-deletes 'always)
+  (dired-recursive-copies 'always)
+  :config
+  ;; Enable git gutter information asynchronously.
+  (add-hook 'dired-mode-hook 'dired-git-info-mode)
+
+  ;; Define evil-mode keys for a vim-like experience.
+  (evil-define-key 'normal dired-mode-map
+    ;; Navigation
+    (kbd "h") 'dired-up-directory
+    (kbd "l") 'dired-find-file-other-window ; Open in other window is often more useful
+    (kbd "j") 'dired-next-line
+    (kbd "k") 'dired-previous-line
+    (kbd "G") 'dired-goto-file
+    (kbd "gg") 'dired-first-line
+    (kbd "^") 'dired-goto-root-directory
+    (kbd "~") 'dired-home
+    (kbd "RET") 'dired-find-file
+    (kbd "i") 'dired-maybe-insert-subdir
+    ;; Marking
+    (kbd "m") 'dired-mark
+    (kbd "u") 'dired-unmark
+    (kbd "U") 'dired-unmark-all-marks
+    (kbd "t") 'dired-toggle-marks
+    ;; File Operations
+    (kbd "C-n") 'dired-create-file
+    (kbd "C-d") 'dired-create-directory
+    (kbd "R") 'dired-do-rename
+    (kbd "D") 'dired-do-delete
+    (kbd "C") 'dired-do-copy
+    (kbd "X") 'dired-open-file ; Use dired-open to open externally
+    (kbd "M") 'dired-do-chmod
+    (kbd "O") 'dired-do-chown))
+
+;; dired-x for additional functionality
+(use-package dired-x
+  :ensure nil
+  :after dired
+  :custom (dired-x-hands-off-my-keys nil)
+  :config
+  ;; Define dired-omit-files to prevent void-variable errors
+  (setq dired-omit-files "^\\.[^.]\\|^#\\|^\\.$\\|^\\.\\.$\\|\\.pyc$\\|\\.o$")
+  (setq dired-omit-verbose nil))
+
+;; Asynchronously display git status in Dired. Highly performant.
+(use-package dired-git-info
+  :defer t
+  :commands dired-git-info-mode)
+
+;; Adds Nerd Font icons to Dired.
+(use-package nerd-icons-dired
+  :hook (dired-mode . nerd-icons-dired-mode))
+
+;; Allows editing directory listings directly (wdired) with ranger-like keys.
+(use-package dired-ranger
+  :after dired
+  :config
+  (define-key dired-mode-map (kbd "y") 'dired-ranger-copy)
+  (define-key dired-mode-map (kbd "p") 'dired-ranger-paste)
+  (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
+#+end_src
+
+*** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ "f" '(:ignore t :wk "file")
+ "f f" '(find-file :wk "find file")
+ "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
+ "f r" '(consult-recent-file :wk "find recent file")
+ "f t" '(treemacs-find-file :wk "find file in treemacs")
+ "f d" '(treemacs-select-directory :wk "find directory in treemacs"))
+#+end_src
+
 * Editor Behaviour
 ** Lines Behaviour
 #+begin_src emacs-lisp
@@ -617,12 +884,11 @@ This provides a declarative way to control where and how special-purpose buffers
 appear, ensuring a consistent and predictable windowing layout.
 #+begin_src emacs-lisp
 (use-package shackle
-  :init (shackle-mode)
-  :custom
-  (shackle-rules
+  :init
+  (setq shackle-rules
    '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
      ;; This allows Treemacs to use its own logic for side-window placement.
-     ("^\\*treemacs.*\\*$" :ignore t)
+     ("^\\*treemacs.*\\*$" :side left :size 35)
      ;; Rule for Help buffers
      ("\\`\\*Help" :align bottom :size 0.3)
      ;; Rule for compilation/grep/etc.
@@ -635,7 +901,9 @@ appear, ensuring a consistent and predictable windowing layout.
      ("\\`\\*dap-locals" :align right :size 0.4)
      ("\\`\\*dap-breakpoints" :align right :size 0.4)
      ("\\`\\*dap-sessions" :align right :size 0.4))
-   shackle-inhibit-window-quit-on-same-buffer t))
+   shackle-inhibit-window-quit-on-same-buffer t)
+  :config
+  (shackle-mode))
 #+end_src
 
 ** Combobulate
@@ -1327,273 +1595,6 @@ advanced dynamic project task template.
  "o n" '(:ignore t :which-key "org noter")
  "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
  "o n i" '(org-noter-insert-note :wk "Insert Note"))
-#+end_src
-
-* Workflow Management
-** Workspaces
-#+begin_src emacs-lisp
-(use-package perspective
-  :defer t
-  :init
-  ;; Set the state file location before enabling the mode.
-  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
-  (setq persp-mode-prefix-key (kbd "C-c p"))
-  :custom
-  ;; Automatically kill empty perspectives to keep the list clean.
-  (persp-auto-kill-on-last-buffer-close t)
-
-  :config
-  (persp-mode +1)
-
-  ;; Custom function to automatically create or switch to a project-specific perspective.
-  (defun ar/perspective-switch-or-create ()
-    "Switch to a perspective named after the current project, creating it if needed."
-    (interactive)
-    (let ((project-name (projectile-project-name)))
-      (unless (string= project-name "-") ; Ignore if not in a project
-        (if (get-perspective project-name)
-            (persp-switch project-name)
-          (persp-add-new project-name)
-          (persp-switch project-name)))))
-
-  ;; Hook this function into projectile to run after switching projects.
-  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create)
-
-  ;; Load the saved perspectives when Emacs starts.
-  (when (file-exists-p persp-state-default-file)
-    (persp-load-state-from-file persp-state-default-file)))
-
-;; Define your custom leader keybindings for workspace management.
-;; Workspaces related keybindings
-(ar/global-leader
- ;; workspace related keybindings
- "w" '(:ignore t :wk "workspaces")
- "w n" '(persp-next :wk "next workspace")
- "w p" '(persp-prev :wk "previous workspace")
- "w s" '(persp-switch :wk "switch workspace")
- "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
- "w c" '(persp-add-new :wk "create workspace")
- "w r" '(persp-rename :wk "rename workspace")
- "w k" '(persp-kill :wk "kill workspace"))
-#+end_src
-
-** Project Management: Deep *projectile* Integration
-#+begin_src emacs-lisp
-(use-package projectile
-  :defer t
-  :custom
-  ;; Use the default completion system, which will be powered by Vertico/Consult.
-  (projectile-completion-system 'default)
-  ;; Define where Projectile should look for your projects.
-  (projectile-project-search-path '("~/Code/" "~/Projects/"))
-  ;; Enable caching for significant performance improvements.
-  (projectile-enable-caching t)
-  ;; When switching projects, immediately open a file prompt within that project.
-  (projectile-switch-project-action #'projectile-find-file)
-
-  :config
-  (projectile-mode +1)
-  ;; Do not treat the emacs 'var' directory as a project.
-  (add-to-list 'projectile-ignored-projects
-               (expand-file-name "var" user-emacs-directory)))
-  ;; Define our extensive project-management keybindings under the "p" prefix.
-
-;; A `consult` source specifically for projectile, if not already provided
-;; by another package. This provides the `consult-projectile` command.
-(use-package consult-projectile
-  :after (consult projectile))
-
-(ar/global-leader
- "p" '(:ignore t :wk "project")
- "p p" '(projectile-switch-project :wk "switch project")
- "p f" '(consult-projectile :wk "find file in project")
- "p d" '(projectile-find-dir :wk "find directory in project")
- "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
- "p g" '(consult-ripgrep :wk "grep in project")
- "p s" '(:ignore t :wk "save/kill")
- "p s s" '(projectile-save-project-buffers :wk "save project buffers")
- "p s k" '(projectile-kill-buffers :wk "kill project buffers")
- "p c" '(projectile-compile-project :wk "compile project")
- "p t" '(projectile-run-tests :wk "run project tests")
- "p R" '(projectile-replace :wk "replace in project"))
-#+end_src
-
-** Buffer Management: A Project-Aware *ibuffer*
-#+begin_src emacs-lisp
-(use-package ibuffer-projectile
-  :defer t
-  :after (ibuffer projectile)
-  :config
-  ;; This hook automatically creates project-based groups in ibuffer.
-  (add-hook 'ibuffer-hook
-            (lambda ()
-              (ibuffer-projectile-set-filter-groups)
-              (unless (eq ibuffer-sorting-mode 'project-file-relative)
-                (ibuffer-do-sort-by-project-file-relative)))))
-
-;; Integrate nerd-icons for a more modern look, similar to Doom's setup.
-(use-package nerd-icons-ibuffer
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
-(ar/global-leader
-  ;; Buffer management
-  "b" '(:ignore t :wk "buffers")
-  "b b" '(consult-buffer :wk "switch buffer")
-  "b i" '(ibuffer :wk "ibuffer (by project)")
-  "b k" '(kill-current-buffer :wk "kill buffer")
-  "b n" '(next-buffer :wk "next buffer")
-  "b p" '(previous-buffer :wk "previous buffer")
-  "b r" '(revert-buffer :wk "revert buffer")
-  "b s" '(save-buffer :wk "save buffer"))
-#+end_src
-
-** File Management
-*** Treemacs: Core Configuration and Integrations
-A robust, modern, and reliable configuration for the Treemacs file explorer,
-designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
-related packages to ensure correct load order and a seamless user experience.
-#+begin_src emacs-lisp
-(use-package treemacs
-  :defer t
-  :init
-  (with-eval-after-load 'evil
-    (evil-set-initial-state 'treemacs-mode 'emacs))
-
-  :config
-  (setq treemacs-git-mode 'simple)
-  (setq treemacs-collapse-dirs
-        (cond
-         ((executable-find "python3") 3)
-         ((executable-find "python") 3)
-         (t 0))) ; Fallback if no python is found
-  ;; Disable automatic file following for performance. Use `f` inside treemacs to find manually.
-  (setq treemacs-follow-after-init          nil)
-  (setq treemacs-is-never-other-window      nil) ; Allow `C-x o` to switch to treemacs
-  (setq treemacs-missing-project-action     'remove)
-  (setq treemacs-goto-tag-strategy          'ref-history)
-  (setq treemacs-expand-after-init          t)
-  (setq treemacs-sorting                    'alphabetic-asc)
-  (setq treemacs-position                   'left)
-  (setq treemacs-width                      35)
-  (setq treemacs-indentation                2)
-  (setq treemacs-display-in-side-window     t)
-  (setq treemacs-show-hidden-files          nil)
-  (setq treemacs-space-between-root-nodes   t))
-
-(use-package treemacs-evil
-  :after (treemacs evil))
-
-(use-package treemacs-projectile
-  :defer t
-  :after (treemacs projectile))
-
-(use-package treemacs-magit
-  :defer t
-  :after (treemacs magit))
-
-(use-package treemacs-perspective
-  :defer t
-  :after (treemacs perspective))
-
-(use-package treemacs-nerd-icons
-  :after treemacs
-  :config
-  (treemacs-load-theme "nerd-icons"))
-#+end_src
-
-*** Dired
-This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
-#+begin_src emacs-lisp
-(use-package fd-dired
-  :defer t
-  :config
-  (setq fd-dired-use-gnu-find-syntax t))
-
-;; Provides commands to open files with external applications.
-(use-package dired-open
-  :defer t
-  :config
-  (setq dired-open-extensions '(("png" . "imv") ("mp4" . "mpv"))))
-
-(use-package dired
-  :ensure nil
-  :commands (dired dired-jump)
-  :hook (dired-mode . dired-hide-dotfiles-mode)
-  :custom
-  (dired-listing-switches "-agho --group-directories-first")
-  (dired-auto-revert-buffer t)
-  (dired-dwim-target t)
-  (dired-recursive-deletes 'always)
-  (dired-recursive-copies 'always)
-  :config
-  ;; Enable git gutter information asynchronously.
-  (add-hook 'dired-mode-hook 'dired-git-info-mode)
-
-  ;; Define evil-mode keys for a vim-like experience.
-  (evil-define-key 'normal dired-mode-map
-    ;; Navigation
-    (kbd "h") 'dired-up-directory
-    (kbd "l") 'dired-find-file-other-window ; Open in other window is often more useful
-    (kbd "j") 'dired-next-line
-    (kbd "k") 'dired-previous-line
-    (kbd "G") 'dired-goto-file
-    (kbd "gg") 'dired-first-line
-    (kbd "^") 'dired-goto-root-directory
-    (kbd "~") 'dired-home
-    (kbd "RET") 'dired-find-file
-    (kbd "i") 'dired-maybe-insert-subdir
-    ;; Marking
-    (kbd "m") 'dired-mark
-    (kbd "u") 'dired-unmark
-    (kbd "U") 'dired-unmark-all-marks
-    (kbd "t") 'dired-toggle-marks
-    ;; File Operations
-    (kbd "C-n") 'dired-create-file
-    (kbd "C-d") 'dired-create-directory
-    (kbd "R") 'dired-do-rename
-    (kbd "D") 'dired-do-delete
-    (kbd "C") 'dired-do-copy
-    (kbd "X") 'dired-open-file ; Use dired-open to open externally
-    (kbd "M") 'dired-do-chmod
-    (kbd "O") 'dired-do-chown))
-
-;; dired-x for additional functionality
-(use-package dired-x
-  :ensure nil
-  :after dired
-  :custom (dired-x-hands-off-my-keys nil)
-  :config
-  ;; Define dired-omit-files to prevent void-variable errors
-  (setq dired-omit-files "^\\.[^.]\\|^#\\|^\\.$\\|^\\.\\.$\\|\\.pyc$\\|\\.o$")
-  (setq dired-omit-verbose nil))
-
-;; Asynchronously display git status in Dired. Highly performant.
-(use-package dired-git-info
-  :defer t
-  :commands dired-git-info-mode)
-
-;; Adds Nerd Font icons to Dired.
-(use-package nerd-icons-dired
-  :hook (dired-mode . nerd-icons-dired-mode))
-
-;; Allows editing directory listings directly (wdired) with ranger-like keys.
-(use-package dired-ranger
-  :after dired
-  :config
-  (define-key dired-mode-map (kbd "y") 'dired-ranger-copy)
-  (define-key dired-mode-map (kbd "p") 'dired-ranger-paste)
-  (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
-#+end_src
-
-*** Keybindings
-#+begin_src emacs-lisp
-(ar/global-leader
- "f" '(:ignore t :wk "file")
- "f f" '(find-file :wk "find file")
- "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
- "f r" '(consult-recent-file :wk "find recent file")
- "f t" '(treemacs-find-file :wk "find file in treemacs")
- "f d" '(treemacs-select-directory :wk "find directory in treemacs"))
 #+end_src
 
 * Development Environment
