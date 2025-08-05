@@ -26,24 +26,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
       use-package-expand-minimally t)
 #+end_src
 
-** Native Compilation
-Ensure adding the following compile-angel code at the very beginning of the *~/.config/emacs/config.org* file, before all other packages.
-#+begin_src emacs-lisp
-;; Ensure adding the following compile-angel code at the very beginning
-;; of your `~/.emacs.d/post-init.el` file, before all other packages.
-(use-package compile-angel
-  :demand t
-  :custom
-  (compile-angel-verbose nil)
-
-  :config
-  (push "/init.el" compile-angel-excluded-files)
-  (push "/early-init.el" compile-angel-excluded-files)
-  (push "/config.el" compile-angel-excluded-files)
-  (push "/custom.el" compile-angel-excluded-files)
-  (compile-angel-on-load-mode))
-#+end_src
-
 ** General Behaviour
 #+begin_src emacs-lisp
 ;; Allow for shorter "y" or "n" responses.
