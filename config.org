@@ -1476,8 +1476,7 @@ related packages to ensure correct load order and a seamless user experience.
   :after (treemacs magit))
 
 (use-package treemacs-perspective
-  :after (treemacs perspective)
-  :init (treemacs-perspective-mode 1))
+  :after (treemacs perspective))
 
 (use-package treemacs-nerd-icons
   :after treemacs
