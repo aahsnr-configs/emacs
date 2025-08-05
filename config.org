@@ -1126,7 +1126,7 @@ Org Roam is configured for rapid, Zettelkasten-style note-taking. Templates are 
   :after org
   :init
   (setq org-roam-directory my/org-roam-directory)
-  (setq org-roam-db-location (expand-file-name "org-roam.db" user-emacs-directory))
+  (setq org-roam-db-location (expand-file-name "org-roam.db" no-littering-var-directory))
   :custom
   (org-roam-completion-everywhere t)
   (org-roam-node-display-template
@@ -1265,7 +1265,7 @@ advanced dynamic project task template.
   :defer t
   :init
   ;; Set the state file location before enabling the mode.
-  (setq persp-state-default-file (expand-file-name "perspectives" user-emacs-directory))
+  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
   (setq persp-mode-prefix-key (kbd "C-c p"))
   :custom
   ;; Automatically kill empty perspectives to keep the list clean.
@@ -1380,7 +1380,7 @@ advanced dynamic project task template.
         treemacs-no-png-images                   nil
         treemacs-no-delete-other-windows         t
         treemacs-project-follow-cleanup          nil
-        treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+        treemacs-persist-file                    (expand-file-name "treemacs-persist" no-littering-var-directory)
         treemacs-position                        'left
         treemacs-read-string-input               'from-child-frame
         treemacs-recenter-distance               0.1
