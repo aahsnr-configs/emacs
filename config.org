@@ -248,16 +248,13 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 ;;; Intelligent Garbage Collection
 ;; Run garbage collection only when Emacs is idle to prevent stuttering.
 (use-package gcmh
-  :defer 1
   :config
   (gcmh-mode 1))
 
 ;;; Handling Large Files
 ;; Prevent slowdowns when opening very large files by disabling expensive modes.
 (use-package so-long
-  :defer 1
-  :config
-  (so-long-mode 1))
+  :hook (emacs-startup . so-long-mode))
 #+end_src
 
 * General Keybindings
@@ -1783,7 +1780,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 * Python & Jupyter for Org Mode
 #+begin_src emacs-lisp
-(use-package zmq :defer t)
 ;; Provides Jupyter integration for Emacs.
 (use-package jupyter
   :defer t
@@ -1975,8 +1971,7 @@ ensures it works seamlessly with a full-frame UI and other packages.
       (jump-to-register :magit-fullscreen)))
 
   ;; Bind "q" in the status buffer to our custom quitting function.
-  (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows)
-  (add-hook 'magit-status-mode-hook #'ar/init-forge-for-magit))
+  (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows))
 #+end_src
 
 ** Forge: Git Forge Integration
