@@ -136,7 +136,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 
 ** Source Scripts
 #+begin_src emacs-lisp
-(add-to-list 'load-path "~/.emacs.d/lisp/")
 (require 'reload-config)
 ;;(require 'buffer-move)
 ;; (require 'garbage-collect)
