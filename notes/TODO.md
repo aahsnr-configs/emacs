@@ -2,6 +2,10 @@
 
 ## INSPIRATIONS
 
+## OPTIMIZATIONS
+- [ ] Headling folding/unfolding can introduce lag
+- [ ] Input Delay when using pgtk
+
 ## QUESTIONS 
 ---
 - [ ] Orderless,vertico, marginalia, nerd-icons-completion, consult, embark, embark-consult, corfu, nerd-icons-corfu, cape, dabbrev. What are some issues that these package face with lsp-mode or dap-mode
@@ -68,7 +72,8 @@
       [Note]: To bridge the gap between company and corfu, use this adapter from cape
       _cape-company-to-capf_
 - [x] Set gc-cons-threshold to 100mb
-- [ ] Replace corfu and dabbrev with company
+- [ ] Set corfu to display documentation only on key input 
+- [ ] Add cape-company-to-capf backend to cape
 - [ ] Look at https://emacs-lsp.github.io/lsp-mode/page/performance/ after finishing the configuration.
 - [ ] Use Scimax to setup many things
 - [ ] Dired/Dirvish: Copy doom emacs's setup; [Note]: Don't use gemini

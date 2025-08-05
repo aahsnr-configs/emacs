@@ -101,6 +101,9 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 
 ;; Skip confirmation prompts when creating a new file or buffer
 (setq confirm-nonexistent-file-or-buffer nil)
+
+;; Disable cursor blink for a more responsive feel and fewer redraws.
+(blink-cursor-mode -1)
 #+end_src
 
 ** Editing and Indentation
@@ -123,9 +126,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (setq show-paren-delay 0.1
       show-paren-when-point-inside-paren t)
 (setq blink-matching-paren nil) ; Don't blink, it's distracting.
-
-;; Delete selected text when typing.
-(delete-selection-mode 1)
 #+end_src
 
 ** Setup User
@@ -243,6 +243,23 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (auto-save-visited-mode 1)     
 #+end_src
 
+** Performance Tuning Packages
+#+begin_src emacs-lisp
+;;; Intelligent Garbage Collection
+;; Run garbage collection only when Emacs is idle to prevent stuttering.
+(use-package gcmh
+  :defer 1
+  :config
+  (gcmh-mode 1))
+
+;;; Handling Large Files
+;; Prevent slowdowns when opening very large files by disabling expensive modes.
+(use-package so-long
+  :defer 1
+  :config
+  (so-long-mode 1))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
@@ -264,42 +281,44 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 
 * UI & Theming
 ** Fonts
+This setup defines a robust function to find and set the best available font from a priority list. It prevents errors if a font is not installed and warns the user.
 #+begin_src emacs-lisp
-(defun ar/set-font-faces ()
-  "Set all font faces for the current frame."
-  ;; Set default, fixed-pitch, and variable-pitch faces to JetBrainsMono Nerd Font
-  ;; Height 145 corresponds to 14.5pt. Adjust as needed.
-  (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font" :height 145 :weight 'medium)
-  (set-face-attribute 'fixed-pitch nil :font "JetBrainsMono Nerd Font" :height 145 :weight 'medium)
-  (set-face-attribute 'variable-pitch nil :font "JetBrainsMono Nerd Font" :height 145 :weight 'medium)
-  ;; Apply italic slant to comments and keywords for visual distinction
-  (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
-  (set-face-attribute 'font-lock-keyword-face nil :slant 'italic)
-  (set-language-environment "UTF-8")
-  (set-fontset-font t 'unicode "JetBrainsMono Nerd Font" nil 'append)
-  (set-fontset-font t 'symbol "JetBrainsMono Nerd Font" nil 'append))
+(defun ar/font-exists-p (font-name)
+  "Check if a font with FONT-NAME exists on the system."
+  (when (find-font (font-spec :name font-name))
+    font-name))
 
+(defun ar/set-fonts ()
+  "Set fonts for the current frame, using the first available Nerd Font."
+  (let* ((preferred-fonts '("JetBrainsMono Nerd Font" "FiraCode Nerd Font" "Hack Nerd Font"))
+         (available-font (cl-find-if #'ar/font-exists-p preferred-fonts)))
+    (if available-font
+        (progn
+          (set-face-attribute 'default nil :font available-font :height 145 :weight 'medium)
+          (set-face-attribute 'fixed-pitch nil :font available-font :height 145 :weight 'medium)
+          (set-face-attribute 'variable-pitch nil :font available-font :height 145 :weight 'medium)
+          ;; Apply italic slant to comments and keywords for visual distinction
+          (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
+          (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
+      (warn "Nerd Fonts not found. Please install JetBrainsMono, FiraCode, or Hack Nerd Font."))))
 
+;; Set fonts on startup and for new frames in daemon mode.
 (if (daemonp)
-    (add-hook 'after-make-frame-functions
-              (lambda (frame) (with-selected-frame frame (ar/set-font-faces))))
-  (ar/set-font-faces))
+    (add-hook 'after-make-frame-functions (lambda (frame) (with-selected-frame frame (ar/set-fonts))))
+  (ar/set-fonts))
 
 (setq font-lock-maximum-decoration t)
 #+end_src
 
-** Line Numbers 
+** Line Numbers
+Enable line numbers for some modes
 #+begin_src emacs-lisp
-;; probably redundant
-;;(global-display-line-numbers-mode -1)
-;; Enable line numbers for some modes
 (dolist (mode '(prog-mode-hook
                 conf-mode-hook))
   (add-hook mode (lambda () (display-line-numbers-mode t))))
 #+end_src
 
-** 📥 TODO Theming
-*Use distinct different colors for bold, italic and underline texts*
+** Theming
 #+begin_src emacs-lisp
 (use-package doom-themes
   :custom
@@ -317,15 +336,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
   (custom-set-faces
    '(bold ((t (:foreground "#7aa2f7" :weight bold))))
    '(italic ((t (:foreground "#bb9af7" :slant italic))))))
-#+end_src
-
-#+begin_src emacs-lisp
-;; (use-package catppuccin-theme
-;;   :demand t  ; Automatically installs the theme if it's not already present
-;;   :config
-;;   ;; Set the theme variant to 'macchiato' before loading
-;;   (setq catppuccin-flavor 'macchiato)
-;;   (load-theme 'catppuccin t))
 #+end_src
 
 ** Solaire Mode
@@ -407,11 +417,6 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 #+end_src
 
 * Evil (Vim Emulation)
-** Disable Evil Collection for Forge
-#+begin_src emacs-lisp
-(setq evil-collection-disabled-packages '(forge))
-#+end_src
-
 ** Core Evil
 #+begin_src emacs-lisp
   ;; Uncomment the following if you are using undo-fu
@@ -648,8 +653,36 @@ appear, ensuring a consistent and predictable windowing layout.
    ;; code.
    :load-path ("~/.config/emacs/lisp/combobulate"))
 #+end_src
+** Helpful
+*helpful* is an alternative to the built-in Emacs help that provides much more contextual information.
+#+begin_src emacs-lisp
+(use-package helpful
+  :commands (helpful-callable
+             helpful-variable
+             helpful-key
+             helpful-command
+             helpful-at-point
+             helpful-function)
+  :bind
+  ([remap describe-command] . helpful-command)
+  ([remap describe-function] . helpful-callable)
+  ([remap describe-key] . helpful-key)
+  ([remap describe-symbol] . helpful-symbol)
+  ([remap describe-variable] . helpful-variable)
+  :custom
+  (helpful-max-buffers 7))
+#+end_src
+
+** Wgrep: Writable Grep
+#+begin_src emacs-lisp
+(use-package wgrep
+  :commands (wgrep-change-to-wgrep-mode)
+  :config
+  ;; evil-collection provides bindings like :wq to save and :q! to abort.
+  (setq wgrep-auto-save-buffer t))
+#+end_src
+
 * Completion Framework
-*Match the completion framework with my other configurations*
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
 (use-package orderless
@@ -695,12 +728,7 @@ appear, ensuring a consistent and predictable windowing layout.
 (use-package consult
   :hook (completion-list-mode . consult-preview-at-point-mode)
   :init
-  ;; Tell Consult how to find the root of a project. We use the built-in
-  ;; `project.el` functionality.
-  ;;(setq consult-project-function #'project-roots)
-  ;; Keep the preview advice from the original configuration
-  (advice-add #'register-preview :override #'consult-register-window)
-  (setq register-preview-delay 0.5)
+  (setq register-preview-delay 0.3)
   (setq consult-prompt-margin 0)
   (setq consult-preview-key 'any)
 
@@ -778,12 +806,12 @@ appear, ensuring a consistent and predictable windowing layout.
   (corfu-cycle t)
   (corfu-auto t)
   (corfu-auto-resize nil)
-  (corfu-auto-delay 0.06)
+  (corfu-auto-delay 0.2)
   (corfu-quit-at-boundary 'separator)
   (corfu-quit-no-match 'separator)
   ;; Configure popupinfo delay
   ;; TODO: show documentation on key input
-  (corfu-popupinfo-delay '(0.5 . 0.06))
+  (corfu-popupinfo-delay '(0.5 . 0.2))
   ;; This line is now in the correct location
   (corfu-auto-preconditions '(corfu-precondition-evil))
   :config
@@ -862,16 +890,19 @@ appear, ensuring a consistent and predictable windowing layout.
   (unless (file-directory-p dir)
     (make-directory dir t)))
 
-;; Helper function to find project files for the dynamic capture template.
+;; This function now uses `consult--grep-builder` to rapidly
+;; find project files using ripgrep, avoiding a major performance bottleneck.
 (defun ar/find-org-projects ()
   "Return a list of all Org files with a \"project\" tag for capture."
-  (let ((project-files ()))
-    (dolist (file (directory-files-recursively "~/org/" "\\.org$"))
-      (with-temp-buffer
-        (insert-file-contents file)
-        (when (re-search-forward "^#\\+filetags:.*:project:.*" nil t)
-          (add-to-list 'project-files (list (file-name-nondirectory file) file)))))
-    project-files))
+  (let* ((builder (consult--grep-builder
+                   (list consult-ripgrep-args
+                         "--files-with-matches"
+                         "--glob=*.org"
+                         "^#\\+filetags:.*:project:.*"
+                         (expand-file-name my/org-directory)))))
+    (mapcar (lambda (file)
+              (list (file-name-nondirectory file) file))
+            (consult--grep-sync builder))))
 #+end_src
 
 ** Better Font Faces
@@ -961,38 +992,24 @@ appear, ensuring a consistent and predictable windowing layout.
    '((sequence "📥 TODO(t)" "⚡ NEXT(n)" "⚙️ PROG(p)" "⏳ WAIT(w@/!)" "|" "✅ DONE(d!)" "❌ CANCEL(c@)")
      (sequence "📝 PLAN(P)" "🚀 ACTIVE(A)" "⏸️ PAUSED(x)" "|" "🏆 ACHIEVED(a)" "🗑️ DROPPED(D)")))
   (org-todo-keyword-faces
-   '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))      ; Red
-     ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))      ; Orange
-     ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))      ; Blue
-     ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))      ; Yellow
-     ("✅ DONE"      . (:foreground "#9ece6a" :weight bold))      ; Green
-     ("❌ CANCEL"    . (:foreground "#565f89" :weight bold))      ; Comment Grey
-     ("📝 PLAN"      . (:foreground "#73daca" :weight bold))      ; Cyan
-     ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))      ; Magenta
-     ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))      ; Foreground
-     ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))      ; Green
-     ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold)))))  ; Comment Grey
+   '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
+     ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
+     ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
+     ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
+     ("✅ DONE"      . (:foreground "#9ece6a" :weight bold))
+     ("❌ CANCEL"    . (:foreground "#565f89" :weight bold))
+     ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
+     ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+     ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
+     ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
+     ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
+  
+  ;; Use the element cache for a significant performance boost in Org files.
+  (org-element-use-cache t)) 
 #+end_src
 
 ** Babel & Structure Templates
 Configure code block execution and create handy shortcuts for inserting common structures.
-#+begin_src emacs-lisp
-;; (with-eval-after-load 'org
-;;   (org-babel-do-load-languages
-;;    'org-babel-load-languages
-;;    '((emacs-lisp . t)
-;;      (python . t)))
-;; 
-;;   (push '("conf-unix" . conf-unix) org-src-lang-modes))
-;; 
-;; (with-eval-after-load 'org
-;;   (require 'org-tempo)
-;;   (add-to-list 'org-structure-template-alist '("jpy" . "src jupyter-python"))
-;;   (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
-;;   (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-;;   (add-to-list 'org-structure-template-alist '("py" . "src python")))
-#+end_src
-
 #+begin_src emacs-lisp
 (with-eval-after-load 'org
   ;; Load common languages for Babel.
@@ -1843,11 +1860,11 @@ that all other Markdown packages will depend on.
       (let ((map (symbol-value m-map)))
         (define-key map (kbd "C-c C-b") #'markdown-toggle-bold)
         (define-key map (kbd "C-c C-s") #'markdown-toggle-italic)
-        (define-key map (kbd "C-c C-q") [cite_start]#'markdown-toggle-blockquote) [cite: 223]
-        (define-key map (kbd "C-c C-l") [cite_start]#'markdown-insert-link) [cite: 223]
-        (define-key map (kbd "C-c C-i") [cite_start]#'markdown-insert-image) [cite: 223]
-        (define-key map (kbd "C-c t") [cite_start]#'markdown-edit-table) [cite: 223]
-        (define-key map (kbd "C-c p") [cite_start]#'markdown-open) [cite: 223]
+        (define-key map (kbd "C-c C-q") #'markdown-toggle-blockquote)
+        (define-key map (kbd "C-c C-l") #'markdown-insert-link)
+        (define-key map (kbd "C-c C-i") #'markdown-insert-image)
+        (define-key map (kbd "C-c t") #'markdown-edit-table)
+        (define-key map (kbd "C-c p") #'markdown-open)
         (define-key map (kbd "C-c o") #'imenu-list-smart-toggle))))
 
   ;; Add folding support to both modes.
@@ -1886,9 +1903,9 @@ Provides a dynamic, clickable table of contents for easy navigation.
 #+begin_src emacs-lisp
 (use-package imenu-list
   :after markdown-mode
-  :custom
-  (imenu-list-focus-after-activation t)
-  (imenu-list-auto-update t)) ; FIX: This is a variable, not a function.
+  :config
+  (setq imenu-list-focus-after-activation t
+        imenu-list-auto-update t))
 #+end_src
 
 ** Live Linting with *flymake-markdownlint*
@@ -1910,53 +1927,32 @@ This configures *apheleia* to use *prettier* for auto-formatting.
         '("prettier" "--prose-wrap" "always")))
 #+end_src
 
-* General Tools
-** Helpful
-Helpful is an alternative to the built-in Emacs help that provides much more
-contextual information.
+* Version Control
+** Git Gutter: Live Diff Highlighting
+git-gutter provides live, inline diff indicators in the fringe, showing
+which lines have been added, modified, or deleted. This is a crucial
+feature for at-a-glance understanding of changes.
 #+begin_src emacs-lisp
-(use-package helpful
-  :defer t
-  :commands (helpful-callable
-             helpful-variable
-             helpful-key
-             helpful-command
-             helpful-at-point
-             helpful-function)
-  :bind
-  ([remap describe-command] . helpful-command)
-  ([remap describe-function] . helpful-callable)
-  ([remap describe-key] . helpful-key)
-  ([remap describe-symbol] . helpful-symbol)
-  ([remap describe-variable] . helpful-variable)
+(use-package git-gutter
+  :hook (prog-mode . git-gutter-mode)
   :custom
-  (helpful-max-buffers 7))
-#+end_src
-
-** Wgrep: Writable Grep
-#+begin_src emacs-lisp
-(use-package wgrep
-  :defer t
-  :commands (wgrep-change-to-wgrep-mode)
+  ;; Only update the gutter when the buffer is saved, for performance.
+  (git-gutter:update-on-save t)
+  ;; Use a lighter touch for updates; avoids refreshing on every change.
+  (git-gutter:update-method "idle")
   :config
-  ;; evil-collection provides bindings like :wq to save and :q! to abort.
-  (setq wgrep-auto-save-buffer t))
+  ;; Define keybindings for evil-mode for navigating between hunks.
+  (with-eval-after-load 'evil
+    (define-key evil-normal-state-map (kbd "]g") 'git-gutter:next-hunk)
+    (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk))
+
+  ;; Add a keybinding to stage the current hunk directly.
+  (define-key git-gutter-mode-map (kbd "C-x C-s") 'git-gutter:stage-hunk))
 #+end_src
 
-** Version Control
-*** Helper Function for Forge
-#+begin_src emacs-lisp
-(defun ar/init-forge-for-magit ()
-  "Load Forge and its Evil Collection bindings.
-This is called from `magit-status-mode-hook` to ensure Magit is
-fully initialized before Forge tries to add its keybindings."
-  (require 'forge)
-  ;; Manually run the evil-collection setup for forge now that
-  ;; both magit and forge are fully loaded.
-  (evil-collection-forge-setup))
-#+end_src
-
-*** Magit
+** Magit: The Core Git Client
+*magit* is the central hub for all Git operations. This configuration
+ensures it works seamlessly with a full-frame UI and other packages.
 #+begin_src emacs-lisp
 (use-package magit
   :init
@@ -1983,14 +1979,14 @@ fully initialized before Forge tries to add its keybindings."
   (add-hook 'magit-status-mode-hook #'ar/init-forge-for-magit))
 #+end_src
 
-*** Forge
+** Forge: Git Forge Integration
 *forge* provides integration with online Git forges (e.g., GitHub, GitLab).
 #+begin_src emacs-lisp
 (use-package forge
-  :defer t)
+  :after magit)
 #+end_src
 
-*** Magit Todos
+** Magit Todos
 *magit-todos* displays TODO items from your project files in the status buffer.
 #+begin_src emacs-lisp
 (use-package magit-todos
@@ -1998,7 +1994,7 @@ fully initialized before Forge tries to add its keybindings."
   :hook (magit-mode . magit-todos-mode))
 #+end_src
 
-*** Git Timemachine
+** Git Timemachine
 #+begin_src emacs-lisp
 (use-package git-timemachine
   :after magit
@@ -2007,7 +2003,7 @@ fully initialized before Forge tries to add its keybindings."
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
 #+end_src
 
-*** Keybindings
+** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
  "g" '(:ignore t :wk "git")
@@ -2022,10 +2018,13 @@ fully initialized before Forge tries to add its keybindings."
  "g d" '(magit-diff-unstaged :wk "diff")
  "g f" '(magit-fetch :wk "fetch")
  "g m" '(magit-merge :wk "merge")
- "g r" '(magit-rebase :wk "rebase"))
+ "g r" '(magit-rebase :wk "rebase")
+ "g n" '(git-gutter:next-hunk :wk "next hunk")
+ "g N" '(git-gutter:previous-hunk :wk "previous hunk")
+ "g S" '(git-gutter:stage-hunk :wk "stage hunk"))
 #+end_src
 
-** PDF-Tools
+* PDF-Tools
 *** Core
 #+begin_src emacs-lisp
 (use-package pdf-tools
@@ -2094,14 +2093,5 @@ Opens the notes in a split window to the right."
         (split-window-right)
         (windmove-right)
         (find-file pdf-path)))))
-#+end_src
-
-* Perform Garbage Collection When Idle
-This is a good practice to keep Emacs responsive.
-#+begin_src emacs-lisp
-(add-hook 'after-focus-change-hook
-          (lambda ()
-            (unless (frame-focus-state)
-              (garbage-collect))))
 #+end_src
 
