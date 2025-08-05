@@ -1995,7 +1995,10 @@ feature for at-a-glance understanding of changes.
     (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk))
 
   ;; Add a keybinding to stage the current hunk directly.
-  (define-key git-gutter-mode-map (kbd "C-x C-s") 'git-gutter:stage-hunk))
+  ;; need to fix
+  ;; (define-key git-gutter-mode-map (kbd "C-x C-s") 'git-gutter:stage-hunk)
+
+)
 #+end_src
 
 ** Keybindings
