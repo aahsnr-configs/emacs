@@ -2063,7 +2063,7 @@ feature for at-a-glance understanding of changes.
 #+end_src
 
 * PDF-Tools
-*** Core
+** Core
 #+begin_src emacs-lisp
 (use-package pdf-tools
   :magic ("%PDF" . pdf-view-mode)
@@ -2093,7 +2093,7 @@ feature for at-a-glance understanding of changes.
     (setq org-pdftools-link-prefix "pdf")))
 #+end_src
 
-*** org-noter
+** org-noter
 #+begin_src emacs-lisp
 (use-package org-noter
   :after (org pdf-view)
@@ -2133,50 +2133,4 @@ Opens the notes in a split window to the right."
         (find-file pdf-path)))))
 #+end_src
 
-* Snippets
-** Directory
-#+begin_src emacs-lisp
-;; This is the directory where you will store your personal snippets.
-(defvar my/snippets-directory (expand-file-name "snippets" user-emacs-directory)
-  "Directory for personal yasnippet snippets.")
 
-;; Create the custom snippets directory if it doesn't exist.
-(unless (file-directory-p my/snippets-directory)
-  (make-directory my/snippets-directory t))
-#+end_src
-
-** Yasnippet
-#+begin_src emacs-lisp
-(use-package yasnippet
-  :defer t
-  :hook (after-init . yas-global-mode)
-  :custom
-  ;; Point yasnippet to the doom-snippets collection and our custom directory.
-  (yas-snippet-dirs
-   '(;; High-quality collection of snippets.
-     (expand-file-name "doom-snippets" package-user-dir)
-     ;; Your personal snippets.
-     my/snippets-directory))
-  ;; Use a completing-read prompt for a better UI.
-  (yas-prompt-functions '(yas-completing-prompt))
-  :config
-  ;; This is crucial for integration with Corfu/Cape. It prevents Yasnippet
-  ;; from trying to expand on its own, letting Cape handle it.
-  (yas-set-trigger-key-for-major-mode 'text-mode nil)
-
-  ;; When a snippet is active, TAB should only jump between fields.
-  ;; This prevents conflicts and ensures predictable behavior.
-  (define-key yas-minor-mode-map (kbd "<tab>") nil)
-  (define-key yas-minor-mode-map (kbd "TAB") #'yas-next-field-or-maybe-expand)
-  (define-key yas-minor-mode-map (kbd "<backtab>") #'yas-previous-field)
-
-  ;; --- Robust, Save-Based Automatic Snippet Reloading ---
-  ;; This function reloads snippets automatically whenever a snippet file is saved.
-  (defun ar/yas-reload-snippets-on-save ()
-    "Reload all snippets if a snippet file is being saved."
-    (when (string-prefix-p my/snippets-directory (buffer-file-name))
-      (yas-reload-all)
-      (message "Yasnippet collection reloaded.")))
-
-  (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save))
-#+end_src
