@@ -1,14 +1,19 @@
-Of course. Here is the complete snippets configuration, rewritten to use `yasnippet-snippets` instead of `doom-snippets`.
+You are absolutely correct to point out that error. My apologies, that was a mistake in the previous configuration. The function `yas-set-trigger-key-for-major-mode` is obsolete and no longer exists in modern versions of `yasnippet`.
 
-The `yasnippet-snippets` package is the official and most comprehensive community-maintained collection for `yasnippet`. This configuration ensures it's properly installed and loaded, while maintaining all the advanced features like auto-reloading and deep integration with your completion framework.
+The good news is that with a modern completion framework like yours (Corfu + Cape), the fix is not to replace the function, but to simplify the configuration. We don't need to manually manage the `TAB` key for snippet expansion at all.
+
+*   **Expansion** is handled by `cape-yasnippet` when you select a snippet from the Corfu popup.
+*   **Field Jumping** is handled automatically by `yasnippet`'s internal keymap (`yas-active-keymap`), which only becomes active *after* a snippet has been expanded. It correctly takes control of `TAB` for navigation and relinquishes it when you're done.
+
+I have removed the erroneous function call and the redundant keybinding block, resulting in a cleaner, more correct, and more robust configuration.
 
 ***
 
-## Final Snippet Configuration with `yasnippet-snippets`
+## Final, Corrected Snippet Configuration
 
-This setup provides a robust and modern snippet experience by combining `yasnippet` with the official `yasnippet-snippets` collection. It is fully integrated with your `Corfu`, `Cape`, and `Consult` powered workflow.
+This setup provides a robust and modern snippet experience by combining `yasnippet` with the official `yasnippet-snippets` collection. It is fully integrated with your `Corfu`, `Cape`, and `Consult` powered workflow and is free of the previously identified error.
 
-This configuration is designed as a complete, drop-in replacement for the snippets section in your `config.org` file.
+This is a complete, drop-in replacement for the snippets section in your `config.org`.
 
 ### 1. Snippets: Core Engine and Official Collection
 
@@ -33,25 +38,14 @@ This section configures `yasnippet` as the core engine, pulls in the `yasnippet-
   :config
   ;; --- Add Personal Snippets Directory ---
   ;; This adds your custom directory to yasnippet's search path.
-  ;; We use `add-to-list` in the `:config` block to ensure we append our
-  ;; directory without overwriting the default paths, which yasnippet
+  ;; By using `add-to-list` in the `:config` block, we ensure our directory
+  ;; is appended without overwriting the default paths that `yasnippet`
   ;; uses to find the `yasnippet-snippets` collection automatically.
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
-  ;; --- Integration with Corfu/Cape ---
-  ;; This is crucial. It prevents Yasnippet from trying to expand on its own,
-  ;; letting the Cape backend handle the completion and expansion.
-  (yas-set-trigger-key-for-major-mode 'text-mode nil)
-
-  ;; --- Keybinding Setup ---
-  ;; When a snippet is active, TAB should only jump between fields.
-  ;; This prevents conflicts and ensures predictable behavior.
-  (define-key yas-minor-mode-map (kbd "<tab>") nil)
-  (define-key yas-minor-mode-map (kbd "TAB") #'yas-next-field-or-maybe-expand)
-  (define-key yas-minor-mode-map (kbd "<backtab>") #'yas-previous-field)
-
   ;; --- Robust, Save-Based Automatic Snippet Reloading ---
-  ;; This function reloads snippets automatically whenever a snippet file is saved.
+  ;; This function reloads snippets automatically whenever a snippet file is saved,
+  ;; ensuring your collection is always up-to-date without manual intervention.
   (defun ar/yas-reload-snippets-on-save ()
     "Reload all snippets if a snippet file is being saved."
     (when (string-prefix-p my/snippets-directory (buffer-file-name))
@@ -61,6 +55,7 @@ This section configures `yasnippet` as the core engine, pulls in the `yasnippet-
   (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save))
 
 ;; Installs the official community-maintained collection of snippets.
+;; Yasnippet will automatically find and use this package.
 (use-package yasnippet-snippets
   :after yasnippet
   :demand t) ;; Ensure it's downloaded and available
