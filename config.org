@@ -850,8 +850,11 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Cape: Completion Backends
 #+begin_src emacs-lisp
 (use-package cape
-  :commands (cape-dabbrev cape-file cape-keyword)
+  :commands (cape-dabbrev cape-file cape-keyword cape-yasnippet)
   :init
+  ;; Add the YASnippet backend to the completion-at-point functions.
+  ;; Placing it first gives it high priority in the completion list.
+  (add-to-list 'completion-at-point-functions #'cape-yasnippet)
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-keyword)
@@ -2133,4 +2136,70 @@ Opens the notes in a split window to the right."
         (find-file pdf-path)))))
 #+end_src
 
+* Snippets
+** Directory
+#+begin_src emacs-lisp
+;; This is the directory where you will store your personal snippets.
+(defvar my/snippets-directory (expand-file-name "snippets" user-emacs-directory)
+  "Directory for personal yasnippet snippets.")
 
+;; Create the custom snippets directory if it doesn't exist.
+(unless (file-directory-p my/snippets-directory)
+  (make-directory my/snippets-directory t))
+#+end_src
+
+** Yasnippet
+#+begin_src emacs-lisp
+(use-package yasnippet
+  :defer t
+  :hook (after-init . yas-global-mode)
+  :custom
+  ;; Use a completing-read prompt for a better UI when multiple snippets match.
+  (yas-prompt-functions '(yas-completing-prompt))
+  :config
+  ;; --- Add Personal Snippets Directory ---
+  ;; This adds your custom directory to yasnippet's search path.
+  ;; By using `add-to-list` in the `:config` block, we ensure our directory
+  ;; is appended without overwriting the default paths that `yasnippet`
+  ;; uses to find the `yasnippet-snippets` collection automatically.
+  (add-to-list 'yas-snippet-dirs my/snippets-directory)
+
+  ;; --- Robust, Save-Based Automatic Snippet Reloading ---
+  ;; This function reloads snippets automatically whenever a snippet file is saved,
+  ;; ensuring your collection is always up-to-date without manual intervention.
+  (defun ar/yas-reload-snippets-on-save ()
+    "Reload all snippets if a snippet file is being saved."
+    (when (string-prefix-p my/snippets-directory (buffer-file-name))
+      (yas-reload-all)
+      (message "Yasnippet collection reloaded.")))
+
+  (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save))
+#+end_src
+
+** Yasnippet-Snippets
+#+begin_src emacs-lisp
+(use-package yasnippet-snippets
+  :after yasnippet
+  :demand t) ;; Ensure it's downloaded and available
+#+end_src
+
+** Consult Integration
+#+begin_src emacs-lisp
+(use-package consult-yasnippet
+  :after (consult yasnippet)
+  :config
+  ;; You can customize the preview behavior if desired.
+  (consult-customize consult-yasnippet :preview-key 'any))
+#+end_src
+
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+  "s" '(:ignore t :wk "snippets")
+  ;; Use the powerful consult interface for searching and inserting snippets.
+  "s i" '(consult-yasnippet :wk "insert snippet (consult)")
+  ;; Create a new snippet for the current mode.
+  "s n" '(yas-new-snippet :wk "new snippet")
+  ;; Visit (and edit) the file for an existing snippet.
+  "s v" '(yas-visit-snippet-file :wk "visit snippet file"))
+#+end_src
