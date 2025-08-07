@@ -1,13 +1,13 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+STARTUP: overview
-#+PROPERTY: header-args :tangle yes 
+#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes 
 
 * Core Emacs Configuration
 This section incorporates the sensible defaults and settings from the minimal-emacs.d project. This provides a robust and well-optimized foundation.
 ** Lexical Binding
 #+begin_src emacs-lisp
-;;; config.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
+;;; init.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
 #+end_src
 
 ** Package Management
