@@ -2293,6 +2293,33 @@ This section configures a powerful citation workflow centered around Zotero. cit
 (use-package org-roam-bibtex
   :after (org-roam)
   :hook (org-roam-mode . org-roam-bibtex-mode))
+
+;; Provides a unified backend for managing bibliography files, which will
+;; be used by consult-bibtex.
+(use-package biblio
+  :defer t
+  :config
+  ;; Set the default backend to citar to better integrate with your
+  ;; existing setup. Biblio will find and manage the bib files, and
+  ;; citar will handle the note-taking and file associations.
+  (setq biblio-bibtex-backend 'citar))
+
+(use-package parsebib)
+
+;; Provides a powerful 'consult' interface for BibTeX files.
+(use-package consult-bibtex
+  :vc (:url "https://github.com/mohkale/consult-bibtex"
+       :branch "master")
+  :after (consult biblio)
+  :custom
+  ;; We leave this empty, as biblio will automatically find the bib files
+  ;; specified in your .dir-locals.el, following your existing pattern.
+  (consult-bibtex-files '())
+  ;; Customize the formatting to show key, author, year, and title.
+  (consult-bibtex-format-entry-function #'consult-bibtex-format-entry-default)
+  :config
+  ;; The parsebib library is a dependency and will be loaded automatically.
+  (setq consult-bibtex-default-action 'consult-bibtex-insert-citation))
 #+end_src
 
 ** Writing UI and Editing Enhancements
