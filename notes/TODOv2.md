@@ -37,41 +37,14 @@
   - Eglot, eldoc, dape, flymake
   - Alphaelia
 
-
-
 - [ ] __Buffer Management with ibuffer and bufler__
 
 - [ ] __Project__ [Integrate project with completion system and ibuffer and perspective.el]
-
-- [x] __Completion System__ [ Further add dabbrev and integrate the completion system with org-src-code blocks. Check when coding in jupyter ]
-
-- [ ] __Keybindings__
-
-- [ ] __Delimiters with smartparens and delimiters__
-
-- [x] __Treemacs__
-
-- [ ] __Git with treemacs__
-
 - [x] __Treemacs toggle__
-
-- [x] __Dired__
-
-- [ ] __PDF Tools__
 
 - [x] __Winner-Mode__
 
-- [x] __Which-Key__
-
-- [x] __Solaire Mode__
-
 - [x] __Alphaelia as the Formatter__
-
-- [x] __Doom Modeline__
-
-- [x] __Recent Files__
-
-- [x] __Savehist__
 
 - [ ] __Window Management__
 
