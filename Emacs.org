@@ -355,8 +355,9 @@ Enable line numbers for some modes
 ** Solaire Mode
 #+begin_src emacs-lisp
 (use-package solaire-mode
+  :defer t
+  :hook (after-init . solaire-global-mode)
   :config
-  (solaire-global-mode)
   ;; Differentiate popups from "real" buffers
   (add-hook 'completion-list-mode-hook #'solaire-mode)
   (add-hook 'which-key-mode-hook #'solaire-mode)
@@ -513,7 +514,7 @@ Enable line numbers for some modes
 ** Lines Behaviour
 #+begin_src emacs-lisp
 ;; Highlight the current line
-(global-hl-line-mode 1)
+;; (global-hl-line-mode 1)
 ;; Use visual line mode for soft wrapping instead of truncating lines
 (global-visual-line-mode 1)
 #+end_src
@@ -625,7 +626,8 @@ This provides a declarative way to control where and how special-purpose buffers
 appear, ensuring a consistent and predictable windowing layout.
 #+begin_src emacs-lisp
 (use-package shackle
-  :init (shackle-mode)
+  :defer t
+  :hook (afer-init . shackle-mode)
   :config
   (setq shackle-rules
    '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
@@ -1347,12 +1349,12 @@ advanced dynamic project task template.
   ;; Set the state file location before enabling the mode.
   (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
   (setq persp-mode-prefix-key (kbd "C-c p"))
+  :hook (after-init . (lambda () (persp-mode +1)))
   :custom
   ;; Automatically kill empty perspectives to keep the list clean.
   (persp-auto-kill-on-last-buffer-close t)
 
   :config
-  (persp-mode +1)
 
   ;; Custom function to automatically create or switch to a project-specific perspective.
   (defun ar/perspective-switch-or-create ()
@@ -1394,14 +1396,18 @@ This configuration uses Emacs's modern, built-in project management library,
   :defer t
   :config
   (setq project-switch-commands 'project-find-file)
-  
-  ;; For Emacs 28+, exclude the var directory from project discovery.
-  ;; This prevents package repos in elpa from appearing as projects.
-  (when (boundp 'project-exclude-directories)
-    (add-to-list 'project-exclude-directories no-littering-var-directory))
+  (add-to-list 'project-vc-ignores no-littering-var-directory)
 
-  ;; For older Emacs versions and as a fallback, add to vc-ignores.
-  (add-to-list 'project-vc-ignores no-littering-var-directory))
+  ;; This is the new, more aggressive fix.
+  ;; We advise the core project-finding function to completely ignore the `var` directory.
+  ;; This prevents it from ever discovering git repos inside `elpa`.
+  (defun ar/project-vc-find-function-advice (dir)
+    "Advice to prevent project.el from scanning the emacs var directory.
+This stops packages in the elpa directory from being treated as projects."
+    (not (string-prefix-p (file-name-as-directory no-littering-var-directory)
+                          (file-name-as-directory dir))))
+
+  (advice-add 'project-vc-find-function :before-while #'ar/project-vc-find-function-advice))
 
 (ar/global-leader
  "p" '(:ignore t :wk "project")
@@ -1712,17 +1718,14 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
 This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymake-collection* for easy linter integration, and *apheleia* for automatic, on-save formatting.
 #+begin_src emacs-lisp
 (use-package flymake
+  :defer t
   :ensure nil
   :hook (prog-mode . flymake-mode)
   :custom
   (flymake-check-syntax-automatically '(save mode-enabled idle-change))
   (flymake-idle-change-delay 0.4)
-  ;; Define theme-aware faces for diagnostics to match doom-tokyo-night.
   :custom-face
-  (flymake-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil)))) ; Tokyonight Red
-  (flymake-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil)))) ; Tokyonight Yellow
-  (flymake-note    ((t (:underline (:style wave :color "#73daca") :inherit nil)))) ; Tokyonight Cyan
-  )
+  (flymake-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil))))  (flymake-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))  (flymake-note    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
 
 ;; A much cleaner way to add support for checkers like pylint and flake8.
 (use-package flymake-collection
@@ -1742,17 +1745,15 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 ** Formatting
 #+begin_src emacs-lisp
-(use-package posframe)
-
 ;; Themed success message function for Apheleia
-(defun ar/apheleia-format-message (formatter)
+(defun ar/apheleia-format-message ()
   "Display a themed success message in the echo area after formatting."
-  (message (propertize (format "Apheleia formatted with %s" formatter)
-                       'face '(:foreground "#9ece6a" :weight bold)))) ; Tokyonight Green for success
+  (message (propertize (format "Apheleia formatted with %s" apheleia--formatter)
+                       'face '(:foreground "#9ece6a" :weight bold))))
 
 (use-package apheleia
   :defer t
-  :init (apheleia-global-mode +1)
+  :hook (after-init . apheleia-global-mode)
   :config
   ;; Add a themed hook to provide clear, theme-consistent feedback on success.
   (add-hook 'apheleia-post-format-hook #'ar/apheleia-format-message))
@@ -1761,9 +1762,9 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 ** Tree-sitter for syntax highlighting
 #+begin_src emacs-lisp
 (use-package treesit-auto
-  :when (treesit-available-p)
+  :custom
+  (treesit-auto-install 'prompt)
   :config
-  (setq treesit-auto-langs '(bash c cpp css python markdown toml yaml))
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode))
 
@@ -2157,17 +2158,21 @@ Opens the notes in a split window to the right."
   :custom
   ;; Use a completing-read prompt for a better UI when multiple snippets match.
   (yas-prompt-functions '(yas-completing-prompt))
+  ;; Only show important messages, hiding the "just-in-time loading" confirmation.
+  (yas-verbosity 0)
   :config
+  ;; --- Handle persistent cache directory ---
+  ;; Define the desired path, set the variable for yasnippet, and create
+  ;; the directory if it doesn't exist. This avoids timing issues.
+  (let ((cache-dir (expand-file-name "yasnippet-cache" no-littering-var-directory)))
+    (setq yas-snippet-cache-dir cache-dir)
+    (unless (file-directory-p cache-dir)
+      (make-directory cache-dir t)))
+
   ;; --- Add Personal Snippets Directory ---
-  ;; This adds your custom directory to yasnippet's search path.
-  ;; By using `add-to-list` in the `:config` block, we ensure our directory
-  ;; is appended without overwriting the default paths that `yasnippet`
-  ;; uses to find the `yasnippet-snippets` collection automatically.
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
   ;; --- Robust, Save-Based Automatic Snippet Reloading ---
-  ;; This function reloads snippets automatically whenever a snippet file is saved,
-  ;; ensuring your collection is always up-to-date without manual intervention.
   (defun ar/yas-reload-snippets-on-save ()
     "Reload all snippets if a snippet file is being saved."
     (when (string-prefix-p my/snippets-directory (buffer-file-name))
