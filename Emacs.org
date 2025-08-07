@@ -1390,12 +1390,17 @@ advanced dynamic project task template.
 This configuration uses Emacs's modern, built-in project management library,
 *project.el*. It provides a fast and integrated foundation for project-related commands, which are further enhanced by the *consult* completion UI.
 #+begin_src emacs-lisp
-;; No `use-package` is needed for `project.el` as it's built-in.
-;; We just need to configure it and set our keybindings.
-(setq project-switch-commands 'project-find-file)
+(use-package project
+  :defer t
+  :config
+  (setq project-switch-commands 'project-find-file)
+  
+  ;; For Emacs 28+, exclude the var directory from project discovery.
+  ;; This prevents package repos in elpa from appearing as projects.
+  (when (boundp 'project-exclude-directories)
+    (add-to-list 'project-exclude-directories no-littering-var-directory))
 
-;; Exclude the `var` directory from project discovery to prevent unwanted projects.
-(with-eval-after-load 'project
+  ;; For older Emacs versions and as a fallback, add to vc-ignores.
   (add-to-list 'project-vc-ignores no-littering-var-directory))
 
 (ar/global-leader

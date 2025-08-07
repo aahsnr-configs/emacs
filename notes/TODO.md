@@ -58,6 +58,9 @@ Make sure the LateX writing environment is integrated with the rest of the emacs
 - [x] UI and Theming
 - [x] Evil Mode
 - [x] Setup Magit
+- [ ] Make sure the selected candidate in corfu popups are automatically selected
+- [ ] Make sure the documentation corfu generated is only available on key press events
+- [ ] Setup completion setup for the auctex package like company-auctex
 - [ ] Add evil surround
 - [x] Org Mode
 - [x] Integrate org settings from elken/doom
@@ -65,7 +68,6 @@ Make sure the LateX writing environment is integrated with the rest of the emacs
 - [x] Setup projectile, ibuffer, treemacs, persp-mode: **There are errors in this configuration**
 - [x] Setup eglot and dape
 - [x] Integrate the completion framework with eglot and dape
-- [ ] For corfu, print the current selection candidate to buffer.
 - [x] Set gc-cons-threshold to 100mb
 - [x] Set corfu to display documentation only on key input 
 - [ ] Add cape-company-to-capf backend to cape
