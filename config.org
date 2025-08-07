@@ -434,7 +434,7 @@ Enable line numbers for some modes
 #+begin_src emacs-lisp
 #+end_src
 
-* Evil (Vim Emulation)
+* Evil
 ** Core Evil
 #+begin_src emacs-lisp
   ;; Uncomment the following if you are using undo-fu
@@ -1372,15 +1372,15 @@ advanced dynamic project task template.
   (defun ar/perspective-switch-or-create ()
     "Switch to a perspective named after the current project, creating it if needed."
     (interactive)
-    (let ((project-name (projectile-project-name)))
-      (unless (string= project-name "-") ; Ignore if not in a project
+    (when-let ((project (project-current t)))
+      (let ((project-name (project-name project)))
         (if (get-perspective project-name)
             (persp-switch project-name)
           (persp-add-new project-name)
           (persp-switch project-name)))))
 
-  ;; Hook this function into projectile to run after switching projects.
-  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create)
+  ;; Hook this function into project.el to run after switching projects.
+  (add-hook 'project-switch-hook #'ar/perspective-switch-or-create)
 
   ;; Load the saved perspectives when Emacs starts.
   (when (file-exists-p persp-state-default-file)
@@ -1400,66 +1400,112 @@ advanced dynamic project task template.
  "w k" '(persp-kill :wk "kill workspace"))
 #+end_src
 
-** Project Management: Deep *projectile* Integration
+** Project Management: Built-in *project.el*
+This configuration uses Emacs's modern, built-in project management library,
+*project.el*. It provides a fast and integrated foundation for project-related
+commands, which are further enhanced by the *consult* completion UI.
 #+begin_src emacs-lisp
-(use-package projectile
-  :defer t
-  :custom
-  ;; Use the default completion system, which will be powered by Vertico/Consult.
-  (projectile-completion-system 'default)
-  ;; Define where Projectile should look for your projects.
-  (projectile-project-search-path '("~/Code/" "~/Projects/"))
-  ;; Enable caching for significant performance improvements.
-  (projectile-enable-caching t)
-  ;; When switching projects, immediately open a file prompt within that project.
-  (projectile-switch-project-action #'projectile-find-file)
-
-  :config
-  (projectile-mode +1)
-  ;; Do not treat the emacs 'var' directory as a project.
-  (add-to-list 'projectile-ignored-projects
-               (expand-file-name "var" user-emacs-directory)))
-  ;; Define our extensive project-management keybindings under the "p" prefix.
-
-;; A `consult` source specifically for projectile, if not already provided
-;; by another package. This provides the `consult-projectile` command.
-(use-package consult-projectile
-  :after (consult projectile))
+;; No `use-package` is needed for `project.el` as it's built-in.
+;; We just need to configure it and set our keybindings.
+(setq project-switch-commands 'project-find-file)
 
 (ar/global-leader
  "p" '(:ignore t :wk "project")
- "p p" '(projectile-switch-project :wk "switch project")
- "p f" '(consult-projectile :wk "find file in project")
- "p d" '(projectile-find-dir :wk "find directory in project")
- "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
+ "p p" '(project-switch-project :wk "switch project")
+ "p f" '(project-find-file :wk "find file in project")
+ "p d" '(project-find-dir :wk "find directory in project")
+ "p b" '(consult-project-buffer :wk "find buffer in project")
  "p g" '(consult-ripgrep :wk "grep in project")
  "p s" '(:ignore t :wk "save/kill")
- "p s s" '(projectile-save-project-buffers :wk "save project buffers")
- "p s k" '(projectile-kill-buffers :wk "kill project buffers")
- "p c" '(projectile-compile-project :wk "compile project")
- "p t" '(projectile-run-tests :wk "run project tests")
- "p R" '(projectile-replace :wk "replace in project"))
+ "p s s" '(project-save-buffers :wk "save project buffers")
+ "p s k" '(project-kill-buffers :wk "kill project buffers")
+ "p c" '(project-compile :wk "compile project")
+ "p R" '(project-query-replace-in-files :wk "replace in project"))
 #+end_src
 
-** Buffer Management: A Project-Aware *ibuffer*
-#+begin_src emacs-lisp
-(use-package ibuffer-projectile
-  :after (ibuffer projectile)
-  :config
-  ;; This hook automatically creates project-based groups in ibuffer.
-  (add-hook 'ibuffer-hook
-            (lambda ()
-              (ibuffer-projectile-set-filter-groups)
-              (unless (eq ibuffer-sorting-mode 'project-file-relative)
-                (ibuffer-do-sort-by-project-file-relative)))))
+** Buffer Management: A *bufler*-style *ibuffer*
+This configuration enhances the built-in `ibuffer` to group buffers by project
+and special modes, mimicking the core functionality of the `bufler` package without
+adding an extra dependency. The UI is modernized with custom formatting and
+nerd-icons, and Evil-friendly keybindings are added for efficient management.
 
-;; Integrate nerd-icons for a more modern look, similar to Doom's setup.
+#+begin_src emacs-lisp
+(use-package ibuffer
+  :ensure nil ; Built-in package
+  :commands (ibuffer)
+  :hook (ibuffer-mode . ar/ibuffer-setup-hook)
+  :custom
+  (ibuffer-never-show-regexps
+   '("\\` " ; Buffers starting with a space (e.g., *temp*)
+     "\\*dashboard\\*$"
+     "\\*scratch\\*$"
+     "\\*Messages\\*$"
+     "\\*Help\\*$"
+     "\\*Backtrace\\*$"
+     "\\*Compile-Log\\*$"
+     "\\*Flymake diagnostics"
+     "\\*eglot-events\\*$"
+     "\\*Embark Collect"
+     "\\*vterm\\*"))
+
+  ;; Customize the visual format for a clean, column-based layout.
+  ;; This format shows: mark, icon, buffer name, size, mode, and file path.
+  (ibuffer-formats
+   '((mark modified read-only " "
+           (icon 4 4 :left :elide)
+           (name 35 35 :left :elide)
+           " "
+           (size-h 9 9 :right :elide)
+           " "
+           (mode 16 16 :left :elide)
+           " "
+           filename-and-process)))
+
+  :config
+  ;; This is the main function called every time ibuffer is opened.
+  (defun ar/ibuffer-setup-hook ()
+    "Set up ibuffer with project grouping, icons, sorting, and evil keys."
+    (nerd-icons-ibuffer-mode)
+    (ar/ibuffer-set-project-groups)
+    (ibuffer-do-sort-by-last-access-time)
+    (ibuffer-update nil t))
+
+  ;; This function intelligently generates the filter groups for projects.
+  (defun ar/ibuffer-set-project-groups ()
+    "Create and set ibuffer filter groups based on known projects."
+    (let ((groups '()))
+      ;; Create a group for each known project.
+      (dolist (proj (project-known-projects))
+        (let* ((proj-name (project-name proj))
+               (proj-root (project-root proj)))
+          (push `(,proj-name (:eval (and (buffer-file-name)
+                                        (string-prefix-p proj-root (buffer-file-name)))))
+                groups)))
+      ;; Add a final catch-all group for any files not in a known project.
+      (push '("Miscellaneous" (:predicate (lambda (buf)
+                                            (and (buffer-file-name buf)
+                                                 (not (project-buffer-p buf))))))
+            groups)
+      (setq ibuffer-filter-groups (nreverse groups))))
+
+  ;; Add Evil keybindings for a more intuitive, Vim-like experience.
+  (with-eval-after-load 'evil
+    (evil-define-key 'normal ibuffer-mode-map
+      (kbd "j") 'ibuffer-next-line
+      (kbd "k") 'ibuffer-previous-line
+      (kbd "d") 'ibuffer-mark-for-delete
+      (kbd "x") 'ibuffer-do-delete
+      (kbd "s") 'ibuffer-do-save
+      (kbd "g") 'revert-buffer
+      (kbd "q") 'quit-window)))
+
+;; Ensure the `nerd-icons-ibuffer` package is loaded for the icons to work.
 (use-package nerd-icons-ibuffer
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
 
+;; Global leader keybindings remain the same, providing clear entry points.
 (ar/global-leader
-  ;; Buffer management
-  "b" '(:ignore t :wk "buffers")
+  "b"   '(:ignore t :wk "buffers")
   "b b" '(consult-buffer :wk "switch buffer")
   "b i" '(ibuffer :wk "ibuffer (by project)")
   "b k" '(kill-current-buffer :wk "kill buffer")
@@ -1553,6 +1599,23 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
 #+end_src
 
+** Neotree
+This setup configures *neotree*, a fast and simple file tree explorer. It is
+themed with nerd-icons and integrates with evil-mode for vim-like navigation.
+#+begin_src emacs-lisp
+(use-package neotree
+  :defer t
+  :custom
+  (neo-smart-open t)
+  (neo-window-width 35)
+  (neo-show-hidden-files t)
+  (neo-autorefresh t)
+  (neo-theme 'nerd-icons)
+  ;; Ensure 'q' quits neotree, which is idiomatic in vim/evil.
+  (evil-define-key 'normal neotree-mode-map "q" 'neotree-hide)
+  (evil-define-key 'normal neotree-mode-map (kbd "TAB") 'neotree-select-window))
+#+end_src
+
 ** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
@@ -1560,9 +1623,8 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
  "f f" '(find-file :wk "find file")
  "f e" '(dired (or (buffer-file-name) default-directory) :wk "explore directory")
  "f r" '(consult-recent-file :wk "find recent file")
- ;; "f t" '(treemacs-find-file :wk "find file in treemacs")
- ;; "f d" '(treemacs-select-directory :wk "find directory in treemacs")
- )
+ "f t" '(neotree-toggle :wk "toggle file tree")
+ "f d" '(neotree-dir :wk "find in file tree"))
 #+end_src
 
 * Development Environment
@@ -1820,6 +1882,7 @@ A production-ready setup for a modern Markdown workflow in Emacs 30. This
 configuration provides live rendering, a table of contents, superior code block
 highlighting, powerful table editing, linting, and auto-formatting, with
 intelligent conflict resolution and a robust loading order.
+
 ** Core Markdown Mode with Tree-sitter and Enhancements
 This configures `markdown-mode` as the foundation. It is the core component
 that all other Markdown packages will depend on.
@@ -2251,8 +2314,6 @@ This section configures a powerful citation workflow centered around Zotero. cit
   ;; citar will handle the note-taking and file associations.
   (setq biblio-bibtex-backend 'citar))
 
-(use-package parsebib)
-
 ;; Provides a powerful 'consult' interface for BibTeX files.
 (use-package consult-bibtex
   :vc (:url "https://github.com/mohkale/consult-bibtex"
@@ -2262,10 +2323,8 @@ This section configures a powerful citation workflow centered around Zotero. cit
   ;; We leave this empty, as biblio will automatically find the bib files
   ;; specified in your .dir-locals.el, following your existing pattern.
   (consult-bibtex-files '())
-  ;; Customize the formatting to show key, author, year, and title.
   (consult-bibtex-format-entry-function #'consult-bibtex-format-entry-default)
   :config
-  ;; The parsebib library is a dependency and will be loaded automatically.
   (setq consult-bibtex-default-action 'consult-bibtex-insert-citation))
 #+end_src
 
@@ -2330,7 +2389,6 @@ Tectonic and full integration with our Citar setup.
   "c c" '(TeX-command-master :wk "Compile Document")
   "c v" '(TeX-view :wk "View Output")
   "c e" '(TeX-clean :wk "Clean Aux Files")
-  "c b" '(citar-insert-citation :wk "Insert Citation (Citar)")
   "c o" '(citar-open :wk "Open Reference (Citar)")
   "c r" '(reftex-reference :wk "Insert Reference (RefTeX)")
   "c b" '(:ignore t :wk "bibliography")

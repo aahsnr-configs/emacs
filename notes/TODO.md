@@ -41,10 +41,10 @@
 - [x] Borrow modern emacs from my doom branch of aahsnr/emacs
 - [x] Setup projectile, ibuffer, treemacs, persp-mode: **There are errors in this configuration**
 - [x] Setup eglot and dape
-- [ ] Integrate the completion framework with eglot and dape
+- [x] Integrate the completion framework with eglot and dape
 - [ ] For corfu, print the current selection candidate to buffer.
 - [x] Set gc-cons-threshold to 100mb
-- [ ] Set corfu to display documentation only on key input 
+- [x] Set corfu to display documentation only on key input 
 - [ ] Add cape-company-to-capf backend to cape
 - [ ] Use Scimax to setup many things
 - [ ] Dired/Dirvish: Copy doom emacs's setup; [Note]: Don't use gemini
