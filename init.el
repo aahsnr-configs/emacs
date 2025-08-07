@@ -13,14 +13,13 @@
 (setq use-package-always-ensure t
       use-package-expand-minimally t)
 
-;; Ensure adding the following compile-angel code at the very beginning
-;; of your `~/.emacs.d/post-init.el` file, before all other packages.
 (use-package compile-angel
+  :vc (:url "https://github.com/jamescherti/compile-angel.el" :branch "main")
   :demand t
   :custom
   (compile-angel-verbose nil)
-
   :config
+  ;; Exclude core config files from compilation.
   (push "/init.el" compile-angel-excluded-files)
   (push "/early-init.el" compile-angel-excluded-files)
   (push "/config.el" compile-angel-excluded-files)
@@ -51,9 +50,8 @@
 ;; Move point to top/bottom of buffer before signaling a scrolling error.
 (setq scroll-error-top-bottom t)
 
-;; If `scroll-conservatively' is set above 100, the window is never
-;; automatically recentered.
-(setq scroll-conservatively 101)
+;; If `scroll-conservatively' is set above 100, the window is never automatically recentered.
+(setq scroll-conservatively 120)
 
 ;; Number of lines of margin at the top and bottom of a window.
 (setq scroll-margin 0)
@@ -1186,6 +1184,10 @@
 ;; No `use-package` is needed for `project.el` as it's built-in.
 ;; We just need to configure it and set our keybindings.
 (setq project-switch-commands 'project-find-file)
+
+;; Exclude the `var` directory from project discovery to prevent unwanted projects.
+(with-eval-after-load 'project
+  (add-to-list 'project-vc-ignores no-littering-var-directory))
 
 (ar/global-leader
  "p" '(:ignore t :wk "project")
