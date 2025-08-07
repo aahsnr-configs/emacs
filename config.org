@@ -2332,5 +2332,8 @@ Tectonic and full integration with our Citar setup.
   "c e" '(TeX-clean :wk "Clean Aux Files")
   "c b" '(citar-insert-citation :wk "Insert Citation (Citar)")
   "c o" '(citar-open :wk "Open Reference (Citar)")
-  "c r" '(reftex-reference :wk "Insert Reference (RefTeX)"))
+  "c r" '(reftex-reference :wk "Insert Reference (RefTeX)")
+  "c b" '(:ignore t :wk "bibliography")
+  "c b c" '(citar-insert-citation :wk "Insert Citation (Citar)")
+  "c b b" '(consult-bibtex :wk "Insert Citation (BibTeX)"))
 #+end_src
