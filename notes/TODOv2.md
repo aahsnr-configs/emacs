@@ -113,9 +113,22 @@ Write comprehensive perspective.el configuration from https://github.com/nex3/pe
   - [ ] __setup org-roam general keybindings from incomplete claude.ai configuration in email unbent-crib-onyx@duck.com. Also complete org-roam from org-roam.md and compared it with the incomplete claude.ai configuration__
 
 - [ ] __LaTeX__: [Add laas, auto-activating-snippets, cdlatex]
-Using the attached emacs configuration files as the base emacs configuration, write a comprehensive setup for writing latex documents in emacs. Integrate tectonic from https://github.com/tectonic-typesetting/tectonic into the LaTeX writing environment, as well as integrate texlab from https://github.com/latex-lsp/texlab as the lsp backend for eglot. As a result, the LaTeX writing environment would use both these methods seamlessly and interchangeably where possible.  Also integrate org-mode and org-roam into the LaTeX writing environment. Make sure I have the ability to write LaTeX documents both in org mode files as well as separate LaTeX. Try to mimic the setup from doom emacs setup as closely as possible while not adding any redundant configuration options. Furthermore, setup ligatures for LaTeX with additional math ligaturs, and make sure to setup cdlatex for quick math insertions, as well as make sure to setup laas and auto-activating-snippets. Also setup custom snippets that might be useful to quickly format and write LaTeX documents both in LaTeX files and org-mode files. Additionally setup TeX-fold if writing separate LaTeX files.  Check if the resulting latex writing environment benefits from using the parsebib package. Only integrate parsebib if it complements the resulting latex writing environment. Further, use pdf-tools as the default pdf viewer when compiling LaTeX files. Implement a robust citation and reference environment citar-embark and citar-capf, as well as,org-roam-bibtex and citar-org-roam.
+Using the attached emacs configuration files as the base emacs configuration, write a comprehensive LaTeX writing environment in emacs 30 with the following features and integrations:
+ - integrate tectonic from https://github.com/tectonic-typesetting/tectonic
+ - integrate texlab from https://github.com/latex-lsp/texlab as the lsp backend for eglot.
+ - texlab and tectonic should work interchangeably wherever possible
+ - integrate org-mode and org-roam from the base emacs configuration into the writing environment.
+ - ability to write LaTeX documents both in org mode files and separate LaTeX files
+ - mimic the setup from doom emacs setup as closely as possible while not adding any redundant configuration options
+ - setup ligatures for LaTeX with additional math ligaturs
+ - setup cdlatex for quick math insertions, and setup laas and auto-activating-snippets.
+ - setup custom snippets that might be useful to quickly format and write LaTeX documents
+ - setup TeX-fold if writing separate LaTeX files
+ - integrate parsebib
+ - use pdf-tools as the default pdf viewer when compiling LaTeX files 
+ - implement a robust citation and reference environment using citar-embark, citar-capf, org-roam-bibtex and citar-org-roam.
 
-Make sure to search the web before writing anything. Do not introduce errors. And keep in mind that the attached config.el file is formatted as an org file. And only show the parts about this LaTeX writing environment.
+Make sure the LateX writing environment is integrated with the rest of the emacs configuration in the attached files. Make sure to search the web before writing anything. Do not introduce errors. You do not need to rewrite the whole emacs configuration. Only writet out latex writing environment and other needed changes in a nicely formatted and readble markdown output.
 
 - [ ] __Python__
 
