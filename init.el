@@ -1,4 +1,4 @@
-;;; config.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
+;;; init.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
 
 (require 'package)
 
@@ -49,14 +49,14 @@
 (setq require-final-newline t)
 
 ;; Move point to top/bottom of buffer before signaling a scrolling error.
-;; (setq scroll-error-top-bottom t)
+(setq scroll-error-top-bottom t)
 
 ;; If `scroll-conservatively' is set above 100, the window is never
 ;; automatically recentered.
-;; (setq scroll-conservatively 101)
+(setq scroll-conservatively 101)
 
 ;; Number of lines of margin at the top and bottom of a window.
-;; (setq scroll-margin 0)
+(setq scroll-margin 0)
 
 ;; Prefer vertical splits over horizontal ones.
 (setq split-width-threshold 170
@@ -470,13 +470,6 @@
   :hook ((prog-mode . rainbow-mode)
          (org-mode . rainbow-mode)))
 
-(use-package ultra-scroll
-  :init
-  (setq scroll-conservatively 3 ; or whatever value you prefer, since v0.4
-        scroll-margin 0)        
-  :config
-  (ultra-scroll-mode 1))
-
 ;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
 ;; system, providing more convenient undo/redo functionality.
 (use-package undo-fu
@@ -518,7 +511,8 @@
     (inhibit-mouse-mode 1)))
 
 (use-package shackle
-  :init
+  :init (shackle-mode)
+  :config
   (setq shackle-rules
    '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
      ;; This allows Treemacs to use its own logic for side-window placement.
@@ -535,9 +529,7 @@
      ("\\`\\*dap-locals" :align right :size 0.4)
      ("\\`\\*dap-breakpoints" :align right :size 0.4)
      ("\\`\\*dap-sessions" :align right :size 0.4))
-   shackle-inhibit-window-quit-on-same-buffer t)
-  :config
-  (shackle-mode))
+   shackle-inhibit-window-quit-on-same-buffer t))
 
 (use-package combobulate
    :custom

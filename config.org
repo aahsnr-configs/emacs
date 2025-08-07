@@ -68,14 +68,13 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (setq require-final-newline t)
 
 ;; Move point to top/bottom of buffer before signaling a scrolling error.
-;; (setq scroll-error-top-bottom t)
+(setq scroll-error-top-bottom t)
 
-;; If `scroll-conservatively' is set above 100, the window is never
-;; automatically recentered.
-;; (setq scroll-conservatively 101)
+;; If `scroll-conservatively' is set above 100, the window is never automatically recentered.
+(setq scroll-conservatively 101)
 
 ;; Number of lines of margin at the top and bottom of a window.
-;; (setq scroll-margin 0)
+(setq scroll-margin 0)
 
 ;; Prefer vertical splits over horizontal ones.
 (setq split-width-threshold 170
@@ -573,17 +572,6 @@ Enable line numbers for some modes
          (org-mode . rainbow-mode)))
 #+end_src
 
-** Scrolling
-Preferring minimal-emacs.d setup over ultra-scroll
-#+begin_src emacs-lisp
-(use-package ultra-scroll
-  :init
-  (setq scroll-conservatively 3 ; or whatever value you prefer, since v0.4
-        scroll-margin 0)        
-  :config
-  (ultra-scroll-mode 1))
-#+end_src
-
 ** Undo System
 #+begin_src emacs-lisp
 ;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
@@ -638,7 +626,8 @@ This provides a declarative way to control where and how special-purpose buffers
 appear, ensuring a consistent and predictable windowing layout.
 #+begin_src emacs-lisp
 (use-package shackle
-  :init
+  :init (shackle-mode)
+  :config
   (setq shackle-rules
    '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
      ;; This allows Treemacs to use its own logic for side-window placement.
@@ -655,9 +644,7 @@ appear, ensuring a consistent and predictable windowing layout.
      ("\\`\\*dap-locals" :align right :size 0.4)
      ("\\`\\*dap-breakpoints" :align right :size 0.4)
      ("\\`\\*dap-sessions" :align right :size 0.4))
-   shackle-inhibit-window-quit-on-same-buffer t)
-  :config
-  (shackle-mode))
+   shackle-inhibit-window-quit-on-same-buffer t))
 #+end_src
 
 ** Combobulate

@@ -114,8 +114,6 @@ Set a separate transient menu for magit
 - [ ] Integrate ripgrep and fd throughout the whole configuration
 - [ ] __Setup calendar, diary-lib, appt (appointments) later__
 
-
-
 ## The following packages must be working in org source code blocks
 - [ ] __Aggressive Indent__
 - [ ] __Move Text__
