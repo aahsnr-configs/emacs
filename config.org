@@ -1469,59 +1469,6 @@ advanced dynamic project task template.
   "b s" '(save-buffer :wk "save buffer"))
 #+end_src
 
-** File Management
-** Treemacs: Core Configuration and Integrations
-A robust, modern, and reliable configuration for the Treemacs file explorer,
-designed to mimic the behavior of the Doom Emacs project drawer. It unifies all
-related packages to ensure correct load order and a seamless user experience.
-
-#+begin_src emacs-lisp
-;; (use-package treemacs
-;;   :defer t
-;;   :init
-;;   ;; (with-eval-after-load 'evil
-;;   ;;   (evil-set-initial-state 'treemacs-mode 'emacs))
-;; 
-;;   :config
-;;   (setq treemacs-git-mode 'simple)
-;;   (setq treemacs-collapse-dirs
-;;         (cond
-;;          ((executable-find "python3") 3)
-;;          ((executable-find "python") 3)
-;;          (t 0))) ; Fallback if no python is found
-;;   ;; Disable automatic file following for performance. Use `f` inside treemacs to find manually.
-;;   (setq treemacs-follow-after-init          nil)
-;;   (setq treemacs-is-never-other-window      nil) ; Allow `C-x o` to switch to treemacs
-;;   (setq treemacs-missing-project-action     'remove)
-;;   (setq treemacs-goto-tag-strategy          'ref-history)
-;;   (setq treemacs-expand-after-init          t)
-;;   (setq treemacs-sorting                    'alphabetic-asc)
-;;   (setq treemacs-position                   'left)
-;;   (setq treemacs-width                      35)
-;;   (setq treemacs-indentation                2)
-;;   (setq treemacs-display-in-side-window     t)
-;;   (setq treemacs-show-hidden-files          nil)
-;;   (setq treemacs-space-between-root-nodes   t))
-;; 
-;; (use-package treemacs-evil
-;;   :after (treemacs evil))
-;; 
-;; (use-package treemacs-projectile
-;;   :after (treemacs projectile))
-;; 
-;; (use-package treemacs-magit
-;;   :defer t
-;;   :after (treemacs magit))
-;; 
-;; (use-package treemacs-perspective
-;;   :after (treemacs perspective))
-;; 
-;; (use-package treemacs-nerd-icons
-;;   :after treemacs
-;;   :config
-;;   (treemacs-load-theme "nerd-icons"))
-#+end_src
-
 ** Dired
 This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
 #+begin_src emacs-lisp
