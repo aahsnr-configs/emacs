@@ -724,7 +724,6 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Nerd Icons Completion
 #+begin_src emacs-lisp
 (use-package nerd-icons-completion
-  :demand t
   :config
   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
   (nerd-icons-completion-mode))
@@ -801,7 +800,7 @@ appear, ensuring a consistent and predictable windowing layout.
   :init
   (global-corfu-mode)
   ;; Enable Corfu's extensions
-  (corfu-popupinfo-mode)
+  ;; (corfu-popupinfo-mode)
   (corfu-history-mode)
   :bind
   (:map corfu-map
@@ -819,7 +818,7 @@ appear, ensuring a consistent and predictable windowing layout.
   (corfu-quit-no-match 'separator)
   ;; Configure popupinfo delay
   ;; TODO: show documentation on key input
-  (corfu-popupinfo-delay '(0.5 . 0.2))
+  ;; (corfu-popupinfo-delay '(0.5 . 0.2))
   ;; This line is now in the correct location
   (corfu-auto-preconditions '(corfu-precondition-evil))
   :config
@@ -1672,14 +1671,11 @@ Eglot performance using eglot booster
 Display eldoc documentation in a popup frame at point.
 #+begin_src emacs-lisp
 (use-package eldoc-box
-  :hook (eldoc-mode . eldoc-box-hover-mode)
+  :commands (eldoc-box-show-doc) ; Command to be called manually
   :custom
-  ;; Only show the popup if there is actual documentation.
   (eldoc-box-show-if-no-doc nil)
-  ;; Disable the default minibuffer display since we have a popup.
   (eldoc-echo-area-display-truncation-p nil)
   :custom-face
-  ;; Style the popup to match the doom-tokyo-night theme.
   (eldoc-box-border ((t (:foreground "#3b4261"))))
   (eldoc-highlight-symbol-face ((t (:foreground "#7aa2f7" :weight bold)))))
 #+end_src
@@ -1722,7 +1718,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :ensure nil
   :hook (prog-mode . flymake-mode)
   :custom
-  (flymake-check-syntax-automatically '(save mode-enabled idle-change))
+  (flymake-check-syntax-automatically '(save mode-enabled))
   (flymake-idle-change-delay 0.4)
   :custom-face
   (flymake-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil))))  (flymake-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))  (flymake-note    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
@@ -1735,7 +1731,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 (use-package posframe)
 
-;; Install from github
 ;; Display flymake errors in a popup frame instead of the echo area.
 (use-package flymake-posframe
   :load-path ("~/.config/emacs/lisp/flymake-posframe")
@@ -1753,21 +1748,12 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 (use-package apheleia
   :defer t
-  :hook (after-init . apheleia-global-mode)
   :config
-  ;; Add a themed hook to provide clear, theme-consistent feedback on success.
-  (add-hook 'apheleia-post-format-hook #'ar/apheleia-format-message))
+  (apheleia-global-mode +1))
 #+end_src
 
 ** Tree-sitter for syntax highlighting
 #+begin_src emacs-lisp
-(use-package treesit-auto
-  :custom
-  (treesit-auto-install 'prompt)
-  :config
-  (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode))
-
 (use-package treesit-fold
   :hook (treesit-auto-mode-hook . treesit-fold-mode))
 
@@ -1819,7 +1805,8 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
  "l e" '(consult-flymake :wk "buffer errors")
  "l E" '(consult-eglot-diagnostics :wk "project errors")
  "l h" '(:ignore t :which-key "help")
- "l h h" '(eldoc-doc-buffer :wk "show full documentation"))
+ "l h h" '(eldoc-doc-buffer :wk "show full documentation")
+ "l h d" '(eldoc-doc-buffer :wk "show doc in popup"))
 #+end_src
 
 * Python & Jupyter for Org Mode
@@ -1867,9 +1854,9 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 (with-eval-after-load 'dape
   (dape-register-debug-template
    "Python :: Run Current File (debugpy)"
-   '(:type "python" :request "launch" :justMyCode t
+   `(:type "python" :request "launch" :justMyCode t
      :program #'buffer-file-name
-     :cwd #'projectile-project-root)))
+     :cwd ,(lambda () (project-root (project-current))))))
 #+end_src
 
 * Markdown Environment
@@ -2159,16 +2146,8 @@ Opens the notes in a split window to the right."
   ;; Use a completing-read prompt for a better UI when multiple snippets match.
   (yas-prompt-functions '(yas-completing-prompt))
   ;; Only show important messages, hiding the "just-in-time loading" confirmation.
-  (yas-verbosity 0)
   :config
-  ;; --- Handle persistent cache directory ---
-  ;; Define the desired path, set the variable for yasnippet, and create
-  ;; the directory if it doesn't exist. This avoids timing issues.
-  (let ((cache-dir (expand-file-name "yasnippet-cache" no-littering-var-directory)))
-    (setq yas-snippet-cache-dir cache-dir)
-    (unless (file-directory-p cache-dir)
-      (make-directory cache-dir t)))
-
+ 
   ;; --- Add Personal Snippets Directory ---
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
