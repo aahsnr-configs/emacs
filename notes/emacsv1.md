@@ -1,327 +1,290 @@
-Of course. I have carefully studied your Emacs configuration and will provide the requested modifications. The following is a comprehensive replacement of the specified packages, designed to be well-integrated, optimized for Emacs 30, and turn your Emacs into a more powerful, cohesive IDE.
+Of course. I have carefully studied your Emacs configuration and will provide a comprehensive guide to replacing the specified packages. The following sections detail the necessary changes to transform your Emacs into a more powerful, IDE-like environment, drawing inspiration from Doom Emacs and optimizing for Emacs 30.
 
-Here are the major changes:
-1.  **Completion Framework**: `Vertico`, `Consult`, `Orderless`, `Embark`, and `Corfu` have been replaced with the `Ivy`, `Counsel`, `Swiper`, and `Company` ecosystem.
-2.  **Workflow Management**: The built-in `project.el` and `perspective.el` are replaced by the more feature-rich `Projectile` and `persp-mode`.
-3.  **Development Environment**: `Eglot`, `Flymake`, and `Dape` have been swapped for `LSP Mode`, `Flycheck`, and `DAP Mode`, along with their rich ecosystems.
-
-Each section below contains the new `org-mode` blocks that should replace the corresponding sections in your `init.txt` file.
+This is a set of changes to be applied to your existing `init.txt`. You should **remove** the old configuration blocks for the packages being replaced and **add** the new ones provided below.
 
 ---
 
-### 1. Replacing the Completion Framework
+### 🌟 1. Completion Framework: Replacing Corfu with Company
 
-The entire `* Completion Framework` and `* TODO Corfu: The Core UI` sections should be replaced with the following. This new setup is built around `Ivy` for vertical completion and `Company` for in-buffer completion, providing a fast and powerful user experience.
+To enhance in-buffer completion, we will replace `corfu`, `cape`, and `dabbrev` with the powerful `company-mode` ecosystem. This provides a more traditional and extensible completion UI.
 
-*   **Ivy, Counsel, and Swiper**: A powerful trio for searching and completion. `ivy-rich` enhances the display, and `smex` provides a better `M-x`.
-*   **Company Mode**: A modular and extensible in-buffer completion framework. It's configured with `company-box` for an improved UI and backends for various contexts.
+**Action:**
+Remove the `use-package` blocks for `corfu`, `nerd-icons-corfu`, `cape`, and `dabbrev`. Replace them with the following:
 
-```org
-* Completion Framework
-This configuration replaces the default completion system with the powerful Ivy,
-Counsel, and Swiper ecosystem. For in-buffer completion, it uses Company Mode,
-complemented by various backends and a modern UI.
+```emacs-lisp
+;;; 📥 TODO Corfu: The Core UI -> Replaced with Company
+;;; The entire section for Corfu, Nerd Icons for Corfu, Cape, and Dabbrev
+;;; should be removed and replaced by this new section.
 
-** Ivy, Counsel, and Swiper
-#+begin_src emacs-lisp
-(use-package ivy
-  :bind (("C-s" . swiper)
-         :map ivy-minibuffer-map
-         ("TAB" . ivy-alt-done)
-         ("C-l" . ivy-alt-done)
-         ("C-j" . ivy-next-line)
-         ("C-k" . ivy-previous-line)
-         :map ivy-switch-buffer-map
-         ("C-k" . ivy-previous-line)
-         ("C-l" . ivy-done)
-         ("C-d" . ivy-switch-buffer-kill)
-         :map ivy-reverse-i-search-map
-         ("C-k" . ivy-previous-line)
-         ("C-d" . ivy-reverse-i-search-kill))
-  :init
-  (ivy-mode 1)
-  :custom
-  (ivy-count-format "(%d/%d) ")
-  (ivy-use-virtual-buffers t)
-  (ivy-re-builders-alist '((swiper . ivy--regex-plus)
-                           (t . ivy--regex-fuzzy)))
-  (enable-recursive-minibuffers t))
-
-(use-package ivy-rich
-  :after ivy
-  :init
-  (ivy-rich-mode 1))
-
-(use-package swiper
-  :after ivy
-  :bind (("C-s" . swiper)
-         ("C-r" . swiper)))
-
-(use-package counsel
-  :after ivy
-  :bind (("M-x" . counsel-M-x)
-         ("C-x C-f" . counsel-find-file))
-  :custom
-  (counsel-find-file-ignore-regexp "\\`\\.\\'")
-  (counsel-rg-base-command "rg --hidden --files --no-messages --glob '!.git' %s"))
-
-;; Provides an ivy-powered M-x, which is superior to counsel-M-x
-;; because it remembers your command history.
-(use-package smex
-  :after ivy
-  :bind (("M-x" . smex)
-         ("M-X" . smex-major-mode-commands))
-  :custom
-  (smex-save-file (expand-file-name "smex-items" no-littering-var-directory)))
-#+end_src
-
-** Company Mode: In-Buffer Completion
-#+begin_src emacs-lisp
 (use-package company
+  :after evil
   :hook (after-init . global-company-mode)
   :bind (:map company-active-map
-         ("<tab>" . company-complete-selection)
-         ("C-n" . company-select-next)
-         ("C-p" . company-select-previous))
+              ("C-n" . company-select-next)
+              ("C-p" . company-select-previous)
+              ("M-." . company-show-doc-buffer)
+              ("<tab>" . company-complete-selection))
+        (:map company-search-map
+              ("C-n" . company-search-select-next)
+              ("C-p" . company-search-select-previous))
   :custom
-  (company-minimum-prefix-length 1)
-  (company-idle-delay 0.0)
-  (company-backends '(company-capf company-yasnippet company-keywords company-files company-dabbrev-code))
+  ;; Set a more responsive idle delay.
+  (company-idle-delay 0.1)
+  (company-minimum-prefix-length 2)
+  ;; Mimic Doom's completion behavior.
+  (company-selection-wrap-around t)
+  (company-transformers '(company-transformer-sorter company-transformer-trim-duplicates))
+  ;; Group backends. The ':with' keyword combines multiple backends.
+  (company-backends '((company-yasnippet company-capf :with company-dabbrev)))
   :config
-  ;; Disables the modeline indicator for a cleaner look
-  (diminish 'company-mode))
+  ;; Unset the default TAB keybinding to avoid conflicts.
+  (define-key company-active-map (kbd "TAB") nil))
 
-;; Provides a more modern, icon-rich UI for company popups.
+;; Enhance the Company UI to be more IDE-like.
 (use-package company-box
-  :hook (company-mode . company-box-mode))
+  :after company
+  :hook (company-mode . company-box-mode)
+  :custom
+  (company-box-show-single-candidate t)
+  (company-box-max-candidates 15)
+  (company-box-doc-delay 0.4)
+  ;; Theming to match doom-tokyo-night
+  :custom-face
+  (company-box-border ((t (:foreground "#3b4261"))))
+  (company-box-scrollbar ((t (:background "#7aa2f7"))))
+  (company-box-selection ((t (:background "#3b4261")))))
 
-;; Add yasnippet backend to company
+;; Integrate Yasnippet with Company.
 (use-package company-yasnippet
   :after (company yasnippet)
   :config
   (add-to-list 'company-backends 'company-yasnippet))
-#+end_src
 ```
 
-### 2. Replacing the Workflow Management
+---
 
-The `* Workspaces` and `* Project Management: Built-in *project.el*` sections should be replaced with the following configurations for `persp-mode` and `Projectile`. This provides a more robust and widely-used system for managing projects and window layouts.
+### 🌟 2. Workspace and Project Management: Projectile & Persp-mode
 
-*   **persp-mode**: A powerful workspace manager that allows you to save and restore window and buffer layouts.
-*   **Projectile**: The de-facto standard for project management in Emacs. It integrates seamlessly with `Counsel` for finding files and searching within projects.
-*   **Buffer Management**: The `ibuffer` configuration has been updated to use `Projectile` for project-based grouping.
+We will replace the built-in `project.el` with the more feature-rich `projectile`. We will also refine the `persp-mode` configuration for better integration.
 
-```org
-* Workflow Management
-This section defines the tools for managing projects and workspaces. Projectile is
-used for project-centric operations, while persp-mode handles workspace (perspective)
-management.
+**Action:**
+1.  Remove the entire `(use-package project ...)` block.
+2.  Replace the `(use-package perspective ...)` block with the new `(use-package persp-mode ...)` block below.
+3.  Replace the keybindings under the `ar/global-leader` `"p"` prefix.
 
-** Workspaces with persp-mode
-#+begin_src emacs-lisp
-(use-package persp-mode
-  :vc (:url "https://github.com/Bad-ptr/persp-mode.el.git" :branch "master")
-  :init
-  (setq persp-state-default-file (expand-file-name "persp-mode-state" no-littering-var-directory))
-  :config
-  (persp-mode)
-  :custom
-  (persp-autokill-buffer-on-remove 'kill-if-no-windows)
-  (persp-auto-resume-time -1) ; Don't auto-resume, we do it manually
-  (persp-save-dir (expand-file-name "persp-saves/" no-littering-var-directory)))
+#### Projectile Configuration (New)
 
-
-(ar/global-leader
- "w" '(:ignore t :wk "workspaces")
- "w s" '(persp-switch-to-buffer :wk "switch buffer")
- "w n" '(persp-next :wk "next")
- "w p" '(persp-prev :wk "previous")
- "w c" '(persp-add-new :wk "create")
- "w k" '(persp-kill :wk "kill")
- "w r" '(persp-rename :wk "rename"))
-#+end_src
-
-** Project Management with Projectile
-#+begin_src emacs-lisp
+```emacs-lisp
 (use-package projectile
-  :diminish projectile-mode
+  :defer t
   :init (projectile-mode +1)
+  :custom
+  (projectile-completion-system 'default) ; Use standard completing-read, which consult will enhance
+  (projectile-enable-caching t)
+  (projectile-switch-project-action #'projectile-dired)
+  ;; Ignore common nuisance directories and files
+  (projectile-globally-ignored-directories '(".git" ".idea" ".ensime_cache" ".eunit" ".svn" "node_modules" "bower_components"))
+  (projectile-globally-ignored-files '(".#*" "*~" "*.pyc" "*.swp"))
   :config
-  (setq projectile-project-search-path '("~/Projects/" "~/src/"))
-  (setq projectile-enable-caching t)
-  (setq projectile-completion-system 'ivy))
+  ;; Ensure projectile's cache is not littered in the config directory.
+  (setq projectile-cache-file (expand-file-name "projectile.cache" no-littering-var-directory))
+  (setq projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" no-littering-var-directory)))
 
-(use-package counsel-projectile
-  :after (projectile counsel)
-  :config (counsel-projectile-mode))
+;; Integrate Projectile with the Consult completion system.
+(use-package consult-projectile
+  :after (projectile consult)
+  :demand t)
+```
 
+#### Persp-mode Configuration (Replacement)
+
+```emacs-lisp
+(use-package persp-mode
+  :vc (:fetcher github :repo "Bad-ptr/persp-mode.el")
+  :defer t
+  :init
+  ;; Set the state file location before enabling the mode.
+  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
+  (setq persp-mode-prefix-key (kbd "C-c p"))
+  :hook (after-init . (lambda () (persp-mode +1)))
+  :custom
+  ;; Automatically kill empty perspectives to keep the list clean.
+  (persp-auto-kill-on-last-buffer-close t)
+  ;; Use a custom name format inspired by Doom Emacs.
+  (persp-format-buffer-name-function
+   (lambda (s buffer-list)
+     (let ((project-name (projectile-project-name)))
+       (if (string-equal project-name "-")
+           (format " [%s]" s)
+         (format " [%s:%s]" project-name s)))))
+
+  :config
+  ;; Custom function to automatically create or switch to a project-specific perspective.
+  (defun ar/perspective-switch-or-create-for-project (project-path)
+    "Switch to a perspective named after the current project, creating it if needed."
+    (when-let ((project-name (projectile-project-name project-path)))
+      (unless (or (string= project-name "-")
+                  (string= (persp-name *current-persp*) project-name))
+        (if (get-perspective project-name)
+            (persp-switch project-name)
+          (persp-add-new project-name)
+          (persp-switch project-name)))))
+
+  ;; Hook this function into projectile to run after switching projects.
+  (add-hook 'projectile-after-switch-project-hook #'ar/perspective-switch-or-create-for-project)
+
+  ;; Load the saved perspectives when Emacs starts.
+  (when (file-exists-p persp-state-default-file)
+    (persp-load-state-from-file persp-state-default-file)))
+```
+
+#### Updated Keybindings for Projectile
+
+**Action:** Replace the `ar/global-leader` definition for the `"p"` prefix.
+
+```emacs-lisp
 (ar/global-leader
- "p" '(:ignore t :wk "project (projectile)")
- "p p" '(counsel-projectile-switch-project :wk "switch project")
- "p f" '(counsel-projectile-find-file :wk "find file")
- "p d" '(counsel-projectile-find-dir :wk "find directory")
- "p b" '(counsel-projectile-switch-to-buffer :wk "project buffers")
- "p g" '(counsel-projectile-rg :wk "grep in project")
+ "p" '(:ignore t :wk "project")
+ "p p" '(projectile-switch-project :wk "switch project")
+ "p f" '(projectile-find-file :wk "find file in project")
+ "p d" '(projectile-find-dir :wk "find directory in project")
+ "p b" '(projectile-switch-to-buffer :wk "find buffer in project")
+ "p g" '(projectile-ripgrep :wk "grep in project")
+ "p s" '(:ignore t :wk "save/kill")
+ "p s s" '(projectile-save-project-buffers :wk "save project buffers")
+ "p s k" '(projectile-kill-buffers :wk "kill project buffers")
  "p c" '(projectile-compile-project :wk "compile project")
  "p R" '(projectile-replace :wk "replace in project"))
-#+end_src
-
-** Buffer Management: A bufler-style ibuffer
-This configuration enhances the built-in `ibuffer` to group buffers by project
-and special modes, mimicking the core functionality of the `bufler` package without
-adding an extra dependency. The UI is modernized with custom formatting and
-nerd-icons, and Evil-friendly keybindings are added for efficient management.
-This version is adapted to use Projectile instead of the built-in project.el.
-
-#+begin_src emacs-lisp
-(use-package ibuffer
-  :ensure nil ; Built-in package
-  :commands (ibuffer)
-  :hook (ibuffer-mode . ar/ibuffer-setup-hook)
-  :custom
-  (ibuffer-never-show-regexps
-   '("\\` " ; Buffers starting with a space (e.g., *temp*)
-     "\\*dashboard\\*$"
-     "\\*scratch\\*$"
-     "\\*Messages\\*$"
-     "\\*Help\\*$"
-     "\\*Backtrace\\*$"
-     "\\*Compile-Log\\*$"
-     "\\*Flycheck errors*"
-     "\\*eglot-events\\*$"
-     "\\*vterm\\*"))
-
-  ;; Customize the visual format for a clean, column-based layout.
-  (ibuffer-formats
-   '((mark modified read-only " "
-           (icon 4 4 :left :elide)
-           (name 35 35 :left :elide)
-           " "
-           (size-h 9 9 :right :elide)
-           " "
-           (mode 16 16 :left :elide)
-           " "
-           filename-and-process)))
-
-  :config
-  ;; This is the main function called every time ibuffer is opened.
-  (defun ar/ibuffer-setup-hook ()
-    "Set up ibuffer with project grouping, icons, sorting, and evil keys."
-    (nerd-icons-ibuffer-mode)
-    (ar/ibuffer-set-project-groups)
-    (ibuffer-do-sort-by-last-access-time)
-    (ibuffer-update nil t))
-
-  ;; This function intelligently generates the filter groups for projects using Projectile.
-  (defun ar/ibuffer-set-project-groups ()
-    "Create and set ibuffer filter groups based on known projectile projects."
-    (let ((groups '()))
-      ;; Create a group for each known project.
-      (dolist (proj (projectile-relevant-known-projects))
-        (let* ((proj-name (projectile-project-name proj))
-               (proj-root (projectile-project-root proj)))
-          (push `(,proj-name (:eval (and (buffer-file-name)
-                                        (string-prefix-p proj-root (buffer-file-name)))))
-                groups)))
-      ;; Add a final catch-all group for any files not in a known project.
-      (push '("Miscellaneous" (:predicate (lambda (buf)
-                                            (and (buffer-file-name buf)
-                                                 (not (projectile-project-p buf))))))
-            groups)
-      (setq ibuffer-filter-groups (nreverse groups))))
-
-  ;; Add Evil keybindings for a more intuitive, Vim-like experience.
-  (with-eval-after-load 'evil
-    (evil-define-key 'normal ibuffer-mode-map
-      (kbd "j") 'ibuffer-next-line
-      (kbd "k") 'ibuffer-previous-line
-      (kbd "d") 'ibuffer-mark-for-delete
-      (kbd "x") 'ibuffer-do-delete
-      (kbd "s") 'ibuffer-do-save
-      (kbd "g") 'revert-buffer
-      (kbd "q") 'quit-window)))
-
-;; Ensure the `nerd-icons-ibuffer` package is loaded for the icons to work.
-(use-package nerd-icons-ibuffer
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
-;; Global leader keybindings remain the same, providing clear entry points.
-(ar/global-leader
-  "b"   '(:ignore t :wk "buffers")
-  "b b" '(counsel-ibuffer :wk "switch buffer (ivy)")
-  "b i" '(ibuffer :wk "ibuffer (by project)")
-  "b k" '(kill-current-buffer :wk "kill buffer")
-  "b n" '(next-buffer :wk "next buffer")
-  "b p" '(previous-buffer :wk "previous buffer")
-  "b r" '(revert-buffer :wk "revert buffer")
-  "b s" '(save-buffer :wk "save buffer"))
-#+end_src
 ```
 
-### 3. Replacing the Development Environment
+---
 
-The `* Development Environment` section should be completely replaced with the following code. This introduces `lsp-mode` for language intelligence, `dap-mode` for debugging, and `flycheck` for syntax checking, transforming Emacs into a full-fledged IDE.
+### 🌟 3. The IDE Core: LSP, DAP, and Flycheck
 
-*   **LSP Mode**: Provides the core Language Server Protocol support. It's configured with `lsp-ui` for enhancements and `lsp-pyright` for best-in-class Python support.
-*   **Flycheck**: A modern, on-the-fly syntax checker. It's configured to show errors in a pop-up frame.
-*   **DAP Mode**: A client for the Debug Adapter Protocol, enabling a rich, graphical debugging experience for languages like Python.
-*   **Language-Specific Setups**: Dedicated configurations ensure LSP, debugging, and formatting are correctly set up for Python, LaTeX, and Markdown.
+This is the most significant change, replacing `eglot`, `dape`, and `flymake`.
 
-```org
-* Development Environment
-This section configures the Integrated Development Environment (IDE) features of Emacs.
-It is built on three pillars: lsp-mode for language intelligence, dap-mode for
-debugging, and flycheck for syntax checking.
+**Action:**
+Remove the entire `* Development Environment` section from your `init.txt`. Replace it with the following comprehensive sections.
 
-** Language Server Protocol: lsp-mode
-#+begin_src emacs-lisp
+#### Core Development Tools (New Section)
+
+```emacs-lisp
+;; * Development Environment
+;; This new section replaces the original, swapping eglot/dape/flymake
+;; for lsp-mode/dap-mode/flycheck to create a more powerful IDE core.
+
+;;;; Language Server Protocol: LSP-Mode
 (use-package lsp-mode
   :commands (lsp lsp-deferred)
-  :hook ((prog-mode . lsp-deferred))
+  :hook ((prog-mode . lsp-deferred)
+         (org-src-mode . lsp-deferred))
   :init
-  (setq lsp-keymap-prefix "C-c l")
+  ;; Set the LSP client to use company for completion.
+  (setq lsp-client-packages '(lsp-treemacs lsp-ui lsp-pyright))
+  (setq lsp-completion-provider :capf) ; Let company-capf handle it
   :custom
-  (lsp-eldoc-render-all nil)
+  (lsp-eldoc-render-all nil) ; Use lsp-ui for documentation
   (lsp-idle-delay 0.5)
-  (lsp-enable-file-watchers nil) ; Perf tweak
-  :config
-  (define-key lsp-mode-map (kbd "C-c l") lsp-command-map))
+  (lsp-log-io nil) ; Quieter logging
+  (lsp-headerline-breadcrumb-enable t)
+  (lsp-signature-render-documentation nil)
+  ;; Store LSP session files in the no-littering directory.
+  (lsp-session-file (expand-file-name "lsp-session-v1" no-littering-var-directory)))
 
+;; Provides a rich UI on top of lsp-mode (sideline info, popups, etc.)
 (use-package lsp-ui
   :after lsp-mode
   :commands lsp-ui-mode
   :hook (lsp-mode . lsp-ui-mode)
   :custom
+  (lsp-ui-doc-enable t)
   (lsp-ui-doc-position 'at-point)
-  (lsp-ui-sideline-show-diagnostics t)
+  (lsp-ui-doc-delay 2)
   (lsp-ui-sideline-show-hover t)
-  (lsp-ui-sideline-show-code-actions t))
+  (lsp-ui-sideline-show-diagnostics t)
+  (lsp-ui-peek-enable t)
+  :custom-face
+  (lsp-ui-doc-background ((t (:background "#20222A"))))) ; A slightly different background for popups
 
-;; Add lsp integration for company-mode
-(use-package company-lsp
-  :after (company lsp-mode)
+;; Integrate LSP functionality with Consult
+(use-package consult-lsp
+  :after (consult lsp-mode)
   :config
-  (push 'company-lsp company-backends))
-#+end_src
+  (define-key lsp-mode-map (kbd "l s") #'consult-lsp-symbols))
 
-** Debugger: dap-mode
-#+begin_src emacs-lisp
+;;;; Debugger UI: DAP-Mode
 (use-package dap-mode
+  :defer t
   :after lsp-mode
   :hook
   ;; Use GUD's tooltip mode for mouse-hover variable inspection.
-  (dap-session-mode-hook . gud-tooltip-mode)
+  (dap-session-mode . gud-tooltip-mode)
+  (dap-mode . (lambda () (require 'dap-hydra)))
+  :custom
+  (dap-auto-configure-features '(sessions locals controls tooltip))
+  ;; Use nerd-icons for the UI
+  (dap-ui-controls-theme 'nerd-icons)
+  (dap-ui-variable-length 100)
   :config
-  ;; Set the breakpoint file location to be inside the var directory.
-  (setq dap-breakpoint-file (expand-file-name "dap-breakpoints" no-littering-var-directory))
-  ;; Persist breakpoints across Emacs sessions.
-  (add-hook 'kill-emacs-hook #'dap-breakpoint-save)
-  (add-hook 'after-init-hook #'dap-breakpoint-load)
-  (dap-auto-configure-mode))
+  (dap-ui-mode 1)
+  (dap-tooltip-mode 1)
+  (require 'dap-python))
+
+;; A hydra for controlling the debugger, similar to Doom Emacs.
+(use-package dap-hydra
+  :after dap-mode
+  :defer t)
+
+;;;; Syntax Checking: Flycheck
+(use-package flycheck
+  :defer t
+  :hook (prog-mode . flycheck-mode)
+  :custom
+  (flycheck-check-syntax-automatically '(save mode-enabled))
+  (flycheck-idle-change-delay 0.5)
+  (flycheck-indication-mode 'right-fringe)
+  ;; Define custom error faces to match your theme.
+  :custom-face
+  (flycheck-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil))))
+  (flycheck-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))
+  (flycheck-info    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
+
+;; Display flycheck errors in a popup frame.
+(use-package flycheck-posframe
+  :after (flycheck)
+  :hook (flycheck-mode . flycheck-posframe-mode))
+
+;;;; Formatting
+;; Themed success message function for Apheleia
+(defun ar/apheleia-format-message ()
+  "Display a themed success message in the echo area after formatting."
+  (message (propertize (format "Apheleia formatted with %s" apheleia--formatter)
+                       'face '(:foreground "#9ece6a" :weight bold))))
+
+(use-package apheleia
+  :defer t
+  :config
+  (apheleia-global-mode +1))
+
+;;;; Keybindings
+(ar/global-leader
+ "l" '(:ignore t :which-key "lsp")
+ "l a" '(lsp-execute-code-action :wk "code actions")
+ "l d" '(lsp-find-definition :wk "go to definition")
+ "l i" '(lsp-find-implementation :wk "go to implementation")
+ "l r" '(lsp-find-references :wk "find references")
+ "l s" '(consult-lsp-file-symbols :wk "buffer symbols")
+ "l S" '(consult-lsp-workspace-symbol :wk "project symbols")
+ "l R" '(lsp-rename :wk "rename")
+ "l f" '(apheleia-format-buffer :wk "format buffer")
+ "l e" '(flycheck-list-errors :wk "buffer errors")
+ "l h" '(:ignore t :which-key "help")
+ "l h h" '(lsp-ui-doc-show :wk "show documentation"))
 
 (ar/global-leader
- ;; Debugging Keybindings (dap-mode)
+ ;; Debugging Keybindings (DAP)
  "d" '(:ignore t :wk "debug (dap)")
+ "d d" '(dap-hydra/body :wk "debugger hydra")
  "d b" '(dap-toggle-breakpoint :wk "breakpoint")
  "d c" '(dap-continue :wk "continue")
  "d n" '(dap-next :wk "next")
@@ -331,66 +294,66 @@ debugging, and flycheck for syntax checking.
  "d r" '(dap-debug-recent :wk "debug recent")
  "d e" '(dap-debug :wk "debug new")
  "d B" '(ar/dap-debug-org-src-block :wk "debug org block"))
-#+end_src
+```
 
-** Syntax Checking with Flycheck
-#+begin_src emacs-lisp
-(use-package flycheck
-  :init (global-flycheck-mode))
+#### Python & Jupyter IDE Setup (Replacement)
 
-;; Display flycheck errors in a popup frame instead of the echo area.
-(use-package flycheck-posframe
-  :after flycheck
-  :hook (flycheck-mode . flycheck-posframe-mode))
-#+end_src
+**Action:** Replace the `* Python & Jupyter for Org Mode` section.
 
-** Formatting with Apheleia (Existing)
-This package remains unchanged but is crucial for auto-formatting.
-#+begin_src emacs-lisp
-(use-package apheleia
-  :defer t
-  :config
-  (apheleia-global-mode +1))
-#+end_src
+```emacs-lisp
+;; * Python & Jupyter IDE Setup
 
-** Keybindings
-#+begin_src emacs-lisp
-(ar/global-leader
- "l" '(:ignore t :which-key "lsp")
- "l a" '(lsp-execute-code-action :wk "code actions")
- "l d" '(lsp-find-definition :wk "go to definition")
- "l D" '(lsp-find-declaration :wk "go to declaration")
- "l i" '(lsp-find-implementation :wk "go to implementation")
- "l r" '(lsp-find-references :wk "find references")
- "l s" '(counsel-imenu :wk "buffer symbols")
- "l S" '(lsp-workspace-symbol :wk "project symbols")
- "l R" '(lsp-rename :wk "rename")
- "l f" '(apheleia-format-buffer :wk "format buffer")
- "l e" '(flycheck-list-errors :wk "buffer errors")
- "l E" '(lsp-treemacs-errors-list :wk "project errors (treemacs)")
- "l h" '(:ignore t :which-key "help")
- "l h h" '(lsp-describe-thing-at-point :wk "show full documentation"))
-#+end_src
-
-** Language-Specific Configurations
-This section contains setups for Python, Markdown, and LaTeX to ensure that
-lsp-mode, dap-mode, flycheck, and apheleia are all configured correctly for
-each language.
-
-*** Python Environment
-#+begin_src emacs-lisp
+;;;; LSP Configuration for Python
 (use-package lsp-pyright
   :ensure t
-  :hook (python-ts-mode . (lambda ()
-                            (require 'lsp-pyright)
-                            (lsp-deferred))))
+  :after lsp-mode
+  :config
+  ;; Ensure pyright is used for python-ts-mode.
+  (add-to-list 'lsp-disabled-clients 'pylsp)
+  (add-to-list 'lsp-enabled-clients 'pyright))
 
-;; dap-mode python setup
+;;;; Debugging for Python
 (with-eval-after-load 'dap-mode
-  (require 'dap-python)
-  (setq dap-python-debugger 'debugpy))
+  ;; Register the debugpy adapter for Python.
+  (dap-register-debug-template
+   "Python :: Run Current File (debugpy)"
+   `(:type "python" :request "launch" :justMyCode t
+     :program "${file}"
+     :cwd "${workspaceFolder}"
+     :console "externalTerminal")))
 
-;; --- Debugging Functionality for Org blocks ---
+;;;; Flycheck and Formatting for Python
+(with-eval-after-load 'flycheck
+  ;; Add support for common Python checkers.
+  (flycheck-add-mode 'python-ts-mode 'python-pylint 'python-flake8)
+  (flycheck-add-mode 'python-mode 'python-pylint 'python-flake8))
+
+(with-eval-after-load 'apheleia
+  ;; Use the ruff formatter for speed and consistency.
+  (setf (alist-get 'python-ts-mode apheleia-formatters) '(ruff-format))
+  (setf (alist-get 'python-mode apheleia-formatters) '(ruff-format)))
+
+;;;; Jupyter Integration (largely unchanged, but with updated debug function)
+(use-package jupyter
+  :defer t
+  :after org
+  :hook (org-mode . org-display-inline-images)
+  :custom
+  (jupyter-channel-build-if-needed t)
+  (jupyter-python-executable-command (executable-find "python3"))
+  (ob-jupyter-response-mime-type-priorities
+   '("text/html" "image/png" "image/jpeg" "text/plain"))
+  (ob-jupyter-startup-timeout 30)
+  :config
+  (org-babel-do-load-languages 'org-babel-load-languages '((jupyter . t)))
+  (add-to-list 'org-babel-default-header-args:python
+               '((:session . "jupyter-python")
+                 (:kernel . "python3")
+                 (:results . "output file")
+                 (:exports . "results")
+                 (:dir . "./.jupyter-exports/"))))
+
+;; --- Debugging Functionality for Org blocks using DAP ---
 (defun ar/dap-debug-org-src-block ()
   "Tangle the current Org src block to a temp file and debug it with dap-mode."
   (interactive)
@@ -400,89 +363,90 @@ each language.
       (with-temp-file tmp-file (insert (nth 2 info)))
       (message "Debugging tangled block in %s" tmp-file)
       (dap-debug
-       `((:type "python"
-          :name "DAP Debug Org Block"
-          :request "launch"
-          :program ,tmp-file
-          :console "externalTerminal"
-          :justMyCode t))))))
-#+end_src
+       `(:name "DAP Debug Org Src Block"
+         :type "python"
+         :request "launch"
+         :justMyCode t
+         :program ,tmp-file
+         :cwd ,(projectile-project-root))))))
+```
 
-*** Markdown Environment
-#+begin_src emacs-lisp
-;; Use marksman LSP for markdown files
+#### Markdown IDE Setup (Replacement)
+
+**Action:** Replace the `* Markdown Environment` section. The new configuration is better structured and uses LSP.
+
+```emacs-lisp
+;; * Markdown IDE Setup
+
+;;;; Core Markdown Mode (largely unchanged but with lsp hook)
+(use-package markdown-mode
+  :commands (markdown-mode gfm-mode)
+  :mode (("\\.md\\'" . gfm-mode)
+         ("\\.markdown\\'" . gfm-mode))
+  :hook (markdown-mode . lsp) ; Enable LSP for markdown
+  :init
+  (when (treesit-available-p)
+    (setq markdown-mode-default-major-mode 'markdown-ts-mode))
+  :config
+  (setq markdown-fontify-code-blocks-natively t))
+
+;;;; LSP for Markdown (using marksman)
 (with-eval-after-load 'lsp-mode
   (lsp-register-client
    (make-lsp-client :new-connection (lsp-stdio-connection '("marksman" "server"))
                     :major-modes '(markdown-mode gfm-mode markdown-ts-mode)
+                    :remote? nil
                     :server-id 'marksman)))
 
-;; Configure Flycheck for markdownlint
-(flycheck-add-mode 'markdown-lint 'markdown-mode)
-(flycheck-add-mode 'markdown-lint 'gfm-mode)
-(flycheck-add-mode 'markdown-lint 'markdown-ts-mode)
+;;;; Live Linting with Flycheck
+(with-eval-after-load 'flycheck
+  (flycheck-add-mode 'markdown-mode 'markdown-markdownlint-cli)
+  (flycheck-add-mode 'gfm-mode 'markdown-markdownlint-cli)
+  (flycheck-add-mode 'markdown-ts-mode 'markdown-markdownlint-cli))
 
-;; Configure Apheleia for prettier
+;;;; Auto-formatting with Apheleia
 (with-eval-after-load 'apheleia
   (setf (alist-get 'gfm-mode apheleia-formatters)
         '("prettier" "--prose-wrap" "always"))
   (setf (alist-get 'markdown-ts-mode apheleia-formatters)
         '("prettier" "--prose-wrap" "always")))
-#+end_src
 
-*** LaTeX Writing Environment
-#+begin_src emacs-lisp
-;; Integrate texlab LSP with Eglot for LSP support.
+;; All other packages from your original Markdown setup like md-roam and
+;; imenu-list are compatible and do not need to be changed.
+```
+
+#### LaTeX Writing Environment (Updates)
+
+**Action:** Update the `* LaTeX Writing Environment` section to use `flycheck` and integrate `texlab` with `lsp-mode`.
+
+```emacs-lisp
+;; * LaTeX Writing Environment
+;; Update this section to integrate with the new IDE core.
+
+;;;; Core Backend: AUCTeX, Tectonic, and Texlab (Updated)
+(use-package tex
+  :ensure auctex
+  :defer t
+  :config
+  ;; -- Your existing AUCTeX config remains the same --
+  (setq TeX-engine 'tectonic)
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (setq TeX-source-correlate-mode t)
+  (setq TeX-PDF-mode t)
+  (add-hook 'LaTeX-mode-hook #'TeX-fold-mode)
+
+  ;; -- NEW: Add Flycheck support for LaTeX --
+  (add-hook 'LaTeX-mode-hook
+            (lambda ()
+              (flycheck-add-mode 'latex-chktex 'tex-lacheck))))
+
+;; -- UPDATED: Integrate texlab with lsp-mode --
 (with-eval-after-load 'lsp-mode
   (lsp-register-client
    (make-lsp-client :new-connection (lsp-stdio-connection '("texlab"))
                     :major-modes '(latex-mode tex-mode plain-tex-mode)
+                    :remote? nil
                     :server-id 'texlab)))
-
-;; Enable Flycheck's chktex checker for LaTeX files
-(with-eval-after-load 'flycheck
-  (add-hook 'LaTeX-mode-hook #'flycheck-mode))
-#+end_src
 ```
 
-### 4. Updating Keybindings and Integrations
-
-Finally, you need to update a few other sections to ensure they integrate with the new packages.
-
-#### **Org Roam Integration**
-Replace `consult-org-roam` with the `counsel` integration.
-
-```org
-;; In your *Org Roam* section, replace (use-package consult-org-roam ...) with this:
-(with-eval-after-load 'counsel
-   (setq org-roam-node-display-template (concat "${title:*} " (propertize "${tags:20}" 'face 'org-tag)))
-   ;; Override org-roam-node-find to use counsel
-   (setf (symbol-function #'org-roam-node-find) #'counsel-org-roam-find-node))
-```
-
-#### **Yasnippet Integration**
-Replace `consult-yasnippet` with `counsel-yasnippet`.
-
-```org
-;; In your *Snippets* section, replace (use-package consult-yasnippet ...) with this:
-(use-package counsel-yasnippet
-  :after (counsel yasnippet)
-  :config
-  (counsel-yasnippet-mode 1))
-```
-
-#### **Global Keybindings**
-Update your `*General Keybindings*` section to use `smex` and `counsel` for core commands.
-
-```org
-;; In your ar/global-leader definition:
-(ar/global-leader
-  ;; Core
-  "SPC" '(smex :wk "M-x") ;; was execute-extended-command
-  "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
-  "q r" '(ar/reload-config :wk "Reload Config"))
-```
-
----
-
-These changes provide a modern and powerful foundation for your Emacs configuration. After replacing the specified sections in your `init.txt` with the code above, restart Emacs and allow `package.el` to install the new packages. Your Emacs experience will be transformed into a highly-integrated development environment.
+These changes will provide a more robust, integrated, and feature-rich development environment within your Emacs setup, aligning it closely with the capabilities of modern IDEs. Remember to install the necessary external tools (`pyright`, `debugpy`, `marksman`, `markdownlint-cli`, `ruff`, `texlab`, `chktex`, etc.) via your system's package manager or `pip`/`npm`.
