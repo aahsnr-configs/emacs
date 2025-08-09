@@ -273,7 +273,7 @@ issues when running the Pure GTK (PGTK) build of Emacs on Wayland.
                 (pgtk-use-im-context nil)))))
 #+end_src
 
-* General Keybindings
+*General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
@@ -436,32 +436,32 @@ Enable line numbers for some modes
 * Evil
 ** Core Evil
 #+begin_src emacs-lisp
-;; Uncomment the following if you are using undo-fu
-(setq evil-undo-system 'undo-fu)
+  ;; Uncomment the following if you are using undo-fu
+  ;;(setq evil-undo-system 'undo-fu)
 
-;; Vim emulation
-(use-package evil
-  :init
-  (setq evil-want-integration t)
-  (setq evil-want-keybinding nil)
-  (setq evil-undo-system 'undo-fu)
-  :config
-  (evil-mode 1)
-
-  :custom
-  (evil-ex-visual-char-range t)
-  (evil-ex-search-vim-style-regexp t)
-  (evil-split-window-below t)
-  (evil-vsplit-window-right t)
-  (evil-echo-state nil)
-  (evil-move-cursor-back nil)
-  (evil-v$-excludes-newline t)
-  (evil-want-C-h-delete t)
-  (evil-want-C-u-delete t)
-  (evil-want-fine-undo t)
-  (evil-move-beyond-eol t)
-  (evil-search-wrap nil)
-  (evil-want-Y-yank-to-eol t))
+  ;; Vim emulation
+  (use-package evil
+    :init
+    (setq evil-want-integration t)
+    (setq evil-want-keybinding nil)
+    (setq evil-undo-system 'undo-fu)
+    :config
+    (evil-mode 1)
+ 
+    :custom
+    (evil-ex-visual-char-range t)
+    (evil-ex-search-vim-style-regexp t)
+    (evil-split-window-below t)
+    (evil-vsplit-window-right t)
+    (evil-echo-state nil)
+    (evil-move-cursor-back nil)
+    (evil-v$-excludes-newline t)
+    (evil-want-C-h-delete t)
+    (evil-want-C-u-delete t)
+    (evil-want-fine-undo t)
+    (evil-move-beyond-eol t)
+    (evil-search-wrap nil)
+    (evil-want-Y-yank-to-eol t))
 #+end_src
 
 ** Evil Collection
@@ -690,87 +690,177 @@ appear, ensuring a consistent and predictable windowing layout.
 #+end_src
 
 * Completion Framework
-** In-Buffer Completion with Company
+** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
-;; Company provides the IDE-like, in-buffer completion popup for code and text.
-(use-package company
-  :after evil
-  :hook (after-init . global-company-mode)
-  :bind (:map company-active-map
-              ("C-n" . company-select-next)
-              ("C-p" . company-select-previous)
-              ("<tab>" . company-complete-selection)
-              ([tab] . company-complete-selection)
-              ("C-d" . company-show-doc-buffer))
+(use-package orderless
   :custom
-  (company-minimum-prefix-length 1)
-  (company-idle-delay 0.1)
-  (company-tooltip-align-annotations t)
-  (company-global-modes '(not eshell-mode comint-mode erc-mode rcirc-mode))
-  :config
-  (setq company-tooltip-grouped-by-backend t)
-  (setq company-capf-cache-results t))
-
-;; Richer UI for the Company popup, with icons and a border.
-(use-package company-box
-  :after company
-  :hook (company-mode . company-box-mode)
-  :custom-face
-  (company-box-border ((t (:foreground "#3b4261")))))
-
-;; Add yasnippet backend to Company
-(use-package company-yasnippet
-  :after (company yasnippet)
-  :config
-  (add-to-list 'company-backends 'company-yasnippet))
+  ;; Use orderless as the primary completion style.
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  ;; Use standard completion for file paths for a more predictable experience.
+  (orderless-component-separator #'orderless-escapable-split-on-space)
+  (completion-category-overrides '((file (styles basic partial-completion))))
+  ;; Add dispatchers for more precise filtering (e.g., =literal, %regexp)
+  (orderless-dispatchers
+   '(orderless-consult-dispatch orderless-affix-dispatch)))
 #+end_src
 
-** Minibuffer Interface with Ivy, Counsel, and Swiper
-Ivy, Counsel, and Swiper provide a complete, powerful, and fast minibuffer-based
-completion system for commands, files, buffers, and in-buffer searching.
+** Vertico: The Vertical Completion UI
 #+begin_src emacs-lisp
-;; For better fuzzy matching with Ivy.
-(use-package flx
-  :defer t)
+(use-package vertico
+  :init (vertico-mode)
+  :custom
+  (vertico-resize nil)
+  (vertico-cycle t)
+  (vertico-count 10))
+#+end_src
 
-(use-package ivy
-  :bind (("C-s" . swiper)
-         ("C-c C-r" . ivy-resume)
-         :map ivy-minibuffer-map
-         ("C-o" . ivy-dispatching-done)) ; C-o is the embark-act equivalent
+** Marginalia
+#+begin_src emacs-lisp
+(use-package marginalia
+  :init (marginalia-mode))
+#+end_src
+
+** Nerd Icons Completion
+#+begin_src emacs-lisp
+(use-package nerd-icons-completion
+  :config
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
+  (nerd-icons-completion-mode))
+#+end_src
+
+** Consult
+#+begin_src emacs-lisp
+(use-package consult
+  :hook (completion-list-mode . consult-preview-at-point-mode)
   :init
-  ;; Use a more capable fuzzy matching engine.
-  (setq ivy-re-builders-alist
-        '((swiper . ivy--regex-plus)
-          (t . ivy--regex-fuzzy)))
-  (setq ivy-use-virtual-buffers t)
-  (setq ivy-count-format "(%d/%d) ")
-  (setq ivy-initial-inputs-alist nil)
-  (setq enable-recursive-minibuffers t)
-  :config
-  (ivy-mode 1))
+  (setq register-preview-delay 0.3)
+  (setq consult-prompt-margin 0)
+  (setq consult-preview-key 'any)
 
-(use-package counsel
-  :after ivy
-  :diminish counsel-mode
-  :bind (("M-x" . counsel-M-x)
-         ("C-x C-f" . counsel-find-file)
-         ("C-x b" . counsel-switch-buffer))
-  :config
-  ;; Integrate with projectile for project-specific commands.
-  (counsel-projectile-mode 1))
+  :custom
+  (consult-narrow-key "<")
+  (consult-find-args "fd --hidden --strip-cwd --type f --color=never --follow --exclude .git")
+  (consult-ripgrep-args "rg --null --line-buffered --color=never --smart-case --no-heading --line-number --hidden --glob '!.git/'")
+  ;; Augment the default consult-buffer sources to include recent files and
+  ;; project-specific recent files for a more powerful buffer switcher.
+  (consult-buffer-sources
+   '(;;consult--source-buffer
+     consult--source-recent-file
+     consult--source-project-recent-file
+     consult--source-bookmark))
 
-;; Adds rich annotations and custom display transformers to Ivy, replacing Marginalia.
-(use-package ivy-rich
-  :after ivy
   :config
-  (ivy-rich-mode 1))
+  ;; Configure preview keys for various commands.
+  ;; A delayed preview is used to avoid performance issues.
+  (consult-customize
+   consult-theme :preview-key '(:debounce 0.05 any)
+   consult-ripgrep consult-git-grep consult-grep
+   consult-bookmark consult-recent-file consult-xref
+   consult--source-bookmark consult--source-file-register
+   consult--source-recent-file consult--source-project-recent-file
+   :preview-key '(:debounce 0.1 any)))
+#+end_src
 
-;; Adds Nerd Font icons to ivy-rich, replacing nerd-icons-completion.
-(use-package nerd-icons-ivy-rich
-  :after ivy-rich
+** Embark
+#+begin_src emacs-lisp
+(use-package embark
+  :bind
+  (("C-." . embark-act)         ;; pick some comfortable binding
+   ("C-;" . embark-dwim)        ;; good alternative: M-.
+   ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+
+  :init
+  (setq prefix-help-command #'embark-prefix-help-command)
   :config
-  (nerd-icons-ivy-rich-mode 1))
+  (define-key embark-collect-mode-map (kbd "e") #'embark-export)
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
+#+end_src
+
+** Embark Consult
+#+begin_src emacs-lisp
+(use-package embark-consult
+  :after (embark consult)
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+** 📥 TODO Corfu: The Core UI
+*Use different accents for corfu completion and their documentation*
+#+begin_src emacs-lisp
+(defun corfu-precondition-evil ()
+  "Precondition for Corfu to activate only in insert state when evil-mode is active."
+  (or (not evil-mode) (evil-insert-state-p)))
+
+(use-package corfu
+  :init
+  (global-corfu-mode)
+  ;; Enable Corfu's extensions
+  ;; (corfu-popupinfo-mode)
+  (corfu-history-mode)
+  :bind
+  (:map corfu-map
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous)
+        ("M-d" . corfu-info-documentation))
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-resize nil)
+  (corfu-auto-delay 0.2)
+  (corfu-quit-at-boundary 'separator)
+  (corfu-quit-no-match 'separator)
+  ;; Configure popupinfo delay
+  ;; TODO: show documentation on key input
+  ;; (corfu-popupinfo-delay '(0.5 . 0.2))
+  ;; This line is now in the correct location
+  (corfu-auto-preconditions '(corfu-precondition-evil))
+  :config
+  ;; Persist history
+  (with-eval-after-load 'savehist
+    (add-to-list 'savehist-additional-variables 'corfu-history)))
+#+end_src
+
+** Nerd Icons for Corfu
+#+begin_src emacs-lisp
+(use-package nerd-icons-corfu
+  :after (corfu nerd-icons)
+  :config (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** Cape: Completion Backends
+#+begin_src emacs-lisp
+(use-package cape
+  :commands (cape-dabbrev cape-file cape-keyword)
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-symbol)
+  :config
+  ;; Silence the noisy pcomplete capf
+  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent))
+#+end_src
+
+** Dabbrev
+#+begin_src emacs-lisp
+(use-package dabbrev
+  :ensure nil
+  ;; Swap M-/ and C-M-/
+  :bind (("M-/" . dabbrev-completion)
+         ("C-M-/" . dabbrev-expand))
+  :config
+  (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
+  ;; Available since Emacs 29 (Use `dabbrev-ignored-buffer-regexps' on older Emacs)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
 #+end_src
 
 * Org Mode
@@ -1537,23 +1627,6 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
 #+end_src
 
 * Development Environment
-** Environment Management with Direnv
-This configures `envrc-mode` to automatically load environment variables
-from `.envrc` files when you open a file within a project. It serves as the
-critical bridge between `direnv` on the command line and Emacs, ensuring that
-LSP clients (eglot), debuggers (dape), and Jupyter kernels automatically use
-the correct project-specific environment (e.g., Python virtual environments).
-
-#+begin_src emacs-lisp
-(use-package envrc
-   :hook (after-init . envrc-global-mode)
-  :config
-  ;; By default, envrc-mode asks for permission for each new directory.
-  ;; For a smoother experience, you can tell it to trust all directories
-  ;; that have been previously allowed via the `direnv allow` command.
-  (setq envrc-ask-for-permission nil))
-#+end_src
-
 ** Language Server Protocol: Eglot & Eglot Booster
 Eglot is the built-in LSP client. It will automatically use the correct
 language server from the PATH set by your direnv-managed environment. Boost
@@ -1681,29 +1754,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 ** Tree-sitter for syntax highlighting
 #+begin_src emacs-lisp
-(use-package treesit
-  :ensure nil ; This is built-in with Emacs 29+
-  :config
-  (setq major-mode-remap-alist
-        '((sh-mode . bash-ts-mode)
-          (c-mode . c-ts-mode)
-          (c++-mode . c++-ts-mode)
-          (cmake-mode . cmake-ts-mode)
-          (dockerfile-mode . dockerfile-ts-mode)
-          (go-mode . go-ts-mode)
-          (json-mode . json-ts-mode)
-          (js-mode . javascript-ts-mode)
-          (typescript-mode . typescript-ts-mode)
-          (toml-mode . toml-ts-mode)
-          (yaml-mode . yaml-ts-mode)
-          (rust-mode . rust-ts-mode)
-          (python-mode . python-ts-mode)
-          (lua-mode . lua-ts-mode)
-          (markdown-mode . markdown-ts-mode)
-          (gfm-mode . markdown-ts-mode) ; Remap github-flavored markdown as well
-          (zig-mode . zig-ts-mode)
-          (html-mode . html-ts-mode))))
-
 (use-package treesit-fold
   :hook (treesit-auto-mode-hook . treesit-fold-mode))
 
@@ -1716,21 +1766,21 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
               (lambda ()
                 (interactive)
                 (evil-textobj-tree-sitter-goto-textobj "function.outer")))
-
+  
   ;; Goto start of previous function
   (define-key evil-normal-state-map
               (kbd "[f")
               (lambda ()
                 (interactive)
                 (evil-textobj-tree-sitter-goto-textobj "function.outer" t)))
-
+  
   ;; Goto end of next function
   (define-key evil-normal-state-map
               (kbd "]F")
               (lambda ()
                 (interactive)
                 (evil-textobj-tree-sitter-goto-textobj "function.outer" nil t)))
-
+  
   ;; Goto end of previous function
   (define-key evil-normal-state-map
               (kbd "[F")
@@ -1759,119 +1809,54 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
  "l h d" '(eldoc-doc-buffer :wk "show doc in popup"))
 #+end_src
 
-** Polymode
-#+begin_src emacs-lisp
-; (use-package polymode
-;   :config
-;   ;; Use Tree-sitter for the host buffer (Org mode) for better performance and accuracy.
-;   (setq polymode-use-treesitter-for-host-mode t)
-;   ;; Disable legacy font-lock for modern Emacs versions.
-;   (setq polymode-legacy-font-lock-support nil))
-;
-; (use-package poly-org
-;   :after (polymode org)
-;   :hook (org-mode . poly-org-mode)
-;   :config
-;   ;; Tell poly-org to use Tree-sitter for code blocks when available.
-;   (setq poly-org-use-treesitter t))
-#+end_src
-
 * Python & Jupyter for Org Mode
 #+begin_src emacs-lisp
-  ;; Provides Jupyter integration for Emacs.
-  (use-package jupyter
-    :defer t
-    :after org
-    :hook (org-mode . org-display-inline-images)
-    :config    
-    (add-hook 'org-src-mode-hook
-          (lambda ()
-            ;; (hs-minor-mode -1)
-            ;; (electric-indent-local-mode -1)
-            ;; (rainbow-delimiters-mode -1)
-            ;; (highlight-indent-guides-mode -1)
-            )))
-
-  
-
-(with-eval-after-load 'ob-jupyter
-  (org-babel-jupyter-override-src-block "python"))
-
-
-(use-package ob-async
+;; Provides Jupyter integration for Emacs.
+(use-package jupyter
+  :defer t
   :after org
+  :hook (org-mode . org-display-inline-images)
+  :custom
+  (jupyter-channel-build-if-needed t)
+  ;; Ensure Jupyter uses the Python from the project's virtual environment.
+  (jupyter-python-executable-command (executable-find "python3"))
+  ;; Prioritize rich output formats to mimic JupyterLab.
+  (ob-jupyter-response-mime-type-priorities
+   '("text/html" "image/png" "image/jpeg" "text/plain"))
+  (ob-jupyter-startup-timeout 30)
   :config
-  (setq ob-async-no-async-languages-alist '("python" "hy" "jupyter-python" "jupyter-octave" "restclient")))
+  ;; Load the jupyter language into babel.
+  (org-babel-do-load-languages 'org-babel-load-languages '((jupyter . t)))
+  ;; Make python blocks use jupyter by default for a stateful, interactive experience.
+  (add-to-list 'org-babel-default-header-args:python
+               '((:session . "jupyter-python")
+                 (:kernel . "python3")
+                 (:results . "output file")
+                 (:exports . "results")
+                 (:dir . "./.jupyter-exports/"))))
 
-(setq my/jupyter-runtime-folder (expand-file-name "~/.local/share/jupyter/runtime"))
-
-(defun my/get-open-ports ()
-  (mapcar
-   #'string-to-number
-   (split-string (shell-command-to-string "ss -tulpnH | awk '{print $5}' | sed -e 's/.*://'") "\n")))
-
-(defun my/list-jupyter-kernel-files ()
-  (mapcar
-   (lambda (file) (cons (car file) (cdr (assq 'shell_port (json-read-file (car file))))))
-   (sort
-    (directory-files-and-attributes my/jupyter-runtime-folder t ".*kernel.*json$")
-    (lambda (x y) (not (time-less-p (nth 6 x) (nth 6 y)))))))
-
-(defun my/select-jupyter-kernel ()
-  (let ((ports (my/get-open-ports))
-        (files (my/list-jupyter-kernel-files)))
-    (completing-read
-     "Jupyter kernels: "
-     (seq-filter
-      (lambda (file)
-        (member (cdr file) ports))
-      files))))
-
-(defun my/insert-jupyter-kernel ()
-  "Insert a path to an active Jupyter kernel into the buffer"
+;; --- Debugging Functionality for both .py files and Org blocks ---
+(defun ar/dape-debug-org-src-block ()
+  "Tangle the current Org src block to a temp file and debug it."
   (interactive)
-  (insert (my/select-jupyter-kernel)))
+  (when (derived-mode-p 'org-mode)
+    (let* ((tmp-file (make-temp-file "emacs-babel-" nil ".py"))
+           (info (org-babel-get-src-block-info 'light)))
+      (with-temp-file tmp-file (insert (nth 2 info)))
+      (message "Debugging tangled block in %s" tmp-file)
+      (dape--debug
+       (lambda (template)
+         (let ((new-template (copy-tree template)))
+           (setf (plist-get new-template :program) tmp-file)
+           new-template))
+       "Python :: Run Current File (debugpy)"))))
 
-(defun my/jupyter-connect-repl ()
-  "Open an emacs-jupyter REPL, connected to a Jupyter kernel"
-  (interactive)
-  (jupyter-connect-repl (my/select-jupyter-kernel) nil nil nil t))
-
-(defun my/jupyter-qtconsole ()
-  "Open Jupyter QtConsole, connected to a Jupyter kernel"
-  (interactive)
-  (start-process "jupyter-qtconsole" nil "setsid" "jupyter" "qtconsole" "--existing"
-                 (file-name-nondirectory (my/select-jupyter-kernel))))
-  
- (defun my/jupyter-cleanup-kernels ()
-  (interactive)
-  (let* ((ports (my/get-open-ports))
-         (files (my/list-jupyter-kernel-files))
-         (to-delete (seq-filter
-                     (lambda (file)
-                       (not (member (cdr file) ports)))
-                     files)))
-    (when (and (length> to-delete 0)
-               (y-or-n-p (format "Delete %d files?" (length to-delete))))
-      (dolist (file to-delete)
-        (delete-file (car file))))))
-
-(defun my/jupyter-org-scalar (value)
-  (cond
-   ((stringp value) value)
-   (t (jupyter-org-scalar value))))
-
-(define-minor-mode my/emacs-jupyter-raw-output
-  "Make emacs-jupyter do raw output")
-
-(defun my/jupyter-org-scalar-around (fun value)
-  (if my/emacs-jupyter-raw-output
-      (my/jupyter-org-scalar value)
-    (funcall fun value)))
-
-(with-eval-after-load 'jupyter
-  (advice-add 'jupyter-org-scalar :around #'my/jupyter-org-scalar-around))
-
+(with-eval-after-load 'dape
+  (dape-register-debug-template
+   "Python :: Run Current File (debugpy)"
+   `(:type "python" :request "launch" :justMyCode t
+     :program #'buffer-file-name
+     :cwd ,(lambda () (project-root (project-current))))))
 #+end_src
 
 * Markdown Environment
