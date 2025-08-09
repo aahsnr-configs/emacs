@@ -273,7 +273,7 @@ issues when running the Pure GTK (PGTK) build of Emacs on Wayland.
                 (pgtk-use-im-context nil)))))
 #+end_src
 
-*General Keybindings
+* General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
@@ -1627,6 +1627,12 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
 #+end_src
 
 * Development Environment
+** Envrc
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (after-init . envrc-global-mode))
+#+end_src
+
 ** Language Server Protocol: Eglot & Eglot Booster
 Eglot is the built-in LSP client. It will automatically use the correct
 language server from the PATH set by your direnv-managed environment. Boost
@@ -1811,52 +1817,10 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 * Python & Jupyter for Org Mode
 #+begin_src emacs-lisp
-;; Provides Jupyter integration for Emacs.
 (use-package jupyter
   :defer t
   :after org
-  :hook (org-mode . org-display-inline-images)
-  :custom
-  (jupyter-channel-build-if-needed t)
-  ;; Ensure Jupyter uses the Python from the project's virtual environment.
-  (jupyter-python-executable-command (executable-find "python3"))
-  ;; Prioritize rich output formats to mimic JupyterLab.
-  (ob-jupyter-response-mime-type-priorities
-   '("text/html" "image/png" "image/jpeg" "text/plain"))
-  (ob-jupyter-startup-timeout 30)
-  :config
-  ;; Load the jupyter language into babel.
-  (org-babel-do-load-languages 'org-babel-load-languages '((jupyter . t)))
-  ;; Make python blocks use jupyter by default for a stateful, interactive experience.
-  (add-to-list 'org-babel-default-header-args:python
-               '((:session . "jupyter-python")
-                 (:kernel . "python3")
-                 (:results . "output file")
-                 (:exports . "results")
-                 (:dir . "./.jupyter-exports/"))))
-
-;; --- Debugging Functionality for both .py files and Org blocks ---
-(defun ar/dape-debug-org-src-block ()
-  "Tangle the current Org src block to a temp file and debug it."
-  (interactive)
-  (when (derived-mode-p 'org-mode)
-    (let* ((tmp-file (make-temp-file "emacs-babel-" nil ".py"))
-           (info (org-babel-get-src-block-info 'light)))
-      (with-temp-file tmp-file (insert (nth 2 info)))
-      (message "Debugging tangled block in %s" tmp-file)
-      (dape--debug
-       (lambda (template)
-         (let ((new-template (copy-tree template)))
-           (setf (plist-get new-template :program) tmp-file)
-           new-template))
-       "Python :: Run Current File (debugpy)"))))
-
-(with-eval-after-load 'dape
-  (dape-register-debug-template
-   "Python :: Run Current File (debugpy)"
-   `(:type "python" :request "launch" :justMyCode t
-     :program #'buffer-file-name
-     :cwd ,(lambda () (project-root (project-current))))))
+  :hook (org-mode . org-display-inline-images))
 #+end_src
 
 * Markdown Environment
