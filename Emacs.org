@@ -814,8 +814,7 @@ appear, ensuring a consistent and predictable windowing layout.
   (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
-** 📥 TODO Corfu: The Core UI
-*Use different accents for corfu completion and their documentation*
+** Corfu: The Core UI
 #+begin_src emacs-lisp
 (defun corfu-precondition-evil ()
   "Precondition for Corfu to activate only in insert state when evil-mode is active."
@@ -838,7 +837,7 @@ appear, ensuring a consistent and predictable windowing layout.
   (corfu-cycle t)
   (corfu-auto t)
   (corfu-auto-resize nil)
-  (corfu-auto-delay 0.2)
+  (corfu-auto-delay 0.1)
   (corfu-quit-at-boundary 'separator)
   (corfu-quit-no-match 'separator)
   ;; Configure popupinfo delay
@@ -1665,15 +1664,14 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
 #+end_src
 
 ** Language Server Protocol: Eglot & Eglot Booster
+TODO: Set eglot-events-buffer-config' :size property to zero
 Eglot is the built-in LSP client. It will automatically use the correct
 language server from the PATH set by your direnv-managed environment. Boost
 Eglot performance using eglot booster
 #+begin_src emacs-lisp
 (use-package eglot
   :ensure nil
-  :hook ((prog-mode . eglot-ensure)
-         ;; Explicitly hook into org-src-mode for LSP in code blocks.
-         (org-src-mode . eglot-ensure))
+  :hook (prog-mode . eglot-ensure)
   :custom
   (eglot-autoshutdown t)
   :config
@@ -1709,6 +1707,8 @@ Display eldoc documentation in a popup frame at point.
 #+begin_src emacs-lisp
 (use-package eldoc-box
   :commands (eldoc-box-show-doc) ; Command to be called manually
+  :config
+  (add-hook 'eglot-managed-mode-hook #'eldoc-box-hover-mode t)
   :custom
   (eldoc-box-show-if-no-doc nil)
   (eldoc-echo-area-display-truncation-p nil)
