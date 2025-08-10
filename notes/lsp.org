@@ -1,0 +1,62 @@
+#+TITLE:Emacs LSP Setup
+
+- emacs-lsp.md
+- emacsv1.md
+    
+* Development Environment
+** Language Server Protocol: *lsp-mode*
+*lsp-mode* provides a feature-rich and highly extensible LSP client.
+#+begin_src emacs-lisp
+(use-package lsp-mode
+  :commands (lsp lsp-deferred)
+  :hook ((prog-mode . lsp-deferred))
+  :init
+  (setq lsp-keymap-prefix "C-c l")
+  :custom
+  ;; Performance Settings
+  (lsp-enable-file-watchers nil) ;; Can be slow on large projects
+  (lsp-idle-delay 0.1)
+  (lsp-enable-snippet nil) ;; Let yasnippet handle this
+  ;; UI and Behavior
+  (lsp-headerline-breadcrumb-enable t)
+  (lsp-signature-auto-activate t)
+  (lsp-signature-render-documentation t)
+  (lsp-eldoc-render-all t)
+  :config
+  ;; Add specific language server configurations here
+  ;; Python: using pyright for best-in-class performance and features
+  (setq lsp-clients-pyright-executable (executable-find "pyright-langserver"))
+  (add-hook 'python-ts-mode-hook (lambda ()
+                                   (require 'lsp-pyright)
+                                   (lsp-deferred)))
+
+  ;; Markdown: using ltex for grammar and style checking
+  (add-hook 'markdown-mode-hook (lambda ()
+                                  (lsp-deferred)))
+
+  ;; LaTeX: using texlab
+  (add-hook 'latex-mode-hook (lambda ()
+                               (lsp-deferred))))
+#+end_src
+
+** lsp-ui
+lsp-mode with a better UI (sideline, popups, etc.)
+#+begin_src emacs-lisp
+(use-package lsp-ui
+  :hook (lsp-mode . lsp-ui-mode)
+  :custom
+  (lsp-ui-doc-position 'at-point)
+  (lsp-ui-sideline-show-diagnostics t)
+  (lsp-ui-sideline-show-hover t)
+  (lsp-ui-sideline-show-code-actions t)
+  (lsp-ui-imenu-enable t))
+#+end_src
+
+** Consult Integration
+Use consult for lsp-mode's find-symbol functionality.
+#+begin_src emacs-lisp
+(use-package consult-lsp
+  :after (lsp-mode consult)
+  :config
+  (define-key lsp-mode-map (kbd "l s") #'consult-lsp-file-symbols))
+#+end_src

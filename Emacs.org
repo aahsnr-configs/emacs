@@ -1349,86 +1349,95 @@ advanced dynamic project task template.
 #+end_src
 
 * Workflow Management
-** Workspaces
+** Workspaces with *persp-mode*
+*persp-mode.el* automatically creates and switches perspectives when you switch projects, a key feature for an organized workflows
 #+begin_src emacs-lisp
-(use-package perspective
-  :defer t
-  :init
-  ;; Set the state file location before enabling the mode.
-  (setq persp-state-default-file (expand-file-name "perspectives" no-littering-var-directory))
-  (setq persp-mode-prefix-key (kbd "C-c p"))
-  :hook (after-init . (lambda () (persp-mode +1)))
-  :custom
-  ;; Automatically kill empty perspectives to keep the list clean.
-  (persp-auto-kill-on-last-buffer-close t)
-
-  :config
-
-  ;; Custom function to automatically create or switch to a project-specific perspective.
-  (defun ar/perspective-switch-or-create ()
-    "Switch to a perspective named after the current project, creating it if needed."
-    (interactive)
-    (when-let ((project (project-current t)))
-      (let ((project-name (project-name project)))
-        (if (get-perspective project-name)
-            (persp-switch project-name)
-          (persp-add-new project-name)
-          (persp-switch project-name)))))
-
-  ;; Hook this function into project.el to run after switching projects.
-  (add-hook 'project-switch-hook #'ar/perspective-switch-or-create)
-
-  ;; Load the saved perspectives when Emacs starts.
-  (when (file-exists-p persp-state-default-file)
-    (persp-load-state-from-file persp-state-default-file)))
-
-;; Define your custom leader keybindings for workspace management.
-;; Workspaces related keybindings
-(ar/global-leader
- ;; workspace related keybindings
- "w" '(:ignore t :wk "workspaces")
- "w n" '(persp-next :wk "next workspace")
- "w p" '(persp-prev :wk "previous workspace")
- "w s" '(persp-switch :wk "switch workspace")
- "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
- "w c" '(persp-add-new :wk "create workspace")
- "w r" '(persp-rename :wk "rename workspace")
- "w k" '(persp-kill :wk "kill workspace"))
+;; (use-package persp-mode
+;;   :defer t
+;;   :hook (after-init . persp-mode)
+;;   :init
+;;   ;; Set the state file location before enabling the mode.
+;;   (setq persp-state-default-file (expand-file-name "perspectives.el" no-littering-var-directory))
+;;   (setq persp-mode-prefix-key (kbd "C-c p"))
+;;   :custom
+;;   ;; Automatically kill empty perspectives to keep the list clean.
+;;   (persp-autokill-buffer-on-remove 'if-empty)
+;;   (persp-sort 'create-time)
+;;   (persp-kill-foreign-buffers 'if-not-redirected)
+;;   ;; A smarter way to handle buffers when switching perspectives.
+;;   (persp-switch-method 'vars)
+;; 
+;;   :config
+;;   ;; Custom function to automatically create or switch to a project-specific perspective.
+;;   (defun ar/projectile-switch-to-perspective ()
+;;     "Switch to a perspective named after the current project, creating it if needed."
+;;     (interactive)
+;;     (when-let ((project-name (projectile-project-name)))
+;;       (if (get-perspective project-name)
+;;           (persp-switch project-name)
+;;         (persp-add-new project-name)
+;;         (persp-switch project-name))))
+;; 
+;;   ;; Hook this function into projectile to run after switching projects.
+;;   (add-hook 'projectile-after-switch-project-hook #'ar/projectile-switch-to-perspective)
+;; 
+;;   ;; Load the saved perspectives when Emacs starts.
+;;   (when (file-exists-p persp-state-default-file)
+;;     (persp-load-state-from-file persp-state-default-file t)))
+;; 
+;; ;; Define your custom leader keybindings for workspace management.
+;; (ar/global-leader
+;;  ;; workspace related keybindings
+;;  "w" '(:ignore t :wk "workspaces")
+;;  "w n" '(persp-next :wk "next workspace")
+;;  "w p" '(persp-prev :wk "previous workspace")
+;;  "w s" '(persp-switch :wk "switch workspace")
+;;  "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
+;;  "w c" '(persp-add-new :wk "create workspace")
+;;  "w r" '(persp-rename :wk "rename workspace")
+;;  "w k" '(persp-kill :wk "kill workspace"))
 #+end_src
 
-** Project Management: Built-in *project.el*
-This configuration uses Emacs's modern, built-in project management library,
-*project.el*. It provides a fast and integrated foundation for project-related commands, which are further enhanced by the *consult* completion UI.
+** Project Management with projectile
+*proctile* is faster, more configurable, and integrates seamlessly with the rest of your ecosystem, especially `consult`.
 #+begin_src emacs-lisp
-(use-package project
-  :defer t
-  :config
-  (setq project-switch-commands 'project-find-file)
-  (add-to-list 'project-vc-ignores no-littering-var-directory)
-
-  ;; This is the new, more aggressive fix.
-  ;; We advise the core project-finding function to completely ignore the `var` directory.
-  ;; This prevents it from ever discovering git repos inside `elpa`.
-  (defun ar/project-vc-find-function-advice (dir)
-    "Advice to prevent project.el from scanning the emacs var directory.
-This stops packages in the elpa directory from being treated as projects."
-    (not (string-prefix-p (file-name-as-directory no-littering-var-directory)
-                          (file-name-as-directory dir))))
-
-  (advice-add 'project-vc-find-function :before-while #'ar/project-vc-find-function-advice))
-
-(ar/global-leader
- "p" '(:ignore t :wk "project")
- "p p" '(project-switch-project :wk "switch project")
- "p f" '(project-find-file :wk "find file in project")
- "p d" '(project-find-dir :wk "find directory in project")
- "p b" '(consult-project-buffer :wk "find buffer in project")
- "p g" '(consult-ripgrep :wk "grep in project")
- "p s" '(:ignore t :wk "save/kill")
- "p s s" '(project-save-buffers :wk "save project buffers")
- "p s k" '(project-kill-buffers :wk "kill project buffers")
- "p c" '(project-compile :wk "compile project")
- "p R" '(project-query-replace-in-files :wk "replace in project"))
+;; (use-package projectile
+;;   :defer t
+;;   :hook (after-init . projectile-mode)
+;;   :custom
+;;   (setq projectile-project-search-path '("~/Projects/" "~/Code/"))
+;;   (projectile-completion-system 'default) ; Use standard completing-read, which consult will enhance
+;;   (projectile-enable-caching t)
+;;   (projectile-switch-project-action #'projectile-dired)
+;;   ;; Ignore common nuisance directories and files
+;;   (projectile-globally-ignored-directories '(".git" ".idea" ".ensime_cache" ".eunit" ".svn" "node_modules" "bower_components"))
+;;   (projectile-globally-ignored-files '(".#*" "*~" "*.pyc" "*.swp"))
+;;   :config
+;;   ;; Ensure projectile's cache is not littered in the config directory.
+;;   (setq projectile-cache-file (expand-file-name "projectile.cache" no-littering-var-directory))
+;; 
+;;   (setq projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" no-littering-var-directory)))
+;; 
+;; ;; Integrates projectile with the consult completion framework.
+;; (use-package consult-projectile
+;;   :after (projectile consult)
+;;   :config
+;;   (setq consult-projectile-source
+;;         (list :prompt "Project: "
+;;               :action #'consult-projectile-switch-project-action)))
+;; 
+;; (ar/global-leader
+;;  "p" '(:ignore t :wk "project (projectile)")
+;;  "p p" '(projectile-switch-project :wk "switch project")
+;;  "p f" '(projectile-find-file :wk "find file")
+;;  "p d" '(projectile-find-dir :wk "find directory")
+;;  "p b" '(consult-projectile-buffer :wk "find buffer")
+;;  "p g" '(consult-ripgrep :wk "grep in project")
+;;  "p s" '(:ignore t :wk "save/kill")
+;;  "p s s" '(projectile-save-project-buffers :wk "save project buffers")
+;;  "p s k" '(projectile-kill-buffers :wk "kill project buffers")
+;;  "p c" '(projectile-compile-project :wk "compile project")
+;;  "p R" '(projectile-replace :wk "replace in project"))
 #+end_src
 
 ** Buffer Management: A *bufler*-style *ibuffer*
