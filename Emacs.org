@@ -815,10 +815,10 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Corfu: The Core UI
 #+begin_src emacs-lisp
 (use-package corfu
-  :init
-  (global-corfu-mode +1)
+  :hook (after-init . global-corfu-mode)
+  :config
   (corfu-history-mode)
-  (corfu-popupinfo-mode)
+  (corfu-popupinfo-mode) ; don't set delay or 
   :bind
   (:map corfu-map
         ("TAB" . corfu-next)
@@ -830,7 +830,7 @@ appear, ensuring a consistent and predictable windowing layout.
   (corfu-cycle t)
   (corfu-auto t)
   (corfu-auto-resize nil)
-  (corfu-auto-delay 0.07)
+  (corfu-auto-delay 0.13)
   (corfu-preselect 'prompt)
   (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
   (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
