@@ -3,11 +3,14 @@
 ## INSPIRATIONS
 
 ## OPTIMIZATIONS
+
 - [ ] Headling folding/unfolding can introduce lag
 - [ ] Input Delay when using pgtk
 
-## QUESTIONS 
+## QUESTIONS
+
 ---
+
 - [ ] Orderless,vertico, marginalia, nerd-icons-completion, consult, embark, embark-consult, corfu, nerd-icons-corfu, cape, dabbrev. What are some issues that these package face with lsp-mode or dap-mode
 - [ ] Does corfu have native integration with eldoc
 - [ ] How does lsp-mode view documentation.
@@ -16,33 +19,33 @@
 - [ ] How does paredit work?
 
 ---
+
 ## TASKS
 
-- [ ] __Make sure the following packages are working org source code blocks, first by manually checking, then adding if neccessary__
+- [ ] **Make sure the following packages are working org source code blocks, first by manually checking, then adding if neccessary**
   - Completion System
   - Eglot, eldoc, dape, flymake
   - Alphaelia
 
-- [ ] __LaTeX__: [Add laas, auto-activating-snippets, cdlatex]
-Using the attached emacs configuration files as the base emacs configuration, write a comprehensive LaTeX writing environment in emacs 30 with the following features and integrations:
- - integrate tectonic from https://github.com/tectonic-typesetting/tectonic
- - integrate texlab from https://github.com/latex-lsp/texlab as the lsp backend for eglot.
- - texlab and tectonic should work interchangeably wherever possible
- - integrate org-mode and org-roam from the base emacs configuration into the writing environment.
- - ability to write LaTeX documents both in org mode files and separate LaTeX files
- - mimic the setup from doom emacs setup as closely as possible while not adding any redundant configuration options
- - setup ligatures for LaTeX with additional math ligaturs
- - setup cdlatex for quick math insertions, and setup laas and auto-activating-snippets.
- - setup custom snippets that might be useful to quickly format and write LaTeX documents
- - setup TeX-fold if writing separate LaTeX files
- - integrate parsebib
- - use pdf-tools as the default pdf viewer when compiling LaTeX files 
- - implement a robust citation and reference environment using citar-embark, citar-capf, org-roam-bibtex and citar-org-roam.
+- [ ] **LaTeX**: [Add laas, auto-activating-snippets, cdlatex]
+      Using the attached emacs configuration files as the base emacs configuration, write a comprehensive LaTeX writing environment in emacs 30 with the following features and integrations:
+- integrate tectonic from <https://github.com/tectonic-typesetting/tectonic>
+- integrate texlab from <https://github.com/latex-lsp/texlab> as the lsp backend for eglot.
+- texlab and tectonic should work interchangeably wherever possible
+- integrate org-mode and org-roam from the base emacs configuration into the writing environment.
+- ability to write LaTeX documents both in org mode files and separate LaTeX files
+- mimic the setup from doom emacs setup as closely as possible while not adding any redundant configuration options
+- setup ligatures for LaTeX with additional math ligaturs
+- setup cdlatex for quick math insertions, and setup laas and auto-activating-snippets.
+- setup custom snippets that might be useful to quickly format and write LaTeX documents
+- setup TeX-fold if writing separate LaTeX files
+- integrate parsebib
+- use pdf-tools as the default pdf viewer when compiling LaTeX files
+- implement a robust citation and reference environment using citar-embark, citar-capf, org-roam-bibtex and citar-org-roam.
 
 Make sure the LateX writing environment is integrated with the rest of the emacs configuration in the attached files. Make sure to search the web before writing anything. Do not introduce errors. You do not need to rewrite the whole emacs configuration. Only writet out latex writing environment and other needed changes in a nicely formatted and readble markdown output.
 
-
-- [x] Integrate https://github.com/jamescherti/minimal-emacs.d
+- [x] Integrate <https://github.com/jamescherti/minimal-emacs.d>
 - [x] Add lexical binding to all .el files
 - [x] Add early-init.el contents.
 - [x] Add init.el contents for referring to config.org
@@ -54,7 +57,7 @@ Make sure the LateX writing environment is integrated with the rest of the emacs
 - [x] General.el
 - [-] Separate out corfu-popuinfo and corfu-history [See if necessary later]
 - [x] Update consult configuration from consult-doom.el
-- [x] Check init-completion.el from https://github.com/seagle0128/.emacs.d
+- [x] Check init-completion.el from <https://github.com/seagle0128/.emacs.d>
 - [x] UI and Theming
 - [x] Evil Mode
 - [x] Setup Magit
@@ -69,7 +72,7 @@ Make sure the LateX writing environment is integrated with the rest of the emacs
 - [x] Setup eglot and dape
 - [x] Integrate the completion framework with eglot and dape
 - [x] Set gc-cons-threshold to 100mb
-- [x] Set corfu to display documentation only on key input 
+- [x] Set corfu to display documentation only on key input
 - [ ] Add cape-company-to-capf backend to cape
 - [ ] Use Scimax to setup many things
 - [ ] Dired/Dirvish: Copy doom emacs's setup; [Note]: Don't use gemini
@@ -95,38 +98,39 @@ Make sure the LateX writing environment is integrated with the rest of the emacs
 - [ ] Make package-install load faster
 - [ ] Make sure pdf-tools install epdinfo automatically
 - [x] Emulate ivy, ivy-rich and ivy-rich-nerd-icons features into my configuration; not installing these packages, just emulating them
-- [ ] Heavily borrow from https://github.com/seagle0128/.emacs.d
+- [ ] Heavily borrow from <https://github.com/seagle0128/.emacs.d>
 - [ ] Org-mode export support or bibliography note management with Org-roam later.
 - [ ] Winner-Mode
-- [ ] avy 
-- [ ] __Move-Text__
-- [ ] __Aggressive Indent__: [Make sure enabled in org source code blocks. Does it provide extra functionality than evil indent plus? Maybe integrate with indent plus]
-- [ ] __Helpful__
-- [ ] __Pulsar__
-- [ ] __Casual__
-- [ ] __Indent Bars__
-- [ ] __prettify-symbols-mode__
-- [ ] __Crux__
-- [ ] __Colorful Mode__
-- [ ] __EasySession__
-- [ ]  __ZZZ-to-char__
-- [ ] __tldr__
-- [ ] __add hydra config after everything__
-Set a separate transient menu for magit
+- [ ] avy
+- [ ] **Move-Text**
+- [ ] **Aggressive Indent**: [Make sure enabled in org source code blocks. Does it provide extra functionality than evil indent plus? Maybe integrate with indent plus]
+- [ ] **Helpful**
+- [ ] **Pulsar**
+- [ ] **Casual**
+- [ ] **Indent Bars**
+- [ ] **prettify-symbols-mode**
+- [ ] **Crux**
+- [ ] **Colorful Mode**
+- [ ] **EasySession**
+- [ ] **ZZZ-to-char**
+- [ ] **tldr**
+- [ ] **add hydra config after everything**
+      Set a separate transient menu for magit
 - [ ] Integrate ripgrep and fd throughout the whole configuration
-- [ ] __Setup calendar, diary-lib, appt (appointments) later__
+- [ ] **Setup calendar, diary-lib, appt (appointments) later**
 
 ## The following packages must be working in org source code blocks
-- [ ] __Aggressive Indent__
-- [ ] __Move Text__
-- [ ] __Pulsar__
-- [ ] __Indent Bars__
-- [ ] __Origami__
-- [ ] __Rainbow Delimiters__
-- [ ] __Smartparens__
-- [ ] __Aggressive Indent__
 
-# ___Inspirations___
+- [ ] **Aggressive Indent**
+- [ ] **Move Text**
+- [ ] **Pulsar**
+- [ ] **Indent Bars**
+- [ ] **Origami**
+- [ ] **Rainbow Delimiters**
+- [ ] **Smartparens**
+- [ ] **Aggressive Indent**
+
+# **_Inspirations_**
 
 - [ ] Emacs Writing Studio
 - [ ] Doom Emacs
