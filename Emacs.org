@@ -1758,14 +1758,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :after flymake
   :config
   (flymake-collection-hook-setup))
-
-(use-package posframe)
-
-;; Display flymake errors in a popup frame instead of the echo area.
-(use-package flymake-posframe
-  :load-path ("~/.config/emacs/lisp/flymake-posframe")
-  :after (flymake posframe)
-  :hook (flymake-mode . flymake-posframe-mode))
 #+end_src
 
 ** Formatting
