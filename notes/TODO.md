@@ -9,14 +9,24 @@
 
 ## QUESTIONS
 
----
-
-- [ ] Orderless,vertico, marginalia, nerd-icons-completion, consult, embark, embark-consult, corfu, nerd-icons-corfu, cape, dabbrev. What are some issues that these package face with lsp-mode or dap-mode
+- [ ] Orderless,vertico, marginalia, nerd-icons-completion, consult, embark, embark-consult, corfu, nerd-icons-corfu, cape, dabbrev. What are some issues that these package face with eglot
 - [ ] Does corfu have native integration with eldoc
 - [ ] How does lsp-mode view documentation.
 - [ ] What will happen when cape-company-to-capf backend is provided to cape.
 - [ ] Will treesit work with lsp-mode and/or dap-mode
 - [ ] How does paredit work?
+- [ ] Are additional backends needed for cape and eglot
+- [ ] Can I use a formatter with texlab
+- [ ] Determine if I need flycheck-posframe
+- [ ] Make apheleia autoformats buffers on have
+
+## COMPLETION/DEVELOPMENT
+
+- `Desired Corfu Behaviour`:
+  - [ ] Buffer-local/Corfu-only completion styles [Corfu Github]
+  - [ ] TAB-only completion [Corfu Github]
+  - [ ] Disable popupinfo and use [Eglot] wiki documentation to setup a keybinding to display documentation
+  - [ ] Add corfu-terminal
 
 ---
 
@@ -27,7 +37,7 @@
   - Eglot, eldoc, dape, flymake
   - Alphaelia
 
-- [ ] **LaTeX**: [Add laas, auto-activating-snippets, cdlatex]
+- [x] **LaTeX**: [Add laas, auto-activating-snippets, cdlatex]
       Using the attached emacs configuration files as the base emacs configuration, write a comprehensive LaTeX writing environment in emacs 30 with the following features and integrations:
 - integrate tectonic from <https://github.com/tectonic-typesetting/tectonic>
 - integrate texlab from <https://github.com/latex-lsp/texlab> as the lsp backend for eglot.
