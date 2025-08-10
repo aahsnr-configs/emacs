@@ -4,6 +4,3 @@
 [submodule "lisp/combobulate"]
 	path = lisp/combobulate
 	url = https://github.com/mickeynp/combobulate.git
-[submodule "lisp/flymake-posframe"]
-	path = lisp/flymake-posframe
-	url = https://github.com/Ladicle/flymake-posframe.git
