@@ -1875,10 +1875,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   (my/jupyter-refesh-langs))
 #+end_src
 
-** Hy
-#+begin_src emacs-lisp
-(use-package ob-hy :after org)
-#+end_src
 
 ** View HTML in browser
 #+begin_src emacs-lisp
