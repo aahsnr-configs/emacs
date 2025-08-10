@@ -1897,38 +1897,10 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
           (start-process "org-html-preview" nil "xdg-open" temp-file-path))))))
 #+end_src
 
-** PlantUML
-#+begin_src emacs-lisp
-(with-eval-after-load 'org
-  (setq org-plantuml-exec-mode 'plantuml)
-  (add-to-list 'org-src-lang-modes '("plantuml" . plantuml)))
-#+end_src
-
-** Restclient
-#+begin_src emacs-lisp
-(use-package restclient
-  :mode ("\\.http\\'" . restclient-mode)
-  :config
-  (general-define-key
-   :keymaps 'restclient-mode-map
-   :states '(normal visual)
-   "RET" #'restclient-http-send-current
-   "M-RET" #'restclient-http-send-current-stay-in-window
-   "y" nil
-   "M-y" #'restclient-copy-curl-command)
-  (general-define-key
-   :keymaps 'restclient-response-mode-map
-   :states '(normal visual)
-   "q" #'quit-window))
-
-(use-package ob-restclient :after (org restclient))
-#+end_src
-
 ** Use jupyter block instead of built-in python
 #+begin_src emacs-lisp
 (with-eval-after-load 'ob-jupyter
-  (org-babel-jupyter-override-src-block "python")
-  (org-babel-jupyter-override-src-block "hy"))
+  (org-babel-jupyter-override-src-block "python"))
 
 (add-hook 'org-src-mode-hook
           (lambda ()
@@ -1944,7 +1916,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 (use-package ob-async
   :after org
   :config
-  (setq ob-async-no-async-languages-alist '("python" "hy" "jupyter-python" "jupyter-octave" "restclient")))
+  (setq ob-async-no-async-languages-alist '("python" "jupyter-python" )))
 #+end_src
 
 ** 📥 TODO Managing Jupyter kernels
@@ -2066,9 +2038,6 @@ that all other Markdown packages will depend on.
   :mode (("\\.md\\'" . gfm-mode)
          ("\\.markdown\\'" . gfm-mode))
   :init
-  ;; For Emacs 30+, use treesitter as the default markdown mode.
-  (when (treesit-available-p)
-    (setq markdown-mode-default-major-mode 'markdown-ts-mode))
   :config
   ;; Fontify code blocks using their native major modes for rich highlighting.
   (setq markdown-fontify-code-blocks-natively t)
