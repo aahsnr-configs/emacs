@@ -311,7 +311,7 @@ This setup defines a robust function to find and set the best available font fro
 
 (defun ar/set-fonts ()
   "Set fonts for the current frame, using the first available Nerd Font."
-  (let* ((preferred-fonts '("JetBrainsMono Nerd Font" "FiraCode Nerd Font" "Hack Nerd Font"))
+  (let* ((preferred-fonts '("JetBrainsMono Nerd Font"))
          (available-font (cl-find-if #'ar/font-exists-p preferred-fonts)))
     (if available-font
         (progn
@@ -328,8 +328,9 @@ This setup defines a robust function to find and set the best available font fro
     (add-hook 'after-make-frame-functions (lambda (frame) (with-selected-frame frame (ar/set-fonts))))
   (ar/set-fonts))
 ;; Uncomment the following line if line spacing needs adjusting.
-(setq-default line-spacing 0.02)
-;;(setq font-lock-maximum-decoration t)
+(setq-default line-spacing 0.01)
+(setq font-lock-maximum-decoration t)
+(setq inhibit-compacting-font-caches t)
 #+end_src
 
 ** Line Numbers
@@ -407,7 +408,12 @@ Enable line numbers for some modes
   (setq doom-modeline-env-version t)
   (setq doom-modeline-irc-stylize 'identity)
   (setq doom-modeline-github-timer nil)
-  (setq doom-modeline-gnus-timer nil))
+  (setq doom-modeline-gnus-timer nil)
+    (custom-set-faces
+   '(mode-line ((t (:family "JetBrainsMono Nerd Font" :height 1.0))))
+   '(mode-line-active ((t (:family "JetBrainsMono Nerd Font" :height 1.0)))) ; For 29+
+   '(mode-line-inactive ((t (:family "JetBrainsMono Nerd Font" :height 1.0)))))
+)
 #+end_src
 
 ** Dashboard
@@ -435,8 +441,29 @@ Enable line numbers for some modes
 #+end_src
 
 ** Hide Modeline
-
 #+begin_src emacs-lisp
+(defun ar/hide-modeline-for-special-buffers ()
+  "Hide the modeline in special buffers starting and ending with '*'.
+An exclusion list prevents this for essential buffers like *scratch*
+or compilation buffers where the modeline provides useful info."
+  (let ((buf-name (buffer-name))
+        ;; Add buffer names here to prevent their modelines from being hidden.
+        (exclude-list '("*scratch*"
+                         "*Messages*"
+                         "*compilation*"
+                         "*Agenda Commands*"
+                         "*grep*"
+                         "*vterm*")))
+    (when (and buf-name
+               (> (length buf-name) 2) ; Ensure buffer name is not just "**"
+               (string-prefix-p "*" buf-name)
+               (string-suffix-p "*" buf-name)
+               (not (member buf-name exclude-list)))
+      (setq-local mode-line-format nil))))
+
+;; This hook runs whenever a buffer's major mode is initialized,
+;; applying the rule to all new and existing special buffers.
+(add-hook 'after-change-major-mode-hook #'ar/hide-modeline-for-special-buffers)
 #+end_src
 
 * Evil
@@ -536,8 +563,8 @@ Enable line numbers for some modes
   :config
   ;;  (smartparens-global-strict-mode 1)
   ;; --- Doom Emacs-style Keybindings ---
-
- (with-eval-after-load 'evil-maps
+  (sp-pair "<" nil :actions :rem)
+  (with-eval-after-load 'evil-maps
     (define-key evil-normal-state-map ">" 'sp-slurp-sexp)
     (define-key evil-normal-state-map "<" 'sp-barf-sexp)
     ;; Also bind in visual mode for consistency when selecting a region.
@@ -1754,12 +1781,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 ** Formatting
 #+begin_src emacs-lisp
-;; Themed success message function for Apheleia
-(defun ar/apheleia-format-message ()
-  "Display a themed success message in the echo area after formatting."
-  (message (propertize (format "Apheleia formatted with %s" apheleia--formatter)
-                       'face '(:foreground "#9ece6a" :weight bold))))
-
 (use-package apheleia
   :defer t
   :config

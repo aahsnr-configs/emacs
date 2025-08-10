@@ -101,7 +101,7 @@
 (add-hook 'emacs-startup-hook
           (defun my/restore-startup-settings ()
             "Restore settings that were deferred during startup."
-            (setq gc-cons-threshold (* 100 1024 1024)) ; 100MB
+            (setq gc-cons-threshold (* 8 1024 1024)) ; 100MB
             (setq file-name-handler-alist my/file-name-handler-alist-original)
             (setq read-process-output-max (* 2 1024 1024)) ; 2MB
             (setq-default mode-line-format (default-value 'mode-line-format)))

@@ -30,7 +30,7 @@
 - Desired Flymake Behaviour
   - [ ] Remove flymake posframe and add flymake-sideline
 
-- [ ] Add python-tree-sitter-language-pack for all tree-sitter language grammars
+- [ ] Install tree-sitter grammaers directly using arch linux
 
 ---
 
