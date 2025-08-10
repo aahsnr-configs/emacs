@@ -154,8 +154,7 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (use-package autorevert
   :ensure nil
   :commands (auto-revert-mode global-auto-revert-mode)
-  :hook
-  (after-init . global-auto-revert-mode)
+  :hook (after-init . global-auto-revert-mode)
   :custom
   (auto-revert-interval 3)
   (auto-revert-remote-files nil)
@@ -169,9 +168,7 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (use-package recentf
   :ensure nil
   :commands (recentf-mode recentf-cleanup)
-  :hook
-  (after-init . recentf-mode)
-
+  :hook (after-init . recentf-mode)
   :custom
   (recentf-auto-cleanup (if (daemonp) 300 'never))
   (recentf-exclude
@@ -195,8 +192,7 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (use-package savehist
   :ensure nil
   :commands (savehist-mode savehist-save)
-  :hook
-  (after-init . savehist-mode)
+  :hook (after-init . savehist-mode)
   :custom
   (savehist-autosave-interval 600)
   (savehist-additional-variables
@@ -211,8 +207,7 @@ Ensure adding the following compile-angel code at the very beginning of the *~/.
 (use-package saveplace
   :ensure nil
   :commands (save-place-mode save-place-local-mode)
-  :hook
-  (after-init . save-place-mode)
+  :hook (after-init . save-place-mode)
   :custom
   (save-place-limit 400))
 
@@ -334,7 +329,7 @@ This setup defines a robust function to find and set the best available font fro
   (ar/set-fonts))
 ;; Uncomment the following line if line spacing needs adjusting.
 (setq-default line-spacing 0.02)
-(setq font-lock-maximum-decoration t)
+;;(setq font-lock-maximum-decoration t)
 #+end_src
 
 ** Line Numbers
@@ -431,7 +426,8 @@ Enable line numbers for some modes
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
-  :init (which-key-mode 1)
+  :defer t
+  :hook (after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
   (which-key-separator " → ")
@@ -524,9 +520,9 @@ Enable line numbers for some modes
 ** Lines Behaviour
 #+begin_src emacs-lisp
 ;; Highlight the current line
-(global-hl-line-mode 1)
+(add-hook 'after-init-hook #'global-hl-line-mode)
 ;; Use visual line mode for soft wrapping instead of truncating lines
-(global-visual-line-mode 1)
+(add-hook 'after-init-hook #'global-visual-line-mode)
 #+end_src
 
 ** Smartparens
@@ -637,7 +633,7 @@ appear, ensuring a consistent and predictable windowing layout.
 #+begin_src emacs-lisp
 (use-package shackle
   :defer t
-  :hook (afer-init . shackle-mode)
+  :hook (after-init . shackle-mode)
   :config
   (setq shackle-rules
    '(;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
