@@ -864,10 +864,6 @@ appear, ensuring a consistent and predictable windowing layout.
   :config
   ;; Silence the noisy pcomplete capf
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent))
-
-;; Capf-buster: Cache busting
-(setq-local completion-at-point-functions
-            (list (cape-capf-buster #'some-caching-capf)))
 #+end_src
 
 ** Dabbrev
