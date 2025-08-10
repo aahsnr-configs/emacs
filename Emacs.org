@@ -351,13 +351,11 @@ Enable line numbers for some modes
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
-  (doom-themes-visual-bell-config)
-  ;; (doom-themes-treemacs-config)
-  (doom-themes-org-config)
-  ;; (doom-themes-treemacs-theme "doom-tokyo-night")
   :config
   (load-theme 'doom-tokyo-night t)
-
+  (doom-themes-neotree-config)
+  (doom-themes-visual-bell-config)
+  (doom-themes-org-config)
   
   ;; Set distinct colors for bold and italic
   (custom-set-faces
@@ -527,7 +525,7 @@ Enable line numbers for some modes
 ** Lines Behaviour
 #+begin_src emacs-lisp
 ;; Highlight the current line
-;; (global-hl-line-mode 1)
+(global-hl-line-mode 1)
 ;; Use visual line mode for soft wrapping instead of truncating lines
 (global-visual-line-mode 1)
 #+end_src
@@ -733,7 +731,7 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Vertico: The Vertical Completion UI
 #+begin_src emacs-lisp
 (use-package vertico
-  :init (vertico-mode)
+  :hook (after-init . vertico-mode)
   :custom
   (vertico-resize nil)
   (vertico-cycle t)
@@ -743,7 +741,7 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Marginalia
 #+begin_src emacs-lisp
 (use-package marginalia
-  :init (marginalia-mode))
+  :hook (after-init . marginalia-mode))
 #+end_src
 
 ** Nerd Icons Completion
@@ -816,39 +814,37 @@ appear, ensuring a consistent and predictable windowing layout.
 
 ** Corfu: The Core UI
 #+begin_src emacs-lisp
-(defun corfu-precondition-evil ()
-  "Precondition for Corfu to activate only in insert state when evil-mode is active."
-  (or (not evil-mode) (evil-insert-state-p)))
-
 (use-package corfu
   :init
-  (global-corfu-mode)
-  ;; Enable Corfu's extensions
-  (corfu-popupinfo-mode)
+  (global-corfu-mode +1)
   (corfu-history-mode)
+  (corfu-popupinfo-mode)
   :bind
   (:map corfu-map
         ("TAB" . corfu-next)
         ([tab] . corfu-next)
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
-        ("M-d" . corfu-info-documentation))
+        ("C-c h" . corfu-info-documentation))
   :custom
   (corfu-cycle t)
   (corfu-auto t)
   (corfu-auto-resize nil)
-  (corfu-auto-delay 0.1)
-  (corfu-quit-at-boundary 'separator)
-  (corfu-quit-no-match 'separator)
-  ;; Configure popupinfo delay
-  ;; TODO: show documentation on key input
-  (corfu-popupinfo-delay '(0.5 . 0.2))
-  ;; This line is now in the correct location
-  (corfu-auto-preconditions '(corfu-precondition-evil))
-  :config
-  ;; Persist history
-  (with-eval-after-load 'savehist
-    (add-to-list 'savehist-additional-variables 'corfu-history)))
+  (corfu-auto-delay 0.07)
+  (corfu-preselect 'prompt)
+  (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
+  (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
+  (corfu-on-exact-match nil))
+
+(orderless-define-completion-style orderless-literal-only
+  (orderless-style-dispatchers nil)
+  (orderless-matching-styles '(orderless-literal)))
+
+(add-hook 'corfu-mode-hook
+          (lambda ()
+            (setq-local completion-styles '(orderless-literal-only basic)
+                        completion-category-overrides nil
+                        completion-category-defaults nil)))
 #+end_src
 
 ** Nerd Icons for Corfu
@@ -861,7 +857,6 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Cape: Completion Backends
 #+begin_src emacs-lisp
 (use-package cape
-  :commands (cape-dabbrev cape-file cape-keyword)
   :init
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
@@ -870,6 +865,10 @@ appear, ensuring a consistent and predictable windowing layout.
   :config
   ;; Silence the noisy pcomplete capf
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent))
+
+;; Capf-buster: Cache busting
+(setq-local completion-at-point-functions
+            (list (cape-capf-buster #'some-caching-capf)))
 #+end_src
 
 ** Dabbrev
@@ -1681,6 +1680,21 @@ Eglot performance using eglot booster
   (eglot-booster-mode))
 #+end_src
 
+** Eldoc Box
+Display eldoc documentation in a popup frame at point.
+#+begin_src emacs-lisp
+(use-package eldoc-box
+  :defer t
+  :config
+  (add-hook 'eglot-managed-mode-hook #'eldoc-box-hover-mode t)
+  :custom
+  (eldoc-box-show-if-no-doc nil)
+  (eldoc-echo-area-display-truncation-p nil)
+  :custom-face
+  (eldoc-box-border ((t (:foreground "#3b4261"))))
+  (eldoc-highlight-symbol-face ((t (:foreground "#7aa2f7" :weight bold)))))
+#+end_src
+
 ** Consult Integration
 #+begin_src emacs-lisp
 ;; Configure xref to use the powerful UI provided by the main consult package.
@@ -1698,26 +1712,10 @@ Eglot performance using eglot booster
   :after (consult-eglot embark))
 #+end_src
 
-** Eldoc Box
-Display eldoc documentation in a popup frame at point.
-#+begin_src emacs-lisp
-(use-package eldoc-box
-  :commands (eldoc-box-show-doc) ; Command to be called manually
-  :config
-  (add-hook 'eglot-managed-mode-hook #'eldoc-box-hover-mode t)
-  :custom
-  (eldoc-box-show-if-no-doc nil)
-  (eldoc-echo-area-display-truncation-p nil)
-  :custom-face
-  (eldoc-box-border ((t (:foreground "#3b4261"))))
-  (eldoc-highlight-symbol-face ((t (:foreground "#7aa2f7" :weight bold)))))
-#+end_src
-
 ** Robust Debugger UI
 We use *dape* for debugging. The UI for debugger windows is cleanly managed by the enhanced *shackle* configuration in my *Editor Behaviour* section.
 #+begin_src emacs-lisp
 (use-package dape
-  :defer t
   :commands (dape dape-debug-recent)
   :hook
   ;; Use GUD's tooltip mode for mouse-hover variable inspection.
@@ -1875,8 +1873,6 @@ that all other Markdown packages will depend on.
         (define-key map (kbd "C-c p") #'markdown-open)
         (define-key map (kbd "C-c o") #'imenu-list-smart-toggle))))
 
-  ;; Add folding support to both modes.
-  (add-hook 'markdown-mode-hook #'treesit-fold-mode)
   (add-hook 'markdown-ts-mode-hook #'treesit-fold-mode))
 #+end_src
 
@@ -1886,8 +1882,7 @@ This package provides "website-like" rendering. It depends on `markdown-mode`.
 (use-package md-roam
   :vc (:url "https://github.com/nobiot/md-roam" :branch main)
   :after markdown-mode
-  :hook ((markdown-mode . md-roam-mode)
-         (markdown-ts-mode . md-roam-mode))
+  :hook (markdown-ts-mode . md-roam-mode)
   :config
   (with-eval-after-load 'markdown-mode
     (advice-add #'markdown-indent-line :before-until #'completion-at-point))
@@ -1921,8 +1916,7 @@ Integrates *markdownlint* with Flymake for on-the-fly style checking.
 #+begin_src emacs-lisp
 (use-package flymake-markdownlint
   :after markdown-mode
-  :hook ((markdown-mode . flymake-markdownlint-enable)
-         (markdown-ts-mode . flymake-markdownlint-enable)))
+  :hook (markdown-ts-mode . flymake-markdownlint-enable))
 #+end_src
 
 ** Auto-formatting with Apheleia
@@ -1937,8 +1931,7 @@ This configures *apheleia* to use *prettier* for auto-formatting.
 
 * Version Control
 ** Magit: The Core Git Client
-*magit* is the central hub for all Git operations. This configuration
-ensures it works seamlessly with a full-frame UI and other packages.
+*magit* is the central hub for all Git operations. This configuration ensures it works seamlessly with a full-frame UI and other packages.
 #+begin_src emacs-lisp
 (use-package magit
   :init

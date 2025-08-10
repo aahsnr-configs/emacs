@@ -23,10 +23,14 @@
 ## COMPLETION/DEVELOPMENT
 
 - `Desired Corfu Behaviour`:
-  - [ ] Buffer-local/Corfu-only completion styles [Corfu Github]
-  - [ ] TAB-only completion [Corfu Github]
-  - [ ] Disable popupinfo and use [Eglot] wiki documentation to setup a keybinding to display documentation
-  - [ ] Add corfu-terminal
+  - [x] Buffer-local/Corfu-only completion styles [Corfu Github]
+  - [x] TAB-and-Go completion [Corfu Github] working
+  - [x] Disable popupifo and use corfu-show-info-documentation to setup a keybinding to display documentation
+
+- Desired Flymake Behaviour
+  - [ ] Remove flymake posframe and add flymake-sideline
+
+- [ ] Add python-tree-sitter-language-pack for all tree-sitter language grammars
 
 ---
 
@@ -107,7 +111,6 @@ Make sure the LateX writing environment is integrated with the rest of the emacs
 - [x] Write a more comprehensive shackles configuration
 - [ ] Make package-install load faster
 - [ ] Make sure pdf-tools install epdinfo automatically
-- [x] Emulate ivy, ivy-rich and ivy-rich-nerd-icons features into my configuration; not installing these packages, just emulating them
 - [ ] Heavily borrow from <https://github.com/seagle0128/.emacs.d>
 - [ ] Org-mode export support or bibliography note management with Org-roam later.
 - [ ] Winner-Mode
