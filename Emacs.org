@@ -713,38 +713,6 @@ appear, ensuring a consistent and predictable windowing layout.
           indent-bars-width-frac 0.3))
 #+end_src
 
-** Spell Checking
-#+begin_src emacs-lisp
-(use-package jinx
-  :hook (after-init . jinx-mode)
-  :custom
-  ;; A list of modes where Jinx should NOT be active.
-  ;; As requested, this disables Jinx in LaTeX files and Org-mode source blocks.
-  (jinx-exclude-modes '(LaTeX-mode org-src-mode))
-  ;; Use the 'consult' interface for a better correction UI. This function is
-  ;; built into the jinx package itself.
-  (jinx-correction-function #'jinx-correct-word-consult)
-  :config
-  ;; Define a custom command to make toggling Jinx for the current buffer easy.
-  (defun ar/jinx-toggle-in-buffer ()
-    "Toggle Jinx spell checker for the current buffer."
-    (interactive)
-    (if (bound-and-true-p jinx-mode)
-        (progn
-          (jinx-mode -1)
-          (message "Jinx disabled for this buffer."))
-      (jinx-mode 1)
-      (message "Jinx enabled for this buffer."))))
-
-;; Add keybindings for Jinx under a new "spell" leader key.
-(ar/global-leader
-  "s" '(:ignore t :wk "snippets/spell")
-  "s s" '(jinx-correct :wk "suggest correction")
-  "s t" '(ar/jinx-toggle-in-buffer :wk "toggle jinx in buffer")
-  "s l" '(jinx-languages :wk "jinx languages")
-  "s n" '(jinx-next-error :wk "next error"))
-#+end_src
-
 * Completion Framework
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
