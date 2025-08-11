@@ -442,6 +442,7 @@ Enable line numbers for some modes
 
 ** Hide Modeline
 #+begin_src emacs-lisp
+;; <
 (defun ar/hide-modeline-for-special-buffers ()
   "Hide the modeline in special buffers starting and ending with '*'.
 An exclusion list prevents this for essential buffers like *scratch*
@@ -469,32 +470,32 @@ or compilation buffers where the modeline provides useful info."
 * Evil
 ** Core Evil
 #+begin_src emacs-lisp
-  ;; Uncomment the following if you are using undo-fu
-  (setq evil-undo-system 'undo-fu)
+;; Uncomment the following if you are using undo-fu
+(setq evil-undo-system 'undo-fu)
 
-  ;; Vim emulation
-  (use-package evil
-    :init
-    (setq evil-want-integration t)
-    (setq evil-want-keybinding nil)
+;; Vim emulation
+(use-package evil
+  :init
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
 
-    :config
-    (evil-mode 1)
- 
-    :custom
-    (evil-ex-visual-char-range t)
-    (evil-ex-search-vim-style-regexp t)
-    (evil-split-window-below t)
-    (evil-vsplit-window-right t)
-    (evil-echo-state nil)
-    (evil-move-cursor-back nil)
-    (evil-v$-excludes-newline t)
-    (evil-want-C-h-delete t)
-    (evil-want-C-u-delete t)
-    (evil-want-fine-undo t)
-    (evil-move-beyond-eol t)
-    (evil-search-wrap nil)
-    (evil-want-Y-yank-to-eol t))
+  :config
+  (evil-mode 1)
+
+  :custom
+  (evil-ex-visual-char-range t)
+  (evil-ex-search-vim-style-regexp t)
+  (evil-split-window-below t)
+  (evil-vsplit-window-right t)
+  (evil-echo-state nil)
+  (evil-move-cursor-back nil)
+  (evil-v$-excludes-newline t)
+  (evil-want-C-h-delete t)
+  (evil-want-C-u-delete t)
+  (evil-want-fine-undo t)
+  (evil-move-beyond-eol t)
+  (evil-search-wrap nil)
+  (evil-want-Y-yank-to-eol t))
 #+end_src
 
 ** Evil Collection
@@ -564,12 +565,6 @@ or compilation buffers where the modeline provides useful info."
   ;;  (smartparens-global-strict-mode 1)
   ;; --- Doom Emacs-style Keybindings ---
   (sp-pair "<" nil :actions :rem)
-  (with-eval-after-load 'evil-maps
-    (define-key evil-normal-state-map ">" 'sp-slurp-sexp)
-    (define-key evil-normal-state-map "<" 'sp-barf-sexp)
-    ;; Also bind in visual mode for consistency when selecting a region.
-    (define-key evil-visual-state-map ">" 'sp-slurp-sexp)
-    (define-key evil-visual-state-map "<" 'sp-barf-sexp))
 
   ;; --- UI and Behavior Customizations ---
   (setq sp-show-pair-delay 0.1
@@ -629,6 +624,7 @@ or compilation buffers where the modeline provides useful info."
 ** Buffer Terminator
 #+begin_src emacs-lisp
 (use-package buffer-terminator
+  :defer t
   :custom
   ;; Enable/Disable verbose mode to log buffer cleanup events
   (buffer-terminator-verbose nil)
@@ -1677,19 +1673,25 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
 #+end_src
 
 ** Language Server Protocol: Eglot & Eglot Booster
-TODO: Set eglot-events-buffer-config' :size property to zero
 Eglot is the built-in LSP client. It will automatically use the correct
 language server from the PATH set by your direnv-managed environment. Boost
 Eglot performance using eglot booster
 #+begin_src emacs-lisp
 (use-package eglot
-  :ensure nil
-  :hook (prog-mode . eglot-ensure)
+  :hook ((emacs-lisp-mode python-ts-mode markdown-ts-mode LaTeX-mode) . eglot-ensure)
   :custom
   (eglot-autoshutdown t)
-  :config
-  ;; Associate python-ts-mode with pyright for best-in-class Python support.
-  (add-to-list 'eglot-server-programs '(python-ts-mode . ("pyright-langserver" "--stdio"))))
+  (eglot-events-buffer-size 0)
+  ;;(eglot-extend-to-xref nil)
+  (eglot-ignored-server-capabilities
+   '(:hoverProvider
+     :documentHighlightProvider
+     :documentFormattingProvider
+     :documentRangeFormattingProvider
+     :documentOnTypeFormattingProvider
+     :colorProvider
+     :foldingRangeProvider))
+  (eglot-stay-out-of '(yasnippet)))
 
 (use-package eglot-booster
   :vc (:url "https://github.com/jdtsmith/eglot-booster" :branch main)
@@ -1777,6 +1779,13 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
   :after flymake
   :config
   (flymake-collection-hook-setup))
+
+(use-package sideline-flymake
+  :hook (flymake-mode . sideline-mode)
+  :init
+  (setq sideline-flymake-display-mode 'point) ; 'point to show errors only on point
+                                              ; 'line to show errors on the current line
+  (setq sideline-backends-right '(sideline-flymake)))
 #+end_src
 
 ** Formatting
@@ -1935,6 +1944,9 @@ This configures *apheleia* to use *prettier* for auto-formatting.
 
 * Version Control
 ** Magit: The Core Git Client
+#+begin_src emacs-lisp
+
+#+end_src
 *magit* is the central hub for all Git operations. This configuration ensures it works seamlessly with a full-frame UI and other packages.
 #+begin_src emacs-lisp
 (use-package magit

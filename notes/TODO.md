@@ -19,6 +19,7 @@
 - [ ] Can I use a formatter with texlab
 - [ ] Determine if I need flycheck-posframe
 - [ ] Make apheleia autoformats buffers on have
+- [ ] Will AucTeX completion work with corfu?
 
 ## COMPLETION/DEVELOPMENT
 

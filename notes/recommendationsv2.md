@@ -22,10 +22,6 @@ For a powerful Python setup, you'll want to combine `lsp-mode` and `dap-mode` wi
 * **`dap-python`**: The essential `dap-mode` extension for debugging Python. It provides configurations to launch and attach to Python processes using debug servers like **`debugpy`**.
 * **`pyvenv`**: A straightforward virtual environment manager for Emacs. It helps you activate and manage Python virtual environments on a per-project basis, which is crucial for `lsp-mode`, `dap-mode`, and `flycheck` to find the correct Python interpreter and installed packages.
 * **`blacken`**: While **`apheleia`** can be configured to use any command-line formatter, `blacken` provides a dedicated mode and functions for formatting Python code with **Black**. It's a simple way to ensure your code adheres to the Black style guide. You can configure `apheleia` to use Black as its backend for Python files.
-* `consult-pyimporter`: A handy utility built on `consult` that helps you find and insert Python import statements quickly without having to manually type them.
-[Note] 
- N/A
----
 
 ### Markdown and LaTeX Writing ✍️
 
