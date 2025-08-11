@@ -26,23 +26,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
       use-package-expand-minimally t)
 #+end_src
 
-** Native Compilation
-Ensure adding the following compile-angel code at the very beginning of the *~/.config/emacs/config.org* file, before all other packages.
-#+begin_src emacs-lisp
-(use-package compile-angel
-  :vc (:url "https://github.com/jamescherti/compile-angel.el" :branch "main")
-  :demand t
-  :custom
-  (compile-angel-verbose nil)
-  :config
-  ;; Exclude core config files from compilation.
-  (push "/init.el" compile-angel-excluded-files)
-  (push "/early-init.el" compile-angel-excluded-files)
-  (push "/config.el" compile-angel-excluded-files)
-  (push "/custom.el" compile-angel-excluded-files)
-  (compile-angel-on-load-mode))
-#+end_src
-
 ** General Behaviour
 #+begin_src emacs-lisp
 ;; Allow for shorter "y" or "n" responses.
@@ -728,6 +711,38 @@ appear, ensuring a consistent and predictable windowing layout.
   (setopt indent-bars-no-descend-lists t
           indent-bars-treesit-support t
           indent-bars-width-frac 0.3))
+#+end_src
+
+** Spell Checking
+#+begin_src emacs-lisp
+(use-package jinx
+  :hook (after-init . jinx-mode)
+  :custom
+  ;; A list of modes where Jinx should NOT be active.
+  ;; As requested, this disables Jinx in LaTeX files and Org-mode source blocks.
+  (jinx-exclude-modes '(LaTeX-mode org-src-mode))
+  ;; Use the 'consult' interface for a better correction UI. This function is
+  ;; built into the jinx package itself.
+  (jinx-correction-function #'jinx-correct-word-consult)
+  :config
+  ;; Define a custom command to make toggling Jinx for the current buffer easy.
+  (defun ar/jinx-toggle-in-buffer ()
+    "Toggle Jinx spell checker for the current buffer."
+    (interactive)
+    (if (bound-and-true-p jinx-mode)
+        (progn
+          (jinx-mode -1)
+          (message "Jinx disabled for this buffer."))
+      (jinx-mode 1)
+      (message "Jinx enabled for this buffer."))))
+
+;; Add keybindings for Jinx under a new "spell" leader key.
+(ar/global-leader
+  "s" '(:ignore t :wk "snippets/spell")
+  "s s" '(jinx-correct :wk "suggest correction")
+  "s t" '(ar/jinx-toggle-in-buffer :wk "toggle jinx in buffer")
+  "s l" '(jinx-languages :wk "jinx languages")
+  "s n" '(jinx-next-error :wk "next error"))
 #+end_src
 
 * Completion Framework
