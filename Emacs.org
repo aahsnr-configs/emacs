@@ -713,6 +713,45 @@ appear, ensuring a consistent and predictable windowing layout.
           indent-bars-width-frac 0.3))
 #+end_src
 
+** Jinx
+#+begin_src emacs-lisp
+(use-package jinx
+  :hook (after-init . jinx-mode)
+  :custom
+  ;; Sensibly disable Jinx in modes where spell-checking is not desired.
+  ;; This includes programming modes, UI-centric modes, and special buffers.
+  (jinx-disabled-modes
+   '(prog-mode           ; All programming modes
+     conf-mode           ; All configuration file modes
+     emacs-lisp-mode     ; Specifically for elisp
+     dired-mode          ; File manager
+     ibuffer-mode        ; Buffer list
+     neotree-mode        ; File tree
+     magit-status-mode   ; Magit UI
+     magit-log-mode
+     magit-diff-mode
+     magit-branch-mode
+     org-agenda-mode     ; Agenda view is not for writing
+     org-src-mode        ; Don't check inside code blocks
+     dashboard-mode      ; Startup dashboard
+     which-key-mode      ; Keybinding helper
+     help-mode           ; Help buffers
+     Info-mode           ; Info documentation
+     embark-collect-mode ; Embark's special buffer
+     vterm-mode          ; Terminal emulator
+     pdf-view-mode)))     ; PDF viewer
+
+(ar/global-leader
+  "j" '(:ignore t :wk "jinx (spellcheck)")
+  "j c" '(jinx-correct :wk "Correct word at point")
+  "j n" '(jinx-next-error :wk "Go to next error")
+  "j p" '(jinx-previous-error :wk "Go to previous error")
+  "j s" '(jinx-suggest :wk "Show suggestions")
+  "j a" '(jinx-add-word-to-personal-dictionary :wk "Add to dictionary")
+  "j l" '(jinx-languages :wk "Select language")
+  "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer"))
+#+end_src
+
 * Completion Framework
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
@@ -1841,7 +1880,6 @@ A production-ready setup for a modern Markdown workflow in Emacs 30. This
 configuration provides live rendering, a table of contents, superior code block
 highlighting, powerful table editing, linting, and auto-formatting, with
 intelligent conflict resolution and a robust loading order.
-
 ** Core Markdown Mode with Tree-sitter and Enhancements
 This configures `markdown-mode` as the foundation. It is the core component
 that all other Markdown packages will depend on.
