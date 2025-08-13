@@ -1808,10 +1808,10 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 (use-package flymake
   :defer t
   :ensure nil
-  :hook (prog-mode . flymake-mode)
+  :hook ((emacs-lisp-mode python-ts-mode markdown-ts-mode LaTeX-mode) . eglot-ensure)
   :custom
   (flymake-check-syntax-automatically '(save mode-enabled))
-  (flymake-idle-change-delay 0.4)
+  (flymake-idle-change-delay 0.1)
   :custom-face
   (flymake-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil))))  (flymake-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))  (flymake-note    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
 
@@ -2316,7 +2316,7 @@ This section configures a streamlined citation workflow centered around **Citar*
   :custom
   ;; --- CRITICAL ---
   ;; Point this to the `.bib` file that Better BibTeX for Zotero auto-exports.
-  (citar-bibliography '("~/Zotero/My Library.bib"))
+  (citar-bibliography '())
   ;; Point this to your Zotero data directory to find attached PDFs.
   (citar-library-paths '("~/Zotero/storage"))
   (citar-notes-paths (list my/org-roam-directory))
@@ -2363,8 +2363,8 @@ and aesthetic ligatures.
 #+begin_src emacs-lisp
 (with-eval-after-load 'ox-latex
   ;; Configure Org's citation engine to use our Citar setup.
-  (setq org-cite-global-bibliography (citar-bibliography))
-  (setq org-cite-insert-processor 'citar)
+  (setq org-cite-global-bibliography '())
+  (setq org-cite-bibliography '())
   (setq org-cite-follow-processor 'citar)
   (setq org-cite-activate-processor 'citar)
 
