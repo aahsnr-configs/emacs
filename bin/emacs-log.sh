@@ -11,8 +11,8 @@ LOG_DIR="$EMACS_DIR/log"
 # Ensure the script is running from the correct base directory.
 # This makes all subsequent paths simpler and more reliable.
 cd "$EMACS_DIR" || {
-	echo "Error: Could not change to $EMACS_DIR. Aborting."
-	exit 1
+  echo "Error: Could not change to $EMACS_DIR. Aborting."
+  exit 1
 }
 
 # 1. Create the log directory if it doesn't already exist.
