@@ -51,12 +51,14 @@ sleep 1 # Give processes a moment to die gracefully.
 # Tangle the Org configuration file into a loadable init.el.
 # Running this with --batch prevents Emacs from opening a window.
 echo "Tangling config.org into init.el..."
-emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "config.org")'
+emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "Emacs.org")'
 
 # Start the Emacs daemon and redirect all output (stdout and stderr)
 # to the timestamped log file. The script will wait here until you manually
 # close the Emacs application (or kill the daemon).
 echo "Starting Emacs daemon. Output is being logged..."
+killall emacs
+killall emacs
 emacs --daemon &>"$LOG_FILE"
 
 # --- Completion ---
