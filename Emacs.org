@@ -2178,11 +2178,14 @@ Opens the notes in a split window to the right."
 ** Yasnippet
 #+begin_src emacs-lisp
 (use-package yasnippet
+  :defer t
   :hook (after-init . yas-global-mode)
-  :after yasnippet-snippets
   :custom
+  ;; Use a completing-read prompt for a better UI when multiple snippets match.
   (yas-prompt-functions '(yas-completing-prompt))
+  ;; Only show important messages, hiding the "just-in-time loading" confirmation.
   :config
+ 
   ;; --- Add Personal Snippets Directory ---
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
@@ -2192,165 +2195,8 @@ Opens the notes in a split window to the right."
     (when (string-prefix-p my/snippets-directory (buffer-file-name))
       (yas-reload-all)
       (message "Yasnippet collection reloaded.")))
-  (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save)
 
-  ;; --- FIX: Defer Snippet Inheritance Configuration ---
-  ;; This prevents a circular dependency during package compilation by waiting
-  ;; for both Org and AUCTeX to be fully loaded before modifying yasnippet.
-  (with-eval-after-load 'org
-    (with-eval-after-load 'tex
-      (add-to-list 'yas-parent-modes '(org-mode . latex-mode))))
-
-  ;; --- Custom Scientific Snippets ---
-  ;; We define the snippets programmatically to keep the config self-contained.
-  (yas-define-snippets 'latex-mode
-    '(;; -- Templates --
-      ("article"
-       "\\documentclass[11pt,a4paper]{article}
-\\usepackage[utf8]{inputenc}
-\\usepackage{amsmath}
-\\usepackage{amssymb}
-\\usepackage{graphicx}
-\\usepackage{hyperref}
-\\usepackage{siunitx}
-\\usepackage{booktabs}
-\\usepackage{subcaption}
-\\usepackage{braket}
-
-\\usepackage[style=numeric-comp,backend=biber]{biblatex}
-\\addbibresource{${1:bibliography.bib}}
-
-\\title{${2:Title}}
-\\author{${3:Author}}
-\\date{\\today}
-
-\\begin{document}
-
-\\maketitle
-
-\\begin{abstract}
-  ${4:Abstract}
-\\end{abstract}
-
-\\tableofcontents
-
-\\section{${5:Introduction}}
-
-$0
-
-\\printbibliography
-
-\\end{document}"
-       "Full Scientific Article Structure"
-       nil nil ("Templates"))
-
-      ;; -- Document Structure & Environments --
-      ("abs" "\\begin{abstract}\n  $0\n\\end{abstract}" "Abstract environment")
-      ("fig"
-       "\\begin{figure}[htbp]
-  \\centering
-  \\includegraphics[width=${1:0.8}\\textwidth]{${2:path/to/image}}
-  \\caption{${3:Caption}}
-  \\label{fig:${4:label}}
-\\end{figure}
-$0"
-       "Figure environment")
-      ("sfig"
-       "\\begin{figure}[htbp]
-  \\centering
-  \\begin{subfigure}[b]{${1:0.45}\\textwidth}
-    \\includegraphics[width=\\textwidth]{${2:img1}}
-    \\caption{${3:Caption 1}}
-    \\label{fig:${4:label1}}
-  \\end{subfigure}
-  \\hfill
-  \\begin{subfigure}[b]{${1:0.45}\\textwidth}
-    \\includegraphics[width=\\textwidth]{${5:img2}}
-    \\caption{${6:Caption 2}}
-    \\label{fig:${7:label2}}
-  \\end{subfigure}
-  \\caption{${8:Overall caption}}
-\\end{figure}
-$0"
-       "Subfigure environment")
-      ("table"
-       "\\begin{table}[htbp]
-  \\centering
-  \\caption{${1:Caption}}
-  \\label{tab:${2:label}}
-  \\begin{tabular}{${3:l c r}}
-    \\toprule
-    ${4:Header 1} & ${5:Header 2} & ${6:Header 3} \\\\
-    \\midrule
-    ${7:data} & ${8:data} & ${9:data} \\\\
-    \\bottomrule
-  \\end{tabular}
-\\end{table}
-$0"
-       "Table with booktabs")
-      ("item" "\\begin{itemize}\n  \\item $0\n\\end{itemize}" "Itemize environment")
-      ("enum" "\\begin{enumerate}\n  \\item $0\n\\end{enumerate}" "Enumerate environment")
-      ("thm" "\\begin{theorem}\n  $0\n\\end{theorem}" "Theorem environment")
-      ("lem" "\\begin{lemma}\n  $0\n\\end{lemma}" "Lemma environment")
-      ("prf" "\\begin{proof}\n  $0\n\\end{proof}" "Proof environment")
-
-      ;; -- Equations & Math --
-      ("eq"
-       "\\begin{equation}
-  ${1:e^{i\\pi} + 1 = 0}
-  \\label{eq:${2:label}}
-\\end{equation}
-$0"
-       "Equation environment")
-      ("ali"
-       "\\begin{align}
-  ${1:a} &= ${2:b} \\\\
-  ${3:c} &= ${4:d}
-  \\label{eq:${5:label}}
-\\end{align}
-$0"
-       "Align environment for multi-line equations")
-      ("mat"
-       "\\begin{pmatrix}\n  ${1:a} & ${2:b} \\\\\n  ${3:c} & ${4:d}\n\\end{pmatrix}"
-       "pmatrix (Matrix)")
-      ("bmat"
-       "\\begin{bmatrix}\n  ${1:a} & ${2:b} \\\\\n  ${3:c} & ${4:d}\n\\end{bmatrix}"
-       "bmatrix (Bracketed Matrix)")
-      ("lrp" "\\\\left( ${1:} \\\\right) $0" "Left-right parentheses")
-      ("lrb" "\\\\left[ ${1:} \\\\right] $0" "Left-right brackets")
-      ("lrc" "\\\\left\\{ ${1:} \\\\right\\} $0" "Left-right curly braces")
-      ("sum" "\\\\sum_{${1:n=1}}^{${2:\\infty}} ${3:x_n}" "Summation")
-      ("prod" "\\\\prod_{${1:n=1}}^{${2:\\infty}} ${3:x_n}" "Product")
-      ("int" "\\\\int_{${1:a}}^{${2:b}} ${3:f(x)\\,dx}" "Integral")
-
-      ;; -- Physics Specific --
-      ("pd" "\\\\frac{\\\\partial ${1:y}}{\\\\partial ${2:x}} $0" "Partial derivative")
-      ("dd" "\\\\frac{d ${1:y}}{d ${2:x}} $0" "Total derivative")
-      ("bra" "\\\\bra{${1:\\psi}}$0" "Bra vector")
-      ("ket" "\\\\ket{${1:\\psi}}$0" "Ket vector")
-      ("braket" "\\\\braket{${1:\\psi}|${2:\\phi}}$0" "Braket inner product")
-      ("h" "\\\\hbar" "hbar symbol")
-
-      ;; -- Greek Letters (Prefix `g` for lowercase, `G` for uppercase) --
-      ("ga" "\\\\alpha" "alpha")
-      ("gb" "\\\\beta" "beta")
-      ("gg" "\\\\gamma" "gamma")
-      ("gd" "\\\\delta" "delta")
-      ("ge" "\\\\epsilon" "epsilon")
-      ("gz" "\\\\zeta" "zeta")
-      ("go" "\\\\omega" "omega")
-      ("GA" "\\\\Alpha" "Alpha")
-      ("GB" "\\\\Beta" "Beta")
-      ("GG" "\\\\Gamma" "Gamma")
-      ("GD" "\\\\Delta" "Delta")
-      ("GO" "\\\\Omega" "Omega")
-
-      ;; -- Referencing & Citations --
-      ("ref" "\\\\ref{${1:fig:label}}$0" "Reference")
-      ("eqref" "\\\\eqref{${1:eq:label}}$0" "Equation Reference")
-      ("pc" "\\\\parencite{${1:key}}$0" "Parenthetical citation (biblatex)")
-      ("tc" "\\\\textcite{${1:key}}$0" "In-text citation (biblatex)")
-      )))
+  (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save))
 #+end_src
 
 ** Consult Integration
@@ -2542,6 +2388,152 @@ and aesthetic ligatures.
            ("\\subsection{%s}" . "\\subsection*{%s}")) t))
 #+end_src
 
+** Custom Snippets for Scientific Writing
+#+begin_src emacs-lisp
+(with-eval-after-load 'yasnippet
+  ;; --- Snippet Definitions ---
+  ;; We define the snippets programmatically to keep the config self-contained.
+  (yas-define-snippets 'latex-mode
+    '(;; -- Templates --
+      ("article"
+       "\\documentclass[11pt,a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage{amsmath}
+\\usepackage{amssymb}
+\\usepackage{graphicx}
+\\usepackage{hyperref}
+\\usepackage{siunitx}
+\\usepackage{booktabs}
+
+\\title{${1:Title}}
+\\author{${2:Author}}
+\\date{\\today}
+
+\\begin{document}
+
+\\maketitle
+
+\\begin{abstract}
+  ${3:Abstract}
+\\end{abstract}
+
+\\tableofcontents
+
+\\section{${4:Introduction}}
+
+$0
+
+\\end{document}"
+       "Full Scientific Article Structure"
+       nil nil ("Templates"))
+
+      ;; -- Document Structure & Environments --
+      ("abs" "\\begin{abstract}\n  $0\n\\end{abstract}" "Abstract environment")
+      ("fig"
+       "\\begin{figure}[htbp]
+  \\centering
+  \\includegraphics[width=${1:0.8}\\textwidth]{${2:path/to/image}}
+  \\caption{${3:Caption}}
+  \\label{fig:${4:label}}
+\\end{figure}
+$0"
+       "Figure environment")
+      ("sfig"
+       "\\begin{figure}[htbp]
+  \\centering
+  \\begin{subfigure}[b]{${1:0.45}\\textwidth}
+    \\includegraphics[width=\\textwidth]{${2:img1}}
+    \\caption{${3:Caption 1}}
+    \\label{fig:${4:label1}}
+  \\end{subfigure}
+  \\hfill
+  \\begin{subfigure}[b]{${1:0.45}\\textwidth}
+    \\includegraphics[width=\\textwidth]{${5:img2}}
+    \\caption{${6:Caption 2}}
+    \\label{fig:${7:label2}}
+  \\end{subfigure}
+  \\caption{${8:Overall caption}}
+\\end{figure}
+$0"
+       "Subfigure environment")
+      ("table"
+       "\\begin{table}[htbp]
+  \\centering
+  \\caption{${1:Caption}}
+  \\label{tab:${2:label}}
+  \\begin{tabular}{${3:l c r}}
+    \\toprule
+    ${4:Header 1} & ${5:Header 2} & ${6:Header 3} \\\\
+    \\midrule
+    ${7:data} & ${8:data} & ${9:data} \\\\
+    \\bottomrule
+  \\end{tabular}
+\\end{table}
+$0"
+       "Table with booktabs")
+      ("item" "\\begin{itemize}\n  \\item $0\n\\end{itemize}" "Itemize environment")
+      ("enum" "\\begin{enumerate}\n  \\item $0\n\\end{enumerate}" "Enumerate environment")
+      ("thm" "\\begin{theorem}\n  $0\n\\end{theorem}" "Theorem environment")
+      ("lem" "\\begin{lemma}\n  $0\n\\end{lemma}" "Lemma environment")
+      ("prf" "\\begin{proof}\n  $0\n\\end{proof}" "Proof environment")
+
+      ;; -- Equations & Math --
+      ("eq"
+       "\\begin{equation}
+  ${1:e^{i\\pi} + 1 = 0}
+  \\label{eq:${2:label}}
+\\end{equation}
+$0"
+       "Equation environment")
+      ("ali"
+       "\\begin{align}
+  ${1:a} &= ${2:b} \\\\
+  ${3:c} &= ${4:d}
+  \\label{eq:${5:label}}
+\\end{align}
+$0"
+       "Align environment for multi-line equations")
+      ("mat"
+       "\\begin{pmatrix}\n  ${1:a} & ${2:b} \\\\\n  ${3:c} & ${4:d}\n\\end{pmatrix}"
+       "pmatrix (Matrix)")
+      ("bmat"
+       "\\begin{bmatrix}\n  ${1:a} & ${2:b} \\\\\n  ${3:c} & ${4:d}\n\\end{bmatrix}"
+       "bmatrix (Bracketed Matrix)")
+      ("lrp" "\\\\left( $1 \\\\right) $0" "Left-right parentheses")
+      ("lrb" "\\\\left[ $1 \\\\right] $0" "Left-right brackets")
+      ("lrc" "\\\\left\\{ $1 \\\\right\\} $0" "Left-right curly braces")
+      ("sum" "\\\\sum_{${1:n=1}}^{${2:\\infty}} ${3:x_n}" "Summation")
+      ("prod" "\\\\prod_{${1:n=1}}^{${2:\\infty}} ${3:x_n}" "Product")
+      ("int" "\\\\int_{${1:a}}^{${2:b}} ${3:f(x)\\,dx}" "Integral")
+
+      ;; -- Physics Specific --
+      ("pd" "\\\\frac{\\\\partial ${1:y}}{\\\\partial ${2:x}} $0" "Partial derivative")
+      ("dd" "\\\\frac{d ${1:y}}{d ${2:x}} $0" "Total derivative")
+      ("bra" "\\\\bra{${1:\\psi}}$0" "Bra vector")
+      ("ket" "\\\\ket{${1:\\psi}}$0" "Ket vector")
+      ("braket" "\\\\braket{${1:\\psi}|${2:\\phi}}$0" "Braket inner product")
+      ("h" "\\\\hbar" "hbar symbol")
+
+      ;; -- Greek Letters (Prefix `g` for lowercase, `G` for uppercase) --
+      ("ga" "\\\\alpha" "alpha")
+      ("gb" "\\\\beta" "beta")
+      ("gg" "\\\\gamma" "gamma")
+      ("gd" "\\\\delta" "delta")
+      ("ge" "\\\\epsilon" "epsilon")
+      ("gz" "\\\\zeta" "zeta")
+      ("go" "\\\\omega" "omega")
+      ("GA" "\\\\Alpha" "Alpha")
+      ("GB" "\\\\Beta" "Beta")
+      ("GG" "\\\\Gamma" "Gamma")
+      ("GD" "\\\\Delta" "Delta")
+      ("GO" "\\\\Omega" "Omega")
+
+      ;; -- Referencing & Citations --
+      ("ref" "\\\\ref{${1:fig:label}}$0" "Reference")
+      ("eqref" "\\\\eqref{${1:eq:label}}$0" "Equation Reference")
+      ("citp" "\\\\citep{${1:key}}$0" "Parenthetical citation")
+      )))
+#+end_src
 ** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
