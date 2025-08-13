@@ -125,3 +125,57 @@ For each project, create a `.dir-locals.el` file with the following content. Jus
 ```
 
 When you open any `.tex` or `.org` file in that project directory, Emacs will automatically read this file and set the `citar-bibliography` variable for that buffer only. `citar` will instantly know which bibliography to use for that specific project.
+
+### 2. How to Use Your New Snippets
+
+After adding the code, reload your configuration. The snippets are now active.
+
+- **Triggering:** In a `.tex` file or inside a LaTeX block in Org mode, type a trigger (e.g., `sfig`) and press `TAB`.
+- **Navigating:** Use `TAB` to jump between the placeholders (`$1`, `$2`, etc.) in an expanded snippet.
+- **Discovery:** If you forget a trigger, just start typing (e.g., `sub...`) and `corfu` will suggest the `subfigure` snippet.
+
+### Expanded Snippet Library
+
+Here is a comprehensive list of the snippets now available to you.
+
+| Group             | Trigger       | Description                                                               |
+| :---------------- | :------------ | :------------------------------------------------------------------------ |
+| **Templates**     | `article`     | A complete boilerplate for a new scientific article with common packages. |
+| **Environments**  | `abs`         | The `abstract` environment.                                               |
+|                   | `fig`         | A standard `figure` environment.                                          |
+|                   | `sfig`        | A two-panel `subfigure` environment for side-by-side figures.             |
+|                   | `table`       | A `table` environment using `booktabs` for professional-looking tables.   |
+|                   | `item`        | A simple `itemize` environment.                                           |
+|                   | `enum`        | A simple `enumerate` environment.                                         |
+|                   | `thm`         | A `theorem` environment.                                                  |
+|                   | `lem`         | A `lemma` environment.                                                    |
+|                   | `prf`         | A `proof` environment.                                                    |
+| **Equations**     | `eq`          | A single, numbered `equation`.                                            |
+|                   | `ali`         | An `align` environment for multi-line, aligned equations.                 |
+|                   | `mat`         | A `pmatrix` for a matrix with parentheses.                                |
+|                   | `bmat`        | A `bmatrix` for a matrix with square brackets.                            |
+| **Math**          | `lrp`         | Auto-scaling parentheses `\left( ... \right)`.                            |
+|                   | `lrb`         | Auto-scaling square brackets `\left[ ... \right]`.                        |
+|                   | `lrc`         | Auto-scaling curly braces `\left\{ ... \right\}`.                         |
+|                   | `sum`         | A `\sum` expression.                                                      |
+|                   | `prod`        | A `\prod` expression.                                                     |
+|                   | `int`         | An `\int` expression.                                                     |
+| **Physics**       | `pd`          | A partial derivative fraction.                                            |
+|                   | `dd`          | A total derivative fraction.                                              |
+|                   | `bra`         | A Dirac bra vector `\bra{}`.                                              |
+|                   | `ket`         | A Dirac ket vector `\ket{}`.                                              |
+|                   | `braket`      | A Dirac inner product `\braket{}`.                                        |
+|                   | `h`           | The `\hbar` symbol.                                                       |
+| **Greek Letters** | `ga`, `gb`... | `g` + letter for lowercase Greek (e.g., `ga` → `\alpha`).                 |
+|                   | `GA`, `GB`... | `G` + letter for uppercase Greek (e.g., `GD` → `\Delta`).                 |
+| **References**    | `ref`         | A standard `\ref{}`.                                                      |
+|                   | `eqref`       | An equation reference `\eqref{}`.                                         |
+|                   | `citp`        | A parenthetical citation `\citep{}`.                                      |
+
+---
+
+[Note]: Snippets inside org-source-code blocks
+
+1.  **Block Snippets (`article`, `fig`, `table`, `eq`, etc.):** These are designed to generate raw LaTeX code. If you trigger them outside of a LaTeX block, they will insert that raw code directly into your Org file. This bypasses Org's own syntax for figures, tables, and structure, and while it might export correctly, it is not the intended workflow and makes your Org file difficult to read and manage.
+
+2.  **Inline Math Snippets (`//`, `vec`, `ga`, `pd`, etc.):** These _are_ useful. Org mode understands inline LaTeX fragments (like `\alpha` or `\frac{1}{2}`). You can type `The variable ga` and press `TAB` to get `The variable \alpha`, which Org will correctly export. These smaller snippets are the main exception and work perfectly anywhere in an Org file.
