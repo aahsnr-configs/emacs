@@ -2227,7 +2227,6 @@ This provides a complete scientific writing environment for both `.tex` and
 `.org` files. It integrates AUCTeX for core editing, texlab for LSP
 features, and a multi-layered system for completion, diagnostics, and
 formatting.
-
 ** Core Backend: AUCTeX, Tectonic, and Texlab
 This configures the foundational packages. AUCTeX is the primary editing environment, enhanced with Tectonic as the default compiler for its modern, all-in-one approach.
 #+begin_src emacs-lisp
