@@ -2178,12 +2178,8 @@ Opens the notes in a split window to the right."
 ** Yasnippet
 #+begin_src emacs-lisp
 (use-package yasnippet
-  :defer t
   :hook (after-init . yas-global-mode)
-  ;; --- CRITICAL FIX ---
-  ;; Ensure this config runs AFTER org and tex (AUCTeX) are loaded.
-  ;; This resolves the `yas-parent-modes` error by guaranteeing load order.
-  :after (org tex yasnippet-snippets)
+  :after yasnippet-snippets
   :custom
   (yas-prompt-functions '(yas-completing-prompt))
   :config
@@ -2198,10 +2194,12 @@ Opens the notes in a split window to the right."
       (message "Yasnippet collection reloaded.")))
   (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save)
 
-  ;; --- Snippet Inheritance for Org Mode ---
-  ;; This crucial setting makes all snippets defined for `latex-mode`
-  ;; automatically available within `org-mode`, avoiding duplication.
-  (add-to-list 'yas-parent-modes '(org-mode . latex-mode))
+  ;; --- FIX: Defer Snippet Inheritance Configuration ---
+  ;; This prevents a circular dependency during package compilation by waiting
+  ;; for both Org and AUCTeX to be fully loaded before modifying yasnippet.
+  (with-eval-after-load 'org
+    (with-eval-after-load 'tex
+      (add-to-list 'yas-parent-modes '(org-mode . latex-mode))))
 
   ;; --- Custom Scientific Snippets ---
   ;; We define the snippets programmatically to keep the config self-contained.
@@ -2495,6 +2493,8 @@ This section configures a streamlined citation workflow centered around **Citar*
 This section improves the interactive writing experience with faster math input
 and aesthetic ligatures.
 #+begin_src emacs-lisp
+(use-package math-symbol-lists)
+
 (use-package cdlatex
   :hook (LaTeX-mode . cdlatex-mode))
 
