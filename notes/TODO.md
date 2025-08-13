@@ -35,6 +35,8 @@
 
 ## LaTeX tasks
 
+- [ ] Export org files to latex and pdf files
+
 ## Programming modes
 
 - LaTeX-mode
