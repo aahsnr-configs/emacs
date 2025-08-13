@@ -35,6 +35,7 @@
 
 ## LaTeX tasks
 
+- [ ] Setup yasnippet snippet inheritance for LaTeX-snippets [Note]: yas-parent-mode is not a function
 - [ ] Export org files to latex and pdf files
 
 ## Programming modes
