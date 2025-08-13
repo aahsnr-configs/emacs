@@ -210,4 +210,113 @@ This provides convenient keybindings under the `c` prefix for compiling and cita
   "c o" '(citar-open :wk "Open Reference"))
 ```
 
+## Addendum
+
+Of course. Moving to a per-project bibliography workflow is a powerful and flexible setup. Here are the necessary changes to your configuration, designed to be minimal while enabling this new approach.
+
+The core idea is to **remove the global (hardcoded) bibliography path** and configure `citar` and `reftex` to instead look for a **buffer-local** variable. This makes your Emacs configuration agnostic, allowing you to specify the correct `.bib` file for each project you work on.
+
+### 1. The Necessary Code Changes
+
+You only need to modify the **Citation Ecosystem** section. The other parts of your LaTeX environment are already perfectly configured to support this.
+
+I will remove the hardcoded paths from `citar` and adjust the Org Mode integration to dynamically find the bibliography file from the current buffer's settings.
+
+**Replace your existing `Citation Ecosystem` and `Org Mode Integration` blocks with the following:**
+
+#### Citation Ecosystem: Citar and Zotero
+
+This section configures a streamlined citation workflow centered around **Citar** and Zotero. It is now configured to discover bibliography files on a per-project basis.
+
+```emacs-lisp
+;; RefTeX is still useful for non-citation references (labels, etc.).
+(use-package reftex
+  :ensure nil
+  :after tex
+  :config
+  (add-hook 'LaTeX-mode-hook #'reftex-mode)
+  (setq reftex-plug-into-AUCTeX t)
+  ;; Let Citar handle the bibliography files.
+  (setq reftex-default-bibliography '()))
+
+;; Citar is the core of our citation workflow.
+(use-package citar
+  :hook ((latex-mode . citar-capf-setup)
+         (org-mode . citar-capf-setup))
+  :custom
+  ;; --- CRITICAL CHANGE ---
+  ;; The global bibliography is now empty. Citar will use the buffer-local
+  ;; value set on a per-project basis.
+  (citar-bibliography '())
+  ;; Point this to your Zotero data directory to find attached PDFs.
+  (citar-library-paths '("~/Zotero/storage"))
+  (citar-notes-paths (list my/org-roam-directory))
+  (citar-symbols
+   `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
+     (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
+     (link ,(nerd-icons-mdicon "nf-md-link") . " "))))
+
+;; Integrates Citar with Org Roam to link literature notes to citations.
+(use-package citar-org-roam
+  :after (citar org-roam)
+  :config (citar-org-roam-mode 1))
+
+;; Provides Embark actions for Citar candidates (e.g., open PDF, open notes).
+(use-package citar-embark
+  :after (citar embark)
+  :config (citar-embark-mode))
+```
+
+#### Org Mode Integration
+
+This ensures Org mode correctly finds the per-project bibliography file for citations and export.
+
+```emacs-lisp
+(with-eval-after-load 'ox-latex
+  ;; --- CRITICAL CHANGE ---
+  ;; Configure Org's citation engine to dynamically find the bibliography
+  ;; from the current buffer's local settings.
+  (setq org-cite-global-bibliography '())
+  (setq org-cite-bibliography '())
+  (setq org-cite-insert-processor 'citar)
+  (setq org-cite-follow-processor 'citar)
+  (setq org-cite-activate-processor 'citar)
+
+  ;; Set Tectonic as the default compiler for Org LaTeX exports.
+  (setq org-latex-compiler "tectonic")
+  (setq org-latex-pdf-process
+        '("tectonic -X compile %f -o %o"))
+
+  ;; Define custom LaTeX classes for flexible document creation.
+  (add-to-list 'org-latex-classes
+        '("article"
+           "\\documentclass{article}"
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")
+           ("\\subsubsection{%s}" . "\\subsubsection*{%s}")) t)
+  (add-to-list 'org-latex-classes
+        '("beamer"
+           "\\documentclass{beamer}"
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")) t))
+```
+
+### 2. How to Use This New Workflow
+
+With the changes above, your Emacs configuration is now ready. To make it work for a specific project, you need to tell Emacs the path to that project's `.bib` file.
+
+The standard and most robust Emacs method for this is to place a file named `.dir-locals.el` in the root directory of your project.
+
+> **Note:** This **complements** `direnv`, it does not conflict with it. `direnv` is for setting shell environment variables, while `.dir-locals.el` is for setting Emacs-specific variables for buffers within a project. They work great together.
+
+For each project, create a `.dir-locals.el` file with the following content. Just change the name of the `.bib` file to match your project's bibliography.
+
+```emacs-lisp
+;; .dir-locals.el
+((latex-mode . ((citar-bibliography . ("my-project-bibliography.bib"))))
+ (org-mode   . ((citar-bibliography . ("my-project-bibliography.bib")))))
+```
+
+When you open any `.tex` or `.org` file in that project directory, Emacs will automatically read this file and set the `citar-bibliography` variable for that buffer only. `citar` will instantly know which bibliography to use for that specific project.
+
 For the attached latex.md file containing LaTeX writing environment, make sure tectonic has continuous compilation like latexmk. Then remove the latexmk integration. Furthermore there is no package called flymake-chktex. Read the attached documentation https://www.gnu.org/software/auctex/manual/auctex/Checking.html. Then integrate any elements from the documentation as you wish. Then rewrite the whole LaTeX writing environment in a nicely formatted and readable markdown format. You may refer to the attached init.txt file if needed. However disregard the LaTeX writing environment in the init.txt. Don't rewrite the whole emacs configuration. You may need to study both the attached files.
