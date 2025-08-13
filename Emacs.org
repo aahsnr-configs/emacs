@@ -771,6 +771,475 @@ appear, ensuring a consistent and predictable windowing layout.
   "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer"))
 #+end_src
 
+* Org Mode
+** Directory Structure
+#+begin_src emacs-lisp
+(defvar my/org-directory "~/org/"
+  "Base directory for all org files.")
+
+(defvar my/org-roam-directory (expand-file-name "roam/" my/org-directory)
+  "Directory for org-roam files.")
+
+(defvar my/org-downloads-directory (expand-file-name "downloads/" my/org-directory)
+  "Directory for org-download files.")
+
+(defvar my/org-noter-directory (expand-file-name "noter/" my/org-directory)
+  "Directory for org-noter files.")
+
+(defvar my/org-archive-directory (expand-file-name "archive/" my/org-directory)
+  "Directory for archived org files.")
+
+;; Create necessary directories, including subdirectories for Org Roam templates
+(dolist (dir (list my/org-directory
+                   my/org-roam-directory
+                   my/org-downloads-directory
+                   my/org-noter-directory
+                   my/org-archive-directory
+                   (expand-file-name "projects/" my/org-roam-directory)
+                   (expand-file-name "literature/" my/org-roam-directory)
+                   (expand-file-name "ideas/" my/org-roam-directory)
+                   (expand-file-name "zettel/" my/org-roam-directory)
+                   (expand-file-name "attachments/" my/org-directory)
+                   (expand-file-name "reviews/" my/org-directory)
+                   (expand-file-name "backups/" my/org-directory)))
+  (unless (file-directory-p dir)
+    (make-directory dir t)))
+
+;; This function now uses `consult--grep-builder` to rapidly
+;; find project files using ripgrep, avoiding a major performance bottleneck.
+(defun ar/find-org-projects ()
+  "Return a list of all Org files with a \"project\" tag for capture."
+  (let* ((builder (consult--grep-builder
+                   (list consult-ripgrep-args
+                         "--files-with-matches"
+                         "--glob=*.org"
+                         "^#\\+filetags:.*:project:.*"
+                         (expand-file-name my/org-directory)))))
+    (mapcar (lambda (file)
+              (list (file-name-nondirectory file) file))
+            (consult--grep-sync builder))))
+#+end_src
+
+** Better Font Faces
+#+begin_src emacs-lisp
+(defun ar/org-font-setup ()
+  ;; Replace list hyphen with dot
+  (font-lock-add-keywords 'org-mode
+                          '(("^ *\\([-]\\) "
+                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+
+  ;; Set faces for heading levels
+  (dolist (face '((org-level-1 . 1.2)
+                  (org-level-2 . 1.13)
+                  (org-level-3 . 1.10)
+                  (org-level-4 . 1.07)
+                  (org-level-5 . 1.05)
+                  (org-level-6 . 1.03)
+                  (org-level-7 . 1.02)
+                  (org-level-8 . 1)))
+    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
+#+end_src
+
+** Core Configuration
+#+begin_src emacs-lisp
+(use-package org
+  :ensure nil
+  :mode ("\\.org\\'" . org-mode)
+  :hook
+  ;; Hooks for org-mode itself.
+  ((org-mode . org-indent-mode)
+   (org-mode . visual-line-mode)
+   (org-mode . auto-fill-mode)
+   (org-mode . ar/org-font-setup)
+   (org-mode . (lambda ()
+                 "Set evil-mode TAB behavior and other buffer-local settings for Org."
+                 (setq-local electric-indent-local-mode nil)
+                 (evil-define-key 'normal org-mode-map (kbd "TAB") 'org-cycle)))
+
+   ;; Hooks for specialized Org buffers to provide a focused, distraction-free UI.
+   (org-agenda-mode . (lambda ()
+                        "Configure display for Org Agenda."
+                        (visual-line-mode -1)
+                        (toggle-truncate-lines 1)
+                        (display-line-numbers-mode 0)
+                        (setq mode-line-format nil) ; Hide modeline in agenda
+                        (setq header-line-format nil)))
+   (org-capture-mode . (lambda ()
+                         "Hide modeline in capture buffers."
+                         (setq mode-line-format nil)
+                         (setq header-line-format nil))))
+
+  :custom
+  (org-directory my/org-directory)
+  ;; Speed up agenda generation by specifying files.
+  (org-agenda-files '("~/org/inbox.org"
+                      "~/org/projects.org"
+                      "~/org/habits.org"
+                      "~/org/goals.org"))
+  (org-default-notes-file (expand-file-name "inbox.org" my/org-directory))
+  ;;(org-use-property-inheritance t) ; Allow property inheritance
+  (org-log-done 'time) ; Log time when tasks are marked DONE
+  (org-log-into-drawer t)
+  (org-return-follows-link t) ; RET follows links
+  (org-src-fontify-natively t) ; Better fontification for source blocks
+  (org-pretty-entities t)  ; Display LaTeX-like entities
+  (org-ellipsis " ⤵")  ; Custom ellipsis for folded headings
+  (org-cycle-separator-lines 2) ; Two blank lines between headings when cycling
+  (org-startup-indented t) ; Start Org buffers indented
+  (org-startup-folded 'content) ; Fold content by default
+  (org-hide-leading-stars t) ; Hide leading stars for a cleaner look
+  (org-confirm-babel-evaluate nil) ; Do not ask for confirmation to run code blocks
+  (org-hide-emphasis-markers t) ; Hide the *, /, _, etc. emphasis markers
+  (org-src-tab-acts-natively t)  ; TAB in source blocks acts like it would in that language's mode
+  (org-src-preserve-indentation t) ; Preserve indentation in source blocks
+  (org-startup-with-inline-images t) ; Show images inline by default
+  (org-image-actual-width 600) ;  adjust them to an appropriate size
+  (org-tag-alist '(("@work"      . ?w)
+                   ("@home"      . ?h)
+                   ("@computer"  . ?c)
+                   ("@errands"   . ?e)
+                   ("read"       . ?r)
+                   ("meeting"    . ?m)
+                   ("urgent"     . ?u)
+                   ("someday"    . ?s)))
+  
+  (org-todo-keywords
+   '((sequence "📥 TODO(t)" "⚡ NEXT(n)" "⚙️ PROG(p)" "⏳ WAIT(w@/!)" "|" "✅ DONE(d!)" "❌ CANCEL(c@)")
+     (sequence "📝 PLAN(P)" "🚀 ACTIVE(A)" "⏸️ PAUSED(x)" "|" "🏆 ACHIEVED(a)" "🗑️ DROPPED(D)")))
+  (org-todo-keyword-faces
+   '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
+     ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
+     ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
+     ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
+     ("✅ DONE"      . (:foreground "#9ece6a" :weight bold))
+     ("❌ CANCEL"    . (:foreground "#565f89" :weight bold))
+     ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
+     ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+     ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
+     ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
+     ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
+  
+  ;; Use the element cache for a significant performance boost in Org files.
+  (org-element-use-cache t)) 
+#+end_src
+
+** Babel & Structure Templates
+Configure code block execution and create handy shortcuts for inserting common structures.
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  ;; Load common languages for Babel.
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (python . t)
+     (shell . t)
+     (sql . t)))
+
+  (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images)
+
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("py" . "src python")))
+#+end_src
+
+** Visual Enhancements
+This section makes Org mode beautiful and ergonomic, with modern styling and seamless Vim keybindings. The `org-modern` configuration complements the base `org-todo-keyword-faces` for a rich, thematic look.
+#+begin_src emacs-lisp
+(use-package org-modern
+  :hook (org-mode . org-modern-mode)
+  :config
+  ;; This package provides a cleaner, more modern look for Org buffers.
+  (setq org-modern-hide-stars "· "
+        org-modern-star '("◉" "○" "◈" "◇" "◆" "▷")
+        org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
+        org-modern-table-vertical 1
+        org-modern-table-horizontal 0.1
+        org-modern-block-name
+        '(("src" "»" "«")
+          ("example" "»" "«")
+          ("quote" "❝" "❞"))
+
+        ;; Style TODO keywords directly in the headline.
+        ;; This complements the main `org-todo-keyword-faces`.
+        org-modern-todo-faces
+        '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
+          ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
+          ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
+          ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
+          ("✅ DONE"      . (:background "#2f3c22" :foreground "#9ece6a" :weight bold))
+          ("❌ CANCEL"    . (:strike-through t :foreground "#565f89"))
+          ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
+          ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+          ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
+          ("🏆 ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
+          ("🗑️ DROPPED"   . (:strike-through t :foreground "#565f89")))
+    
+        ;; Style tags with a subtle box, inspired by Doom Emacs.
+        org-modern-tag-faces
+        `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#3b4261")))
+        org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☒") (priority . "⚑") (on . "◉") (off . "○"))))
+
+(use-package org-appear
+  :hook (org-mode . org-appear-mode)
+  :config
+  (setq org-appear-autoemphasis t
+        org-appear-autolinks t
+        org-appear-autosubmarkers t))
+#+end_src
+
+** Agenda: The Command Center
+#+begin_src emacs-lisp
+(use-package org-agenda
+  :ensure nil
+  :after org
+  :custom
+  (org-agenda-window-setup 'current-window)
+  (org-agenda-restore-windows-after-quit t)
+  (org-agenda-span 'week)
+  (org-agenda-start-on-weekday nil)
+  (org-agenda-start-day "today")
+  (org-agenda-skip-scheduled-if-done t)
+  (org-agenda-skip-deadline-if-done t)
+  (org-agenda-include-deadlines t)
+  (org-agenda-block-separator ?─)
+  (org-agenda-compact-blocks t)
+  (org-agenda-start-with-log-mode t)
+  (org-agenda-log-mode-items '(closed clock state))
+  (org-agenda-clockreport-parameter-plist '(:link t :maxlevel 2))
+  (org-agenda-time-grid '((daily today require-timed)
+                          (800 1000 1200 1400 1600 1800 2000)
+                          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+  (org-agenda-current-time-string "◀── now ─────────────────────────────────────────────────")
+
+  :config
+  (setq org-agenda-custom-commands
+        '(("d" "📅 Dashboard"
+           ((agenda "" ((org-deadline-warning-days 7)
+                        (org-agenda-overriding-header "📅 Agenda")))
+            (todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))
+            (tags-todo "project/🚀 ACTIVE" ((org-agenda-overriding-header "🚀 Active Projects")))
+            (tags-todo "+PRIORITY=\"A\"" ((org-agenda-overriding-header "🔥 High Priority")))
+            (todo "⏳ WAIT" ((org-agenda-overriding-header "⏳ Waiting On")))
+            (tags-todo "+habit" ((org-agenda-overriding-header "🔄 Habits")))
+            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects")))))
+
+          ("n" "⚡ Next Tasks"
+           ((todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))))
+
+          ("w" "💼 Work Context"
+           ((tags-todo "@work/⚡ NEXT" ((org-agenda-overriding-header "💼 Work Next")))
+            (tags-todo "@work/📥 TODO" ((org-agenda-overriding-header "💼 Work Tasks")))
+            (tags-todo "@work+project/🚀 ACTIVE" ((org-agenda-overriding-header "💼 Work Projects")))))
+
+          ("h" "🏠 Home Context"
+           ((tags-todo "@home/⚡ NEXT" ((org-agenda-overriding-header "🏠 Home Next")))
+            (tags-todo "@home/📥 TODO" ((org-agenda-overriding-header "🏠 Home Tasks")))))
+
+          ("p" "📋 Projects Overview"
+           ((tags "project" ((org-agenda-overriding-header "📋 All Projects")))))
+
+          ("g" "🎯 Goals Review"
+           ((tags-todo "goal" ((org-agenda-overriding-header "🎯 Goals")))))
+
+          ("r" "🔍 Review"
+           ((agenda "" ((org-agenda-span 'day) (org-agenda-overriding-header "📅 Today")))
+            (todo "✅ DONE" ((org-agenda-overriding-header "✅ Completed Today")
+                             (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottoday))))
+            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects"))))))))
+
+(use-package org-super-agenda
+  :after org-agenda
+  ;; Use a hook to enable the mode ONLY when an Org Agenda buffer is created.
+  :hook (org-agenda-mode . org-super-agenda-mode)
+  ;; Use :custom to configure variables. This does not activate the mode.
+  :custom
+  (org-super-agenda-groups
+   '((:name "🔥 Overdue" :deadline past)
+     (:name "📅 Today" :time-grid t :scheduled today)
+     (:name "⚡ Next" :todo "⚡ NEXT")
+     (:name "🔥 Important" :priority "A")
+     (:name "📋 Projects" :tag "project")
+     (:name "🏠 Home" :tag "@home")
+     (:name "💼 Work" :tag "@work")
+     (:name "⏳ Waiting" :todo "⏳ WAIT")
+     (:name "📚 Reading" :tag "read")
+     (:name "🎯 Goals" :tag "goal")
+     (:name "🔄 Habits" :tag "habit")
+     (:discard (:anything t)))))
+#+end_src
+
+** Org Roam: The Knowledge Graph
+Org Roam is configured for rapid, Zettelkasten-style note-taking. Templates are minimal and flexible, and the UI is integrated to feel like a natural extension of Emacs.
+#+begin_src emacs-lisp
+(use-package org-roam
+  :defer t
+  :after org
+  :init
+  (setq org-roam-directory my/org-roam-directory)
+  (setq org-roam-db-location (expand-file-name "org-roam.db" no-littering-var-directory))
+  :custom
+  (org-roam-completion-everywhere t)
+  (org-roam-node-display-template
+   (concat "${title:*} "
+           (propertize "${tags:20}" 'face 'org-tag)))
+  :config
+  (org-roam-db-autosync-mode)
+
+  ;; Configure the backlinks buffer to appear in a right-hand sidebar.
+  (add-to-list 'display-buffer-alist
+               '("\\*org-roam\\*"
+                 (display-buffer-in-direction)
+                 (direction . right)
+                 (window-width . 0.33)
+                 (window-height . fit-window-to-buffer)))
+
+  ;; Templates for different kinds of notes (Zettelkasten).
+  (setq org-roam-capture-templates
+      '(("d" "default" plain "* %?"
+         :target (file+head "${slug}.org"
+                            "#+title: ${title}\n#+filetags: \n\n")
+         :unnarrowed t)
+        ("p" "project" plain "* Goal\n\n%?\n\n* Tasks\n\n* Notes\n\n* Log\n"
+         :target (file+head "projects/${slug}.org"
+                            "#+title: Project: ${title}\n#+filetags: project\n")
+         :unnarrowed t)
+        ("l" "literature note" plain "* Source\n  - Author: \n  - Title: \n  - Year: \n\n* Summary\n\n%?\n\n* Key Takeaways\n\n* Quotes\n"
+         :target (file+head "literature/${slug}.org"
+                            "#+title: ${title}\n#+filetags: literature\n")
+         :unnarrowed t)
+        ("i" "idea" plain "* %?"
+         :target (file+head "ideas/${slug}.org"
+                            "#+title: ${title}\n#+filetags: idea fleeting\n")
+         :unnarrowed t)
+        ("z" "zettel" plain "* %?\n\n* References\n\n"
+         :target (file+head "zettel/${slug}.org"
+                            "#+title: ${title}\n#+filetags: zettel permanent\n")
+         :unnarrowed t)
+        ("j" "journal" plain "* Log\n\n%?"
+         :target (file+olp+datetree (expand-file-name "journal.org" my/org-roam-directory))
+         :unnarrowed t))))
+
+(use-package org-roam-ui
+  :after org-roam
+  :commands (org-roam-ui-mode org-roam-ui-open)
+  :custom
+  (org-roam-ui-sync-theme t)
+  (org-roam-ui-follow t)
+  (org-roam-ui-update-on-save t)
+  (org-roam-ui-open-on-start nil))
+
+(use-package consult-org-roam
+  :after (consult org-roam)
+  :init (consult-org-roam-mode 1))
+#+end_src
+
+** 📥 TODO Capture: The Gateway to Org
+Your central inbox for capturing tasks, notes, and ideas, now featuring the
+advanced dynamic project task template.
+*Use dynamic directory*
+#+begin_src emacs-lisp
+(use-package org-capture
+  :ensure nil
+  :after org
+  :custom
+  (org-capture-templates
+   '(("t" "📥 Task" entry (file+headline "~/org/inbox.org" "Tasks")
+      "* 📥 TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n")
+
+     ("n" "📝 Note" entry (file+headline "~/org/inbox.org" "Notes")
+      "* %? :note:\n  :PROPERTIES:\n  :CREATED: %U\n  :SOURCE: \n  :END:\n")
+
+     ("j" "📔 Journal" entry (file+olp+datetree "~/org/journal.org")
+      "* %U %?\n")
+
+     ("m" "🤝 Meeting" entry (file+headline "~/org/inbox.org" "Meetings")
+      "* Meeting: %? :meeting:\n  :PROPERTIES:\n  :CREATED: %U\n  :ATTENDEES: \n  :END:\n** Agenda\n** Notes\n** Action Items\n")
+
+     ("p" "📝 Project" entry (file+headline "~/org/projects.org" "Projects")
+      "* 📝 PLAN %? :project:\n  :PROPERTIES:\n  :CREATED: %U\n  :GOAL: \n  :DEADLINE: \n  :END:\n** Goals\n** Tasks\n*** 📥 TODO Define project scope\n** Resources\n** Notes\n")
+     ;;New template to add tasks directly to existing projects.
+     ("P" "📌 Project Task" entry
+      (file (lambda ()
+              (let* ((project-list (ar/find-org-projects))
+                     (project-name (completing-read "Select Project: " project-list)))
+                (cdr (assoc project-name project-list)))))
+      "* 📥 TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n"
+      :prepend t
+      :headline "Tasks")
+
+     ("b" "📚 Book" entry (file+headline "~/org/reading.org" "Reading List")
+      "* %? :book:read:\n  :PROPERTIES:\n  :CREATED: %U\n  :AUTHOR: \n  :GENRE: \n  :PAGES: \n  :STARTED: \n  :FINISHED: \n  :RATING: \n  :END:\n** Summary\n** Key Takeaways\n** Quotes\n")
+
+     ("h" "🔄 Habit" entry (file+headline "~/org/habits.org" "Habits")
+      "* 📥 TODO %? :habit:\n  SCHEDULED: %(format-time-string \"%<<%Y-%m-%d %a .+1d>>\")\n  :PROPERTIES:\n  :CREATED: %U\n  :STYLE: habit\n  :END:\n")
+
+     ("g" "🎯 Goal" entry (file+headline "~/org/goals.org" "Goals")
+      "* 🎯 GOAL %? :goal:\n  DEADLINE: %(org-read-date nil nil \"+1y\")\n  :PROPERTIES:\n  :CREATED: %U\n  :TYPE: \n  :END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** 📥 TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
+#+end_src
+
+** Org Habit
+#+begin_src emacs-lisp
+(use-package org-habit
+  :ensure nil
+  :after org
+  :custom
+  (org-habit-graph-column 60)
+  (org-habit-show-habits-only-for-today t)
+  (org-habit-pregraph-format "  ") ;; Corrected typo
+  (org-habit-graph-mature-star "✅")
+  (org-habit-graph-fresh-star "👌")
+  (org-habit-graph-ready-star "👍")
+  (org-habit-graph-early-star "🌱")
+  (org-habit-graph-late-star "👎")
+  (org-habit-graph-future-star "…"))
+#+end_src
+
+** Evil Integration
+#+begin_src emacs-lisp
+(use-package evil-org
+  :hook (org-mode . evil-org-mode)
+  :config
+  (add-hook 'evil-org-mode-hook
+            (lambda ()
+              (evil-org-set-key-theme '(navigation insert textobjects additional calendar todo))))
+  (add-to-list 'evil-emacs-state-modes 'org-agenda-mode)
+  (require 'evil-org-agenda)
+  (evil-org-agenda-set-keys))
+#+end_src
+
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ ;; Org-mode specific bindings
+ "o" '(:ignore t :wk "org")
+ "o a" '(org-agenda :wk "agenda")
+ "o c" '(org-capture :wk "capture")
+ "o s" '(org-schedule :wk "schedule")
+ "o d" '(org-deadline :wk "deadline")
+ "o t" '(org-set-tags-command :wk "set tags")
+ 
+ ;; Org Jupyter Keybindings
+ "o" '(:ignore t :which-key "org")
+ "o j" '(:ignore t :which-key "jupyter")
+ "o j r" '(jupyter-restart-kernel :wk "restart kernel")
+ "o j i" '(jupyter-interrupt-kernel :wk "interrupt kernel")
+ "o j c" '(jupyter-connect-to-kernel :wk "connect to kernel")
+ "o j l" '(jupyter-list-kernels :wk "list kernels")
+ 
+ ;; Org-roam specific bindings under "org roam"
+ "o r" '(:ignore t :wk "roam")
+ "o r f" '(org-roam-node-find :wk "find node")
+ "o r i" '(org-roam-node-insert :wk "insert node")
+ "o r c" '(org-roam-capture :wk "roam capture")
+ "o r g" '(org-roam-graph :wk "show graph")
+ "o r t" '(org-roam-tag-add :wk "add tag")
+
+ "o n" '(:ignore t :which-key "org noter")
+ "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
+ "o n i" '(org-noter-insert-note :wk "Insert Note"))
+#+end_src
+
 * Completion Framework
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
@@ -1859,475 +2328,6 @@ and aesthetic ligatures.
   "c e" '(TeX-clean :wk "Clean Aux Files")
   "c b" '(citar-insert-citation :wk "Insert Citation")
   "c o" '(citar-open :wk "Open Reference"))
-#+end_src
-
-* Org Mode
-** Directory Structure
-#+begin_src emacs-lisp
-(defvar my/org-directory "~/org/"
-  "Base directory for all org files.")
-
-(defvar my/org-roam-directory (expand-file-name "roam/" my/org-directory)
-  "Directory for org-roam files.")
-
-(defvar my/org-downloads-directory (expand-file-name "downloads/" my/org-directory)
-  "Directory for org-download files.")
-
-(defvar my/org-noter-directory (expand-file-name "noter/" my/org-directory)
-  "Directory for org-noter files.")
-
-(defvar my/org-archive-directory (expand-file-name "archive/" my/org-directory)
-  "Directory for archived org files.")
-
-;; Create necessary directories, including subdirectories for Org Roam templates
-(dolist (dir (list my/org-directory
-                   my/org-roam-directory
-                   my/org-downloads-directory
-                   my/org-noter-directory
-                   my/org-archive-directory
-                   (expand-file-name "projects/" my/org-roam-directory)
-                   (expand-file-name "literature/" my/org-roam-directory)
-                   (expand-file-name "ideas/" my/org-roam-directory)
-                   (expand-file-name "zettel/" my/org-roam-directory)
-                   (expand-file-name "attachments/" my/org-directory)
-                   (expand-file-name "reviews/" my/org-directory)
-                   (expand-file-name "backups/" my/org-directory)))
-  (unless (file-directory-p dir)
-    (make-directory dir t)))
-
-;; This function now uses `consult--grep-builder` to rapidly
-;; find project files using ripgrep, avoiding a major performance bottleneck.
-(defun ar/find-org-projects ()
-  "Return a list of all Org files with a \"project\" tag for capture."
-  (let* ((builder (consult--grep-builder
-                   (list consult-ripgrep-args
-                         "--files-with-matches"
-                         "--glob=*.org"
-                         "^#\\+filetags:.*:project:.*"
-                         (expand-file-name my/org-directory)))))
-    (mapcar (lambda (file)
-              (list (file-name-nondirectory file) file))
-            (consult--grep-sync builder))))
-#+end_src
-
-** Better Font Faces
-#+begin_src emacs-lisp
-(defun ar/org-font-setup ()
-  ;; Replace list hyphen with dot
-  (font-lock-add-keywords 'org-mode
-                          '(("^ *\\([-]\\) "
-                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-
-  ;; Set faces for heading levels
-  (dolist (face '((org-level-1 . 1.2)
-                  (org-level-2 . 1.13)
-                  (org-level-3 . 1.10)
-                  (org-level-4 . 1.07)
-                  (org-level-5 . 1.05)
-                  (org-level-6 . 1.03)
-                  (org-level-7 . 1.02)
-                  (org-level-8 . 1)))
-    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
-#+end_src
-
-** Core Configuration
-#+begin_src emacs-lisp
-(use-package org
-  :ensure nil
-  :mode ("\\.org\\'" . org-mode)
-  :hook
-  ;; Hooks for org-mode itself.
-  ((org-mode . org-indent-mode)
-   (org-mode . visual-line-mode)
-   (org-mode . auto-fill-mode)
-   (org-mode . ar/org-font-setup)
-   (org-mode . (lambda ()
-                 "Set evil-mode TAB behavior and other buffer-local settings for Org."
-                 (setq-local electric-indent-local-mode nil)
-                 (evil-define-key 'normal org-mode-map (kbd "TAB") 'org-cycle)))
-
-   ;; Hooks for specialized Org buffers to provide a focused, distraction-free UI.
-   (org-agenda-mode . (lambda ()
-                        "Configure display for Org Agenda."
-                        (visual-line-mode -1)
-                        (toggle-truncate-lines 1)
-                        (display-line-numbers-mode 0)
-                        (setq mode-line-format nil) ; Hide modeline in agenda
-                        (setq header-line-format nil)))
-   (org-capture-mode . (lambda ()
-                         "Hide modeline in capture buffers."
-                         (setq mode-line-format nil)
-                         (setq header-line-format nil))))
-
-  :custom
-  (org-directory my/org-directory)
-  ;; Speed up agenda generation by specifying files.
-  (org-agenda-files '("~/org/inbox.org"
-                      "~/org/projects.org"
-                      "~/org/habits.org"
-                      "~/org/goals.org"))
-  (org-default-notes-file (expand-file-name "inbox.org" my/org-directory))
-  ;;(org-use-property-inheritance t) ; Allow property inheritance
-  (org-log-done 'time) ; Log time when tasks are marked DONE
-  (org-log-into-drawer t)
-  (org-return-follows-link t) ; RET follows links
-  (org-src-fontify-natively t) ; Better fontification for source blocks
-  (org-pretty-entities t)  ; Display LaTeX-like entities
-  (org-ellipsis " ⤵")  ; Custom ellipsis for folded headings
-  (org-cycle-separator-lines 2) ; Two blank lines between headings when cycling
-  (org-startup-indented t) ; Start Org buffers indented
-  (org-startup-folded 'content) ; Fold content by default
-  (org-hide-leading-stars t) ; Hide leading stars for a cleaner look
-  (org-confirm-babel-evaluate nil) ; Do not ask for confirmation to run code blocks
-  (org-hide-emphasis-markers t) ; Hide the *, /, _, etc. emphasis markers
-  (org-src-tab-acts-natively t)  ; TAB in source blocks acts like it would in that language's mode
-  (org-src-preserve-indentation t) ; Preserve indentation in source blocks
-  (org-startup-with-inline-images t) ; Show images inline by default
-  (org-image-actual-width 600) ;  adjust them to an appropriate size
-  (org-tag-alist '(("@work"      . ?w)
-                   ("@home"      . ?h)
-                   ("@computer"  . ?c)
-                   ("@errands"   . ?e)
-                   ("read"       . ?r)
-                   ("meeting"    . ?m)
-                   ("urgent"     . ?u)
-                   ("someday"    . ?s)))
-  
-  (org-todo-keywords
-   '((sequence "📥 TODO(t)" "⚡ NEXT(n)" "⚙️ PROG(p)" "⏳ WAIT(w@/!)" "|" "✅ DONE(d!)" "❌ CANCEL(c@)")
-     (sequence "📝 PLAN(P)" "🚀 ACTIVE(A)" "⏸️ PAUSED(x)" "|" "🏆 ACHIEVED(a)" "🗑️ DROPPED(D)")))
-  (org-todo-keyword-faces
-   '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
-     ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
-     ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
-     ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
-     ("✅ DONE"      . (:foreground "#9ece6a" :weight bold))
-     ("❌ CANCEL"    . (:foreground "#565f89" :weight bold))
-     ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
-     ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-     ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
-     ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
-     ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
-  
-  ;; Use the element cache for a significant performance boost in Org files.
-  (org-element-use-cache t)) 
-#+end_src
-
-** Babel & Structure Templates
-Configure code block execution and create handy shortcuts for inserting common structures.
-#+begin_src emacs-lisp
-(with-eval-after-load 'org
-  ;; Load common languages for Babel.
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (python . t)
-     (shell . t)
-     (sql . t)))
-
-  (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images)
-
-  (require 'org-tempo)
-  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
-  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-  (add-to-list 'org-structure-template-alist '("py" . "src python")))
-#+end_src
-
-** Visual Enhancements
-This section makes Org mode beautiful and ergonomic, with modern styling and seamless Vim keybindings. The `org-modern` configuration complements the base `org-todo-keyword-faces` for a rich, thematic look.
-#+begin_src emacs-lisp
-(use-package org-modern
-  :hook (org-mode . org-modern-mode)
-  :config
-  ;; This package provides a cleaner, more modern look for Org buffers.
-  (setq org-modern-hide-stars "· "
-        org-modern-star '("◉" "○" "◈" "◇" "◆" "▷")
-        org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
-        org-modern-table-vertical 1
-        org-modern-table-horizontal 0.1
-        org-modern-block-name
-        '(("src" "»" "«")
-          ("example" "»" "«")
-          ("quote" "❝" "❞"))
-
-        ;; Style TODO keywords directly in the headline.
-        ;; This complements the main `org-todo-keyword-faces`.
-        org-modern-todo-faces
-        '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
-          ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
-          ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
-          ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
-          ("✅ DONE"      . (:background "#2f3c22" :foreground "#9ece6a" :weight bold))
-          ("❌ CANCEL"    . (:strike-through t :foreground "#565f89"))
-          ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
-          ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-          ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
-          ("🏆 ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
-          ("🗑️ DROPPED"   . (:strike-through t :foreground "#565f89")))
-    
-        ;; Style tags with a subtle box, inspired by Doom Emacs.
-        org-modern-tag-faces
-        `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#3b4261")))
-        org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☒") (priority . "⚑") (on . "◉") (off . "○"))))
-
-(use-package org-appear
-  :hook (org-mode . org-appear-mode)
-  :config
-  (setq org-appear-autoemphasis t
-        org-appear-autolinks t
-        org-appear-autosubmarkers t))
-#+end_src
-
-** Agenda: The Command Center
-#+begin_src emacs-lisp
-(use-package org-agenda
-  :ensure nil
-  :after org
-  :custom
-  (org-agenda-window-setup 'current-window)
-  (org-agenda-restore-windows-after-quit t)
-  (org-agenda-span 'week)
-  (org-agenda-start-on-weekday nil)
-  (org-agenda-start-day "today")
-  (org-agenda-skip-scheduled-if-done t)
-  (org-agenda-skip-deadline-if-done t)
-  (org-agenda-include-deadlines t)
-  (org-agenda-block-separator ?─)
-  (org-agenda-compact-blocks t)
-  (org-agenda-start-with-log-mode t)
-  (org-agenda-log-mode-items '(closed clock state))
-  (org-agenda-clockreport-parameter-plist '(:link t :maxlevel 2))
-  (org-agenda-time-grid '((daily today require-timed)
-                          (800 1000 1200 1400 1600 1800 2000)
-                          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (org-agenda-current-time-string "◀── now ─────────────────────────────────────────────────")
-
-  :config
-  (setq org-agenda-custom-commands
-        '(("d" "📅 Dashboard"
-           ((agenda "" ((org-deadline-warning-days 7)
-                        (org-agenda-overriding-header "📅 Agenda")))
-            (todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))
-            (tags-todo "project/🚀 ACTIVE" ((org-agenda-overriding-header "🚀 Active Projects")))
-            (tags-todo "+PRIORITY=\"A\"" ((org-agenda-overriding-header "🔥 High Priority")))
-            (todo "⏳ WAIT" ((org-agenda-overriding-header "⏳ Waiting On")))
-            (tags-todo "+habit" ((org-agenda-overriding-header "🔄 Habits")))
-            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects")))))
-
-          ("n" "⚡ Next Tasks"
-           ((todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))))
-
-          ("w" "💼 Work Context"
-           ((tags-todo "@work/⚡ NEXT" ((org-agenda-overriding-header "💼 Work Next")))
-            (tags-todo "@work/📥 TODO" ((org-agenda-overriding-header "💼 Work Tasks")))
-            (tags-todo "@work+project/🚀 ACTIVE" ((org-agenda-overriding-header "💼 Work Projects")))))
-
-          ("h" "🏠 Home Context"
-           ((tags-todo "@home/⚡ NEXT" ((org-agenda-overriding-header "🏠 Home Next")))
-            (tags-todo "@home/📥 TODO" ((org-agenda-overriding-header "🏠 Home Tasks")))))
-
-          ("p" "📋 Projects Overview"
-           ((tags "project" ((org-agenda-overriding-header "📋 All Projects")))))
-
-          ("g" "🎯 Goals Review"
-           ((tags-todo "goal" ((org-agenda-overriding-header "🎯 Goals")))))
-
-          ("r" "🔍 Review"
-           ((agenda "" ((org-agenda-span 'day) (org-agenda-overriding-header "📅 Today")))
-            (todo "✅ DONE" ((org-agenda-overriding-header "✅ Completed Today")
-                             (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottoday))))
-            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects"))))))))
-
-(use-package org-super-agenda
-  :after org-agenda
-  ;; Use a hook to enable the mode ONLY when an Org Agenda buffer is created.
-  :hook (org-agenda-mode . org-super-agenda-mode)
-  ;; Use :custom to configure variables. This does not activate the mode.
-  :custom
-  (org-super-agenda-groups
-   '((:name "🔥 Overdue" :deadline past)
-     (:name "📅 Today" :time-grid t :scheduled today)
-     (:name "⚡ Next" :todo "⚡ NEXT")
-     (:name "🔥 Important" :priority "A")
-     (:name "📋 Projects" :tag "project")
-     (:name "🏠 Home" :tag "@home")
-     (:name "💼 Work" :tag "@work")
-     (:name "⏳ Waiting" :todo "⏳ WAIT")
-     (:name "📚 Reading" :tag "read")
-     (:name "🎯 Goals" :tag "goal")
-     (:name "🔄 Habits" :tag "habit")
-     (:discard (:anything t)))))
-#+end_src
-
-** Org Roam: The Knowledge Graph
-Org Roam is configured for rapid, Zettelkasten-style note-taking. Templates are minimal and flexible, and the UI is integrated to feel like a natural extension of Emacs.
-#+begin_src emacs-lisp
-(use-package org-roam
-  :defer t
-  :after org
-  :init
-  (setq org-roam-directory my/org-roam-directory)
-  (setq org-roam-db-location (expand-file-name "org-roam.db" no-littering-var-directory))
-  :custom
-  (org-roam-completion-everywhere t)
-  (org-roam-node-display-template
-   (concat "${title:*} "
-           (propertize "${tags:20}" 'face 'org-tag)))
-  :config
-  (org-roam-db-autosync-mode)
-
-  ;; Configure the backlinks buffer to appear in a right-hand sidebar.
-  (add-to-list 'display-buffer-alist
-               '("\\*org-roam\\*"
-                 (display-buffer-in-direction)
-                 (direction . right)
-                 (window-width . 0.33)
-                 (window-height . fit-window-to-buffer)))
-
-  ;; Templates for different kinds of notes (Zettelkasten).
-  (setq org-roam-capture-templates
-      '(("d" "default" plain "* %?"
-         :target (file+head "${slug}.org"
-                            "#+title: ${title}\n#+filetags: \n\n")
-         :unnarrowed t)
-        ("p" "project" plain "* Goal\n\n%?\n\n* Tasks\n\n* Notes\n\n* Log\n"
-         :target (file+head "projects/${slug}.org"
-                            "#+title: Project: ${title}\n#+filetags: project\n")
-         :unnarrowed t)
-        ("l" "literature note" plain "* Source\n  - Author: \n  - Title: \n  - Year: \n\n* Summary\n\n%?\n\n* Key Takeaways\n\n* Quotes\n"
-         :target (file+head "literature/${slug}.org"
-                            "#+title: ${title}\n#+filetags: literature\n")
-         :unnarrowed t)
-        ("i" "idea" plain "* %?"
-         :target (file+head "ideas/${slug}.org"
-                            "#+title: ${title}\n#+filetags: idea fleeting\n")
-         :unnarrowed t)
-        ("z" "zettel" plain "* %?\n\n* References\n\n"
-         :target (file+head "zettel/${slug}.org"
-                            "#+title: ${title}\n#+filetags: zettel permanent\n")
-         :unnarrowed t)
-        ("j" "journal" plain "* Log\n\n%?"
-         :target (file+olp+datetree (expand-file-name "journal.org" my/org-roam-directory))
-         :unnarrowed t))))
-
-(use-package org-roam-ui
-  :after org-roam
-  :commands (org-roam-ui-mode org-roam-ui-open)
-  :custom
-  (org-roam-ui-sync-theme t)
-  (org-roam-ui-follow t)
-  (org-roam-ui-update-on-save t)
-  (org-roam-ui-open-on-start nil))
-
-(use-package consult-org-roam
-  :after (consult org-roam)
-  :init (consult-org-roam-mode 1))
-#+end_src
-
-** 📥 TODO Capture: The Gateway to Org
-Your central inbox for capturing tasks, notes, and ideas, now featuring the
-advanced dynamic project task template.
-*Use dynamic directory*
-#+begin_src emacs-lisp
-(use-package org-capture
-  :ensure nil
-  :after org
-  :custom
-  (org-capture-templates
-   '(("t" "📥 Task" entry (file+headline "~/org/inbox.org" "Tasks")
-      "* 📥 TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n")
-
-     ("n" "📝 Note" entry (file+headline "~/org/inbox.org" "Notes")
-      "* %? :note:\n  :PROPERTIES:\n  :CREATED: %U\n  :SOURCE: \n  :END:\n")
-
-     ("j" "📔 Journal" entry (file+olp+datetree "~/org/journal.org")
-      "* %U %?\n")
-
-     ("m" "🤝 Meeting" entry (file+headline "~/org/inbox.org" "Meetings")
-      "* Meeting: %? :meeting:\n  :PROPERTIES:\n  :CREATED: %U\n  :ATTENDEES: \n  :END:\n** Agenda\n** Notes\n** Action Items\n")
-
-     ("p" "📝 Project" entry (file+headline "~/org/projects.org" "Projects")
-      "* 📝 PLAN %? :project:\n  :PROPERTIES:\n  :CREATED: %U\n  :GOAL: \n  :DEADLINE: \n  :END:\n** Goals\n** Tasks\n*** 📥 TODO Define project scope\n** Resources\n** Notes\n")
-     ;;New template to add tasks directly to existing projects.
-     ("P" "📌 Project Task" entry
-      (file (lambda ()
-              (let* ((project-list (ar/find-org-projects))
-                     (project-name (completing-read "Select Project: " project-list)))
-                (cdr (assoc project-name project-list)))))
-      "* 📥 TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n"
-      :prepend t
-      :headline "Tasks")
-
-     ("b" "📚 Book" entry (file+headline "~/org/reading.org" "Reading List")
-      "* %? :book:read:\n  :PROPERTIES:\n  :CREATED: %U\n  :AUTHOR: \n  :GENRE: \n  :PAGES: \n  :STARTED: \n  :FINISHED: \n  :RATING: \n  :END:\n** Summary\n** Key Takeaways\n** Quotes\n")
-
-     ("h" "🔄 Habit" entry (file+headline "~/org/habits.org" "Habits")
-      "* 📥 TODO %? :habit:\n  SCHEDULED: %(format-time-string \"%<<%Y-%m-%d %a .+1d>>\")\n  :PROPERTIES:\n  :CREATED: %U\n  :STYLE: habit\n  :END:\n")
-
-     ("g" "🎯 Goal" entry (file+headline "~/org/goals.org" "Goals")
-      "* 🎯 GOAL %? :goal:\n  DEADLINE: %(org-read-date nil nil \"+1y\")\n  :PROPERTIES:\n  :CREATED: %U\n  :TYPE: \n  :END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** 📥 TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
-#+end_src
-
-** Org Habit
-#+begin_src emacs-lisp
-(use-package org-habit
-  :ensure nil
-  :after org
-  :custom
-  (org-habit-graph-column 60)
-  (org-habit-show-habits-only-for-today t)
-  (org-habit-pregraph-format "  ") ;; Corrected typo
-  (org-habit-graph-mature-star "✅")
-  (org-habit-graph-fresh-star "👌")
-  (org-habit-graph-ready-star "👍")
-  (org-habit-graph-early-star "🌱")
-  (org-habit-graph-late-star "👎")
-  (org-habit-graph-future-star "…"))
-#+end_src
-
-** Evil Integration
-#+begin_src emacs-lisp
-(use-package evil-org
-  :hook (org-mode . evil-org-mode)
-  :config
-  (add-hook 'evil-org-mode-hook
-            (lambda ()
-              (evil-org-set-key-theme '(navigation insert textobjects additional calendar todo))))
-  (add-to-list 'evil-emacs-state-modes 'org-agenda-mode)
-  (require 'evil-org-agenda)
-  (evil-org-agenda-set-keys))
-#+end_src
-
-** Keybindings
-#+begin_src emacs-lisp
-(ar/global-leader
- ;; Org-mode specific bindings
- "o" '(:ignore t :wk "org")
- "o a" '(org-agenda :wk "agenda")
- "o c" '(org-capture :wk "capture")
- "o s" '(org-schedule :wk "schedule")
- "o d" '(org-deadline :wk "deadline")
- "o t" '(org-set-tags-command :wk "set tags")
- 
- ;; Org Jupyter Keybindings
- "o" '(:ignore t :which-key "org")
- "o j" '(:ignore t :which-key "jupyter")
- "o j r" '(jupyter-restart-kernel :wk "restart kernel")
- "o j i" '(jupyter-interrupt-kernel :wk "interrupt kernel")
- "o j c" '(jupyter-connect-to-kernel :wk "connect to kernel")
- "o j l" '(jupyter-list-kernels :wk "list kernels")
- 
- ;; Org-roam specific bindings under "org roam"
- "o r" '(:ignore t :wk "roam")
- "o r f" '(org-roam-node-find :wk "find node")
- "o r i" '(org-roam-node-insert :wk "insert node")
- "o r c" '(org-roam-capture :wk "roam capture")
- "o r g" '(org-roam-graph :wk "show graph")
- "o r t" '(org-roam-tag-add :wk "add tag")
-
- "o n" '(:ignore t :which-key "org noter")
- "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
- "o n i" '(org-noter-insert-note :wk "Insert Note"))
 #+end_src
 
 * Snippets
