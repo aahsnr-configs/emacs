@@ -1710,7 +1710,7 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
  "f d" '(neotree-dir :wk "find in file tree"))
 #+end_src
 
-* Development Environment
+* Development Tools
 ** Envrc
 #+begin_src emacs-lisp
 (use-package envrc
@@ -1900,9 +1900,9 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 * Markdown Environment
 A production-ready setup for a modern Markdown workflow in Emacs 30. This
-configuration provides live rendering, a table of contents, superior code block
-highlighting, powerful table editing, linting, and auto-formatting, with
+configuration provides live rendering, a table of contents, superior code block highlighting, powerful table editing, linting, and auto-formatting, with
 intelligent conflict resolution and a robust loading order.
+
 ** Core Markdown Mode with Tree-sitter and Enhancements
 This configures `markdown-mode` as the foundation. It is the core component
 that all other Markdown packages will depend on.
@@ -1988,9 +1988,6 @@ This configures *apheleia* to use *prettier* for auto-formatting.
 
 * Version Control
 ** Magit: The Core Git Client
-#+begin_src emacs-lisp
-
-#+end_src
 *magit* is the central hub for all Git operations. This configuration ensures it works seamlessly with a full-frame UI and other packages.
 #+begin_src emacs-lisp
 (use-package magit
