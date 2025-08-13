@@ -57,8 +57,6 @@ emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "Emacs.org"
 # to the timestamped log file. The script will wait here until you manually
 # close the Emacs application (or kill the daemon).
 echo "Starting Emacs daemon. Output is being logged..."
-killall emacs
-killall emacs
 emacs --daemon &>"$LOG_FILE"
 
 # --- Completion ---
