@@ -416,6 +416,7 @@ Enable line numbers for some modes
 ** Dashboard
 #+begin_src emacs-lisp
 (use-package dashboard
+  :after nerd-icons
   :init (dashboard-setup-startup-hook)
   :custom
   (initial-buffer-choice (lambda () (get-buffer-create dashboard-buffer-name)))
@@ -465,6 +466,27 @@ or compilation buffers where the modeline provides useful info."
 #+end_src
 
 * Evil
+** Undo System
+#+begin_src emacs-lisp
+;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
+;; system, providing more convenient undo/redo functionality.
+(use-package undo-fu
+  :commands (undo-fu-only-undo
+             undo-fu-only-redo
+             undo-fu-only-redo-all
+             undo-fu-disable-checkpoint)
+  :config
+  (global-unset-key (kbd "C-z"))
+  (global-set-key (kbd "C-z") 'undo-fu-only-undo)
+  (global-set-key (kbd "C-S-z") 'undo-fu-only-redo))
+
+;; The undo-fu-session package complements undo-fu by enabling the saving
+;; and restoration of undo history across Emacs sessions, even after restarting.
+(use-package undo-fu-session
+  :commands undo-fu-session-global-mode
+  :hook (after-init . undo-fu-session-global-mode))
+#+end_src
+
 ** Core Evil
 #+begin_src emacs-lisp
 ;; Uncomment the following if you are using undo-fu
@@ -595,27 +617,6 @@ or compilation buffers where the modeline provides useful info."
   :defer t
   :hook ((prog-mode . rainbow-mode)
          (org-mode . rainbow-mode)))
-#+end_src
-
-** Undo System
-#+begin_src emacs-lisp
-;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
-;; system, providing more convenient undo/redo functionality.
-(use-package undo-fu
-  :commands (undo-fu-only-undo
-             undo-fu-only-redo
-             undo-fu-only-redo-all
-             undo-fu-disable-checkpoint)
-  :config
-  (global-unset-key (kbd "C-z"))
-  (global-set-key (kbd "C-z") 'undo-fu-only-undo)
-  (global-set-key (kbd "C-S-z") 'undo-fu-only-redo))
-
-;; The undo-fu-session package complements undo-fu by enabling the saving
-;; and restoration of undo history across Emacs sessions, even after restarting.
-(use-package undo-fu-session
-  :commands undo-fu-session-global-mode
-  :hook (after-init . undo-fu-session-global-mode))
 #+end_src
 
 ** Buffer Terminator
@@ -758,17 +759,19 @@ appear, ensuring a consistent and predictable windowing layout.
     ;; Ensure the personal dictionary file exists, creating it if necessary.
   (let ((dict-file (expand-file-name "dict.txt" user-emacs-directory)))
     (unless (file-exists-p dict-file)
-      (write-region "" nil dict-file))))
+      (write-region "" nil dict-file)))
 
-(ar/global-leader
-  "j" '(:ignore t :wk "jinx (spellcheck)")
-  "j c" '(jinx-correct :wk "Correct word at point")
-  "j n" '(jinx-next-error :wk "Go to next error")
-  "j p" '(jinx-previous-error :wk "Go to previous error")
-  "j s" '(jinx-suggest :wk "Show suggestions")
-  "j a" '(jinx-add-word-to-personal-dictionary :wk "Add to dictionary")
-  "j l" '(jinx-languages :wk "Select language")
-  "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer"))
+  (ar/global-leader
+    "j" '(:ignore t :wk "jinx (spellcheck)")
+    "j c" '(jinx-correct :wk "Correct word at point")
+    "j n" '(jinx-next-error :wk "Go to next error")
+    "j p" '(jinx-previous-error :wk "Go to previous error")
+    "j s" '(jinx-suggest :wk "Show suggestions")
+    "j a" '(jinx-add-word-to-personal-dictionary :wk "Add to dictionary")
+    "j l" '(jinx-languages :wk "Select language")
+    "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer")))
+
+
 #+end_src
 
 * Completion Framework
@@ -2169,9 +2172,7 @@ Opens the notes in a split window to the right."
 ** Yasnippet-Snippets
 *yasnippet-snippets* has to be loaded before *yasnippet* for user snippets to override the pre-built ones
 #+begin_src emacs-lisp
-(use-package yasnippet-snippets
-  ;;:after yasnippet
-  :demand t) ;; Ensure it's downloaded and available
+(use-package yasnippet-snippets :demand t)
 #+end_src
 
 ** Yasnippet
@@ -2182,7 +2183,7 @@ Opens the notes in a split window to the right."
   ;; --- CRITICAL FIX ---
   ;; Ensure this config runs AFTER org and tex (AUCTeX) are loaded.
   ;; This resolves the `yas-parent-modes` error by guaranteeing load order.
-  :after (org tex)
+  :after (org tex yasnippet-snippets)
   :custom
   (yas-prompt-functions '(yas-completing-prompt))
   :config
@@ -2381,7 +2382,6 @@ $0"
 
 * LaTeX Writing Environment
 This provides a complete scientific writing environment for both *.tex* and *.org* files. It integrates *AUCTeX* for core editing, *Tectonic* as the compiler, and a multi-layered system for completion, diagnostics, formatting, and a streamlined Zotero-based citation workflow.
-
 ** Core Backend: AUCTeX and Tectonic
 This configures the foundational packages. *AUCTeX* is the primary editing environment, enhanced with *Tectonic* as the default compiler for its modern, all-in-one approach.
 #+begin_src emacs-lisp
@@ -2415,7 +2415,6 @@ This configures the foundational packages. *AUCTeX* is the primary editing envir
 
 ** LSP, Completion, and Diagnostics
 This section integrates modern tooling for a responsive and intelligent editing experience.
-
 - *Eglot + Texlab:* Provides Language Server Protocol features.
 - *Completion:* Merges candidates from Eglot (LSP) and AUCTeX for the most comprehensive suggestions.
 - *Flymake + ChkTeX:* Offers on-the-fly syntax and style checking.
@@ -2440,8 +2439,7 @@ This section integrates modern tooling for a responsive and intelligent editing 
 #+end_src
 
 ** Auto-formatting: Apheleia and latexindent
-This configures *apheleia* to use the *latexindent* tool for formatting, ensuring
-consistent and clean source code.
+This configures *apheleia* to use the *latexindent* tool for formatting, ensuring consistent and clean source code.
 #+begin_src emacs-lisp
 (with-eval-after-load 'apheleia
   ;; For standalone `.tex` files.
