@@ -264,6 +264,20 @@ Automatically tangle our Emacs.org config file when we save it.
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
 #+end_src
 
+** Automatic Package Updates
+#+begin_src emacs-lisp
+(use-package auto-package-update
+  :custom
+  (auto-package-update-interval 4)
+  (auto-package-update-hide-results t)
+  (auto-package-update-delete-old-versions t)
+  :config
+  ;; Run package updates automatically at startup, but only if the configured
+  ;; interval has elapsed.
+  (auto-package-update-maybe)
+  (auto-package-update-at-time "10:00"))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
@@ -2215,23 +2229,21 @@ features, and a multi-layered system for completion, diagnostics, and
 formatting.
 
 ** Core Backend: AUCTeX, Tectonic, and Texlab
-This configures the foundational packages. *AUCTeX* is the primary editing
-environment, enhanced with *Tectonic* as the default compiler and *texlab*
-for LSP features via Eglot.
-
+This configures the foundational packages. AUCTeX is the primary editing environment, enhanced with Tectonic as the default compiler for its modern, all-in-one approach.
 #+begin_src emacs-lisp
 (use-package tex
   :ensure auctex
   :defer t
   :config
-  ;; Set the default TeX engine to Tectonic for its modern, all-in-one approach.
+  ;; Set the default TeX engine to Tectonic.
   (setq TeX-engine 'tectonic)
   (add-to-list 'TeX-engine-alist
                '(tectonic "Tectonic" "tectonic -X compile %s -o %o" "tectonic -X compile %s -o %o" "tectonic -X compile %s -o %o"))
-  (add-to-list 'TeX-command-list
-               '("Tectonic" "tectonic -X compile %s" TeX-run-command nil (latex-mode) :help "Compile with Tectonic"))
-  (add-to-list 'TeX-command-list
-               '("Latexmk" "latexmk -pdf %s" TeX-run-command nil (latex-mode) :help "Compile with Latexmk for continuous compilation"))
+
+  ;; Add commands for single compilation and continuous watching.
+  (setq TeX-command-list
+        '(("Tectonic" "tectonic -X compile %s" TeX-run-command nil (latex-mode) :help "Compile with Tectonic")
+          ("Tectonic Watch" "tectonic -X watch %s" TeX-run-command nil (latex-mode) :help "Continuously compile with Tectonic")))
 
   ;; Use PDF-Tools as the default viewer and enable source correlation (SyncTeX).
   (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
@@ -2240,11 +2252,6 @@ for LSP features via Eglot.
 
   ;; Enable folding of macros and environments, which is built into AUCTeX.
   (add-hook 'LaTeX-mode-hook #'TeX-fold-mode))
-
-;; Integrate texlab with Eglot for LSP support (diagnostics, completion, etc.).
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs
-               '((latex-mode tex-mode plain-tex-mode) . ("texlab"))))
 
 ;; Provides evil-mode integration for AUCTeX environments.
 (use-package evil-tex
@@ -2267,31 +2274,31 @@ and your existing `cape` setup.
 (add-hook 'LaTeX-mode-hook #'ar/latex-completion-setup)
 #+end_src
 
+** LSP: Eglot and Texlab
+We integrate *texlab* via Eglot to provide modern LSP features like code actions, smarter completion, and navigation. This runs alongside AUCTeX's features.
+#+begin_src emacs-lisp
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '((latex-mode tex-mode plain-tex-mode) . ("texlab"))))
+#+end_src
+
 ** Diagnostics: Flymake, AUCTeX, and ChkTeX
-This configures a multi-backend diagnostics system using the built-in
-*flymake*. When active in a LaTeX buffer, Flymake automatically uses
-AUCTeX's powerful internal parser to check for compilation errors. We augment
-this by adding *flymake-chktex* to provide additional style and syntax linting.
+This configures a multi-backend diagnostics system using the built-in flymake. When active, Flymake automatically uses AUCTeX's powerful internal parser to check for compilation errors. We augment this by adding ChkTeX to provide additional style and syntax linting, as recommended by the AUCTeX manual.
 
 #+begin_src emacs-lisp
 ;; Your existing flymake configuration already activates it for `prog-mode`,
 ;; which includes `LaTeX-mode`. This ensures AUCTeX's flymake backend is
 ;; automatically enabled.
 
-;; This package provides an additional flymake backend for the `chktex` linter,
-;; which works alongside the default AUCTeX backend.
-(use-package flymake-chktex
-  :after flymake
-  :hook (LaTeX-mode . flymake-chktex-setup))
+;; We now enable the built-in ChkTeX support from AUCTeX.
+;; Make sure `chktex` is installed and available in your system's PATH.
+(add-hook 'LaTeX-mode-hook
+          (lambda ()
+            (flymake-add-checker 'tex-chktex)))
 #+end_src
 
 ** Auto-formatting: Apheleia and latexindent
-This configures *apheleia* to use the `latexindent` command-line tool for
-formatting LaTeX source code, ensuring consistent and clean documents. It is
-set up to work for both standalone `.tex` files and for LaTeX source blocks
-inside Org mode. While AUCTeX has basic formatting commands, `latexindent` is
-a far more powerful and configurable standard.
-
+This configures apheleia to use the latexindent command-line tool for formatting LaTeX source code, ensuring consistent and clean documents. It works for both standalone .tex files and for LaTeX source blocks inside Org mode.
 #+begin_src emacs-lisp
 (with-eval-after-load 'apheleia
   ;; For standalone `.tex` files, assign `latexindent` as the formatter.
@@ -2299,15 +2306,28 @@ a far more powerful and configurable standard.
   (setf (alist-get 'LaTeX-mode apheleia-formatters)
         '("latexindent" "-g" "/dev/null"))
 
-  ;; For Org mode, add a formatter for "latex" source blocks. Apheleia will
-  ;; use this to format code inside `#+begin_src latex` ... `#+end_src`.
+  ;; For Org mode, add a formatter for "latex" source blocks.
   (add-to-list 'apheleia-formatters-alist
                '((latex . ("latexindent" "-g" "/dev/null")))))
 #+end_src
 
-** Citation Ecosystem
-This section configures a powerful citation workflow centered around Zotero. citar is the main interface, and it is configured to use the .bib files provided by the .dir-locals.el setup, which are kept in sync by Zotero.
+** Completion Framework Integration
+*Are you sure about the eglot completion and AucTeX completion working together*
+#+begin_src emacs-lisp
+(defun ar/latex-completion-setup ()
+  "Add AUCTeX completion backend to the local completion functions."
+  ;; Add AUCTeX's function to the buffer-local list of completion backends.
+  ;; This cleanly integrates it with Cape and Eglot without global side effects.
+  (add-to-list 'completion-at-point-functions #'TeX-completion-at-point-function nil t))
 
+(add-hook 'LaTeX-mode-hook #'ar/latex-completion-setup)
+#+end_src
+
+** 📥 TODO Citation Ecosystem
+This section configures a powerful citation workflow centered around Zotero.
+citar is the main interface, and it is configured to use the .bib files provided
+by the .dir-locals.el setup, which are kept in sync by Zotero. *I will be using
+direnv, but still keep integrated*
 #+begin_src emacs-lisp
 (use-package reftex
   :ensure nil
@@ -2359,33 +2379,18 @@ This section configures a powerful citation workflow centered around Zotero. cit
   :after (org-roam)
   :hook (org-roam-mode . org-roam-bibtex-mode))
 
-;; Provides a unified backend for managing bibliography files, which will
-;; be used by consult-bibtex.
-(use-package biblio
-  :defer t
-  :config
-  ;; Set the default backend to citar to better integrate with your
-  ;; existing setup. Biblio will find and manage the bib files, and
-  ;; citar will handle the note-taking and file associations.
-  (setq biblio-bibtex-backend 'citar))
-
 ;; Provides a powerful 'consult' interface for BibTeX files.
 (use-package consult-bibtex
-  :vc (:url "https://github.com/mohkale/consult-bibtex"
-       :branch "master")
-  :after (consult biblio)
+  :after (consult)
   :custom
-  ;; We leave this empty, as biblio will automatically find the bib files
-  ;; specified in your .dir-locals.el, following your existing pattern.
+  ;; We leave this empty, as biblio will automatically find the bib files.
   (consult-bibtex-files '())
-  (consult-bibtex-format-entry-function #'consult-bibtex-format-entry-default)
   :config
   (setq consult-bibtex-default-action 'consult-bibtex-insert-citation))
 #+end_src
 
 ** Writing UI and Editing Enhancements
-This section improves the interactive writing experience with faster math input,
-aesthetic ligatures, and intelligent snippet activation.
+This section improves the interactive writing experience with faster math input, aesthetic ligatures, and intelligent snippet activation.
 
 #+begin_src emacs-lisp
 (use-package cdlatex
@@ -2409,9 +2414,7 @@ aesthetic ligatures, and intelligent snippet activation.
 #+end_src
 
 ** Org Mode Integration
-This ensures Org mode is a first-class citizen, with export configured for
-Tectonic and full integration with our Citar setup.
-
+This ensures Org mode is a first-class citizen, with export configured for Tectonic and full integration with our Citar setup.
 #+begin_src emacs-lisp
 (with-eval-after-load 'ox-latex
   ;; Configure Org's citation engine to use our Citar setup.
