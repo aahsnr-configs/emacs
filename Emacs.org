@@ -2209,8 +2209,16 @@ Opens the notes in a split window to the right."
 #+end_src
 
 * LaTeX Writing Environment
+This provides a complete scientific writing environment for both `.tex` and
+`.org` files. It integrates AUCTeX for core editing, texlab for LSP
+features, and a multi-layered system for completion, diagnostics, and
+formatting.
+
 ** Core Backend: AUCTeX, Tectonic, and Texlab
-This configures the foundational packages. *AUCTeX* is the primary editing environment, enhanced with *Tectonic* as the default compiler and *texlab* for LSP features via Eglot.
+This configures the foundational packages. *AUCTeX* is the primary editing
+environment, enhanced with *Tectonic* as the default compiler and *texlab*
+for LSP features via Eglot.
+
 #+begin_src emacs-lisp
 (use-package tex
   :ensure auctex
@@ -2244,8 +2252,62 @@ This configures the foundational packages. *AUCTeX* is the primary editing envir
   :defer t)
 #+end_src
 
+** Completion Framework Integration
+This ensures that AUCTeX's powerful, context-aware completions for commands,
+labels, and citations work alongside the completions provided by `texlab` (LSP)
+and your existing `cape` setup.
+
+#+begin_src emacs-lisp
+(defun ar/latex-completion-setup ()
+  "Add AUCTeX completion backend to the local completion functions."
+  ;; Add AUCTeX's function to the buffer-local list of completion backends.
+  ;; This cleanly integrates it with Cape and Eglot without global side effects.
+  (add-to-list 'completion-at-point-functions #'TeX-completion-at-point-function nil t))
+
+(add-hook 'LaTeX-mode-hook #'ar/latex-completion-setup)
+#+end_src
+
+** Diagnostics: Flymake, AUCTeX, and ChkTeX
+This configures a multi-backend diagnostics system using the built-in
+*flymake*. When active in a LaTeX buffer, Flymake automatically uses
+AUCTeX's powerful internal parser to check for compilation errors. We augment
+this by adding *flymake-chktex* to provide additional style and syntax linting.
+
+#+begin_src emacs-lisp
+;; Your existing flymake configuration already activates it for `prog-mode`,
+;; which includes `LaTeX-mode`. This ensures AUCTeX's flymake backend is
+;; automatically enabled.
+
+;; This package provides an additional flymake backend for the `chktex` linter,
+;; which works alongside the default AUCTeX backend.
+(use-package flymake-chktex
+  :after flymake
+  :hook (LaTeX-mode . flymake-chktex-setup))
+#+end_src
+
+** Auto-formatting: Apheleia and latexindent
+This configures *apheleia* to use the `latexindent` command-line tool for
+formatting LaTeX source code, ensuring consistent and clean documents. It is
+set up to work for both standalone `.tex` files and for LaTeX source blocks
+inside Org mode. While AUCTeX has basic formatting commands, `latexindent` is
+a far more powerful and configurable standard.
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'apheleia
+  ;; For standalone `.tex` files, assign `latexindent` as the formatter.
+  ;; The `-g /dev/null` argument prevents `latexindent` from creating a log file.
+  (setf (alist-get 'LaTeX-mode apheleia-formatters)
+        '("latexindent" "-g" "/dev/null"))
+
+  ;; For Org mode, add a formatter for "latex" source blocks. Apheleia will
+  ;; use this to format code inside `#+begin_src latex` ... `#+end_src`.
+  (add-to-list 'apheleia-formatters-alist
+               '((latex . ("latexindent" "-g" "/dev/null")))))
+#+end_src
+
 ** Citation Ecosystem
 This section configures a powerful citation workflow centered around Zotero. citar is the main interface, and it is configured to use the .bib files provided by the .dir-locals.el setup, which are kept in sync by Zotero.
+
 #+begin_src emacs-lisp
 (use-package reftex
   :ensure nil
@@ -2324,6 +2386,7 @@ This section configures a powerful citation workflow centered around Zotero. cit
 ** Writing UI and Editing Enhancements
 This section improves the interactive writing experience with faster math input,
 aesthetic ligatures, and intelligent snippet activation.
+
 #+begin_src emacs-lisp
 (use-package cdlatex
   :hook (LaTeX-mode . cdlatex-mode))
@@ -2348,6 +2411,7 @@ aesthetic ligatures, and intelligent snippet activation.
 ** Org Mode Integration
 This ensures Org mode is a first-class citizen, with export configured for
 Tectonic and full integration with our Citar setup.
+
 #+begin_src emacs-lisp
 (with-eval-after-load 'ox-latex
   ;; Configure Org's citation engine to use our Citar setup.

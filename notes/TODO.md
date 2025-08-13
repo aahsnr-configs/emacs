@@ -33,6 +33,14 @@
 
 - [ ] Install tree-sitter grammaers directly using arch linux
 
+## LaTeX tasks
+
+## Programming modes
+
+- LaTeX-mode
+- python-ts-mode
+- markdown-ts-mode
+
 ---
 
 ## TASKS
