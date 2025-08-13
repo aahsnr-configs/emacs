@@ -2,7 +2,7 @@
 
 # --- Configuration ---
 # Set the base directory for Emacs configuration.
-EMACS_DIR="$HOME/.emacs.d"
+EMACS_DIR="$HOME/.config/emacs"
 # Define the directory where logs will be stored.
 LOG_DIR="$EMACS_DIR/log"
 
