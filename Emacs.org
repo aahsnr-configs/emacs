@@ -2381,6 +2381,8 @@ direnv, but still keep integrated*
 
 ;; Provides a powerful 'consult' interface for BibTeX files.
 (use-package consult-bibtex
+  :vc (:url "https://github.com/mohkale/consult-bibtex"
+       :branch "main")
   :after (consult)
   :custom
   ;; We leave this empty, as biblio will automatically find the bib files.
