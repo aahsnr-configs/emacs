@@ -2154,182 +2154,6 @@ Opens the notes in a split window to the right."
         (find-file pdf-path)))))
 #+end_src
 
-* LaTeX Writing Environment
-This provides a complete scientific writing environment for both *.tex* and *.org* files. It integrates *AUCTeX* for core editing, *Tectonic* as the compiler, and a multi-layered system for completion, diagnostics, formatting, and a streamlined Zotero-based citation workflow.
-
-** Core Backend: AUCTeX and Tectonic
-This configures the foundational packages. *AUCTeX* is the primary editing environment, enhanced with *Tectonic* as the default compiler for its modern, all-in-one approach.
-#+begin_src emacs-lisp
-(use-package tex
-  :ensure auctex
-  :defer t
-  :config
-  ;; Set the default TeX engine to Tectonic.
-  (setq TeX-engine 'tectonic)
-  (add-to-list 'TeX-engine-alist
-               '(tectonic "Tectonic" "tectonic -X compile %s -o %o" "tectonic -X compile %s -o %o" "tectonic -X compile %s -o %o"))
-
-  ;; Add commands for single compilation and continuous watching.
-  (setq TeX-command-list
-        '(("Tectonic" "tectonic -X compile %s" TeX-run-command nil (latex-mode) :help "Compile with Tectonic")
-          ("Tectonic Watch" "tectonic -X watch %s" TeX-run-command nil (latex-mode) :help "Continuously compile with Tectonic")))
-
-  ;; Use PDF-Tools as the default viewer and enable source correlation (SyncTeX).
-  (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
-  (setq TeX-source-correlate-mode t)
-  (setq TeX-PDF-mode t)
-
-  ;; Enable folding of macros and environments, which is built into AUCTeX.
-  (add-hook 'LaTeX-mode-hook #'TeX-fold-mode))
-
-;; Provides evil-mode integration for AUCTeX environments.
-(use-package evil-tex
-  :after (tex evil)
-  :defer t)
-#+end_src
-
-** LSP, Completion, and Diagnostics
-This section integrates modern tooling for a responsive and intelligent editing experience.
-
-- *Eglot + Texlab:* Provides Language Server Protocol features.
-- *Completion:* Merges candidates from Eglot (LSP) and AUCTeX for the most comprehensive suggestions.
-- *Flymake + ChkTeX:* Offers on-the-fly syntax and style checking.
-#+begin_src emacs-lisp
-;; Integrate texlab with Eglot for LSP support.
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs
-               '((latex-mode tex-mode plain-tex-mode) . ("texlab"))))
-
-;; This function correctly merges AUCTeX's completion functions with the
-;; LSP-provided functions from Eglot. Cape and Corfu will display the merged list.
-(defun ar/latex-completion-setup ()
-  "Add AUCTeX completion backend to the local completion functions."
-  (add-to-list 'completion-at-point-functions #'TeX-completion-at-point-function nil t))
-(add-hook 'LaTeX-mode-hook #'ar/latex-completion-setup)
-
-;; Enable the built-in ChkTeX support from AUCTeX for style checking.
-;; This requires the `chktex` command-line tool to be installed.
-(add-hook 'LaTeX-mode-hook
-          (lambda ()
-            (flymake-add-checker 'tex-chktex)))
-#+end_src
-
-** Auto-formatting: Apheleia and latexindent
-This configures *apheleia* to use the *latexindent* tool for formatting, ensuring
-consistent and clean source code.
-#+begin_src emacs-lisp
-(with-eval-after-load 'apheleia
-  ;; For standalone `.tex` files.
-  (setf (alist-get 'LaTeX-mode apheleia-formatters)
-        '("latexindent" "-g" "/dev/null"))
-
-  ;; For Org mode "latex" source blocks.
-  (add-to-list 'apheleia-formatters-alist
-               '((latex . ("latexindent" "-g" "/dev/null")))))
-#+end_src
-
-** Citation Ecosystem: Citar and Zotero
-This section configures a streamlined citation workflow centered around **Citar** and Zotero. It removes redundant packages for a simpler, more powerful setup.
-#+begin_src emacs-lisp
-;; RefTeX is still useful for non-citation references (labels, etc.).
-(use-package reftex
-  :ensure nil
-  :after tex
-  :config
-  (add-hook 'LaTeX-mode-hook #'reftex-mode)
-  (setq reftex-plug-into-AUCTeX t)
-  ;; Let Citar handle the bibliography files.
-  (setq reftex-default-bibliography '()))
-
-;; Citar is the core of our citation workflow.
-(use-package citar
-  :hook ((latex-mode . citar-capf-setup)
-         (org-mode . citar-capf-setup))
-  :custom
-  ;; --- CRITICAL ---
-  ;; Point this to the `.bib` file that Better BibTeX for Zotero auto-exports.
-  (citar-bibliography '())
-  ;; Point this to your Zotero data directory to find attached PDFs.
-  (citar-library-paths '("~/Zotero/storage"))
-  (citar-notes-paths (list my/org-roam-directory))
-  (citar-symbols
-   `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
-     (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
-     (link ,(nerd-icons-mdicon "nf-md-link") . " "))))
-
-;; Integrates Citar with Org Roam to link literature notes to citations.
-(use-package citar-org-roam
-  :after (citar org-roam)
-  :config (citar-org-roam-mode 1))
-
-;; Provides Embark actions for Citar candidates (e.g., open PDF, open notes).
-(use-package citar-embark
-  :after (citar embark)
-  :config (citar-embark-mode))
-#+end_src
-
-** Writing UI and Editing Enhancements
-This section improves the interactive writing experience with faster math input
-and aesthetic ligatures.
-#+begin_src emacs-lisp
-(use-package cdlatex
-  :hook (LaTeX-mode . cdlatex-mode))
-
-(use-package laas
-  :hook (LaTeX-mode . laas-mode))
-
-;; Use `prettify-symbols-mode` to render LaTeX macros as unicode characters.
-(defun ar/latex-prettify-symbols-setup ()
-  "Enable prettify-symbols-mode and add custom LaTeX ligatures."
-  (prettify-symbols-mode 1)
-  (mapc (lambda (rule) (push rule prettify-symbols-compose-rules))
-        '(("\\sum" . ?∑) ("\\int" . ?∫) ("\\in" . ?∈) ("\\forall" . ?∀)
-          ("\\exists" . ?∃) ("\\lambda" . ?λ) ("\\alpha" . ?α) ("\\beta" . ?β)
-          ("\\gamma" . ?γ) ("\\delta" . ?δ) ("\\epsilon" . ?ε) ("\\pi" . ?π)
-          ("\\rightarrow" . ?→) ("\\leftarrow" . ?←) ("\\Rightarrow" . ?⇒)
-          ("\\leq" . ?≤) ("\\geq" . ?≥))))
-(add-hook 'LaTeX-mode-hook #'ar/latex-prettify-symbols-setup)
-#+end_src
-
-** Org Mode Integration
-#+begin_src emacs-lisp
-(with-eval-after-load 'ox-latex
-  ;; Configure Org's citation engine to use our Citar setup.
-  (setq org-cite-global-bibliography '())
-  (setq org-cite-bibliography '())
-  (setq org-cite-follow-processor 'citar)
-  (setq org-cite-activate-processor 'citar)
-
-  ;; Set Tectonic as the default compiler for Org LaTeX exports.
-  (setq org-latex-compiler "tectonic")
-  (setq org-latex-pdf-process
-        '("tectonic -X compile %f -o %o"))
-
-  ;; Define custom LaTeX classes for flexible document creation.
-  (add-to-list 'org-latex-classes
-        '("article"
-           "\\documentclass{article}"
-           ("\\section{%s}" . "\\section*{%s}")
-           ("\\subsection{%s}" . "\\subsection*{%s}")
-           ("\\subsubsection{%s}" . "\\subsubsection*{%s}")) t)
-  (add-to-list 'org-latex-classes
-        '("beamer"
-           "\\documentclass{beamer}"
-           ("\\section{%s}" . "\\section*{%s}")
-           ("\\subsection{%s}" . "\\subsection*{%s}")) t))
-#+end_src
-
-** Keybindings
-#+begin_src emacs-lisp
-(ar/global-leader
-  "c" '(:ignore t :wk "compile/cite")
-  "c c" '(TeX-command-master :wk "Compile Document")
-  "c v" '(TeX-view :wk "View Output")
-  "c e" '(TeX-clean :wk "Clean Aux Files")
-  "c b" '(citar-insert-citation :wk "Insert Citation")
-  "c o" '(citar-open :wk "Open Reference"))
-#+end_src
-
 * Snippets
 ** Directory
 #+begin_src emacs-lisp
@@ -2553,5 +2377,181 @@ $0"
   "s i" '(consult-yasnippet :wk "insert snippet (consult)")
   "s n" '(yas-new-snippet :wk "new snippet")
   "s v" '(yas-visit-snippet-file :wk "visit snippet file"))
+#+end_src
+
+* LaTeX Writing Environment
+This provides a complete scientific writing environment for both *.tex* and *.org* files. It integrates *AUCTeX* for core editing, *Tectonic* as the compiler, and a multi-layered system for completion, diagnostics, formatting, and a streamlined Zotero-based citation workflow.
+
+** Core Backend: AUCTeX and Tectonic
+This configures the foundational packages. *AUCTeX* is the primary editing environment, enhanced with *Tectonic* as the default compiler for its modern, all-in-one approach.
+#+begin_src emacs-lisp
+(use-package tex
+  :ensure auctex
+  :defer t
+  :config
+  ;; Set the default TeX engine to Tectonic.
+  (setq TeX-engine 'tectonic)
+  (add-to-list 'TeX-engine-alist
+               '(tectonic "Tectonic" "tectonic -X compile %s -o %o" "tectonic -X compile %s -o %o" "tectonic -X compile %s -o %o"))
+
+  ;; Add commands for single compilation and continuous watching.
+  (setq TeX-command-list
+        '(("Tectonic" "tectonic -X compile %s" TeX-run-command nil (latex-mode) :help "Compile with Tectonic")
+          ("Tectonic Watch" "tectonic -X watch %s" TeX-run-command nil (latex-mode) :help "Continuously compile with Tectonic")))
+
+  ;; Use PDF-Tools as the default viewer and enable source correlation (SyncTeX).
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (setq TeX-source-correlate-mode t)
+  (setq TeX-PDF-mode t)
+
+  ;; Enable folding of macros and environments, which is built into AUCTeX.
+  (add-hook 'LaTeX-mode-hook #'TeX-fold-mode))
+
+;; Provides evil-mode integration for AUCTeX environments.
+(use-package evil-tex
+  :after (tex evil)
+  :defer t)
+#+end_src
+
+** LSP, Completion, and Diagnostics
+This section integrates modern tooling for a responsive and intelligent editing experience.
+
+- *Eglot + Texlab:* Provides Language Server Protocol features.
+- *Completion:* Merges candidates from Eglot (LSP) and AUCTeX for the most comprehensive suggestions.
+- *Flymake + ChkTeX:* Offers on-the-fly syntax and style checking.
+#+begin_src emacs-lisp
+;; Integrate texlab with Eglot for LSP support.
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '((latex-mode tex-mode plain-tex-mode) . ("texlab"))))
+
+;; This function correctly merges AUCTeX's completion functions with the
+;; LSP-provided functions from Eglot. Cape and Corfu will display the merged list.
+(defun ar/latex-completion-setup ()
+  "Add AUCTeX completion backend to the local completion functions."
+  (add-to-list 'completion-at-point-functions #'TeX-completion-at-point-function nil t))
+(add-hook 'LaTeX-mode-hook #'ar/latex-completion-setup)
+
+;; Enable the built-in ChkTeX support from AUCTeX for style checking.
+;; This requires the `chktex` command-line tool to be installed.
+(add-hook 'LaTeX-mode-hook
+          (lambda ()
+            (flymake-add-checker 'tex-chktex)))
+#+end_src
+
+** Auto-formatting: Apheleia and latexindent
+This configures *apheleia* to use the *latexindent* tool for formatting, ensuring
+consistent and clean source code.
+#+begin_src emacs-lisp
+(with-eval-after-load 'apheleia
+  ;; For standalone `.tex` files.
+  (setf (alist-get 'LaTeX-mode apheleia-formatters)
+        '("latexindent" "-g" "/dev/null"))
+
+  ;; For Org mode "latex" source blocks.
+  (add-to-list 'apheleia-formatters-alist
+               '((latex . ("latexindent" "-g" "/dev/null")))))
+#+end_src
+
+** Citation Ecosystem: Citar and Zotero
+This section configures a streamlined citation workflow centered around **Citar** and Zotero. It removes redundant packages for a simpler, more powerful setup.
+#+begin_src emacs-lisp
+;; RefTeX is still useful for non-citation references (labels, etc.).
+(use-package reftex
+  :ensure nil
+  :after tex
+  :config
+  (add-hook 'LaTeX-mode-hook #'reftex-mode)
+  (setq reftex-plug-into-AUCTeX t)
+  ;; Let Citar handle the bibliography files.
+  (setq reftex-default-bibliography '()))
+
+;; Citar is the core of our citation workflow.
+(use-package citar
+  :hook ((latex-mode . citar-capf-setup)
+         (org-mode . citar-capf-setup))
+  :custom
+  ;; --- CRITICAL ---
+  ;; Point this to the `.bib` file that Better BibTeX for Zotero auto-exports.
+  (citar-bibliography '())
+  ;; Point this to your Zotero data directory to find attached PDFs.
+  (citar-library-paths '("~/Zotero/storage"))
+  (citar-notes-paths (list my/org-roam-directory))
+  (citar-symbols
+   `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
+     (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
+     (link ,(nerd-icons-mdicon "nf-md-link") . " "))))
+
+;; Integrates Citar with Org Roam to link literature notes to citations.
+(use-package citar-org-roam
+  :after (citar org-roam)
+  :config (citar-org-roam-mode 1))
+
+;; Provides Embark actions for Citar candidates (e.g., open PDF, open notes).
+(use-package citar-embark
+  :after (citar embark)
+  :config (citar-embark-mode))
+#+end_src
+
+** Writing UI and Editing Enhancements
+This section improves the interactive writing experience with faster math input
+and aesthetic ligatures.
+#+begin_src emacs-lisp
+(use-package cdlatex
+  :hook (LaTeX-mode . cdlatex-mode))
+
+(use-package laas
+  :hook (LaTeX-mode . laas-mode))
+
+;; Use `prettify-symbols-mode` to render LaTeX macros as unicode characters.
+(defun ar/latex-prettify-symbols-setup ()
+  "Enable prettify-symbols-mode and add custom LaTeX ligatures."
+  (prettify-symbols-mode 1)
+  (mapc (lambda (rule) (push rule prettify-symbols-compose-rules))
+        '(("\\sum" . ?∑) ("\\int" . ?∫) ("\\in" . ?∈) ("\\forall" . ?∀)
+          ("\\exists" . ?∃) ("\\lambda" . ?λ) ("\\alpha" . ?α) ("\\beta" . ?β)
+          ("\\gamma" . ?γ) ("\\delta" . ?δ) ("\\epsilon" . ?ε) ("\\pi" . ?π)
+          ("\\rightarrow" . ?→) ("\\leftarrow" . ?←) ("\\Rightarrow" . ?⇒)
+          ("\\leq" . ?≤) ("\\geq" . ?≥))))
+(add-hook 'LaTeX-mode-hook #'ar/latex-prettify-symbols-setup)
+#+end_src
+
+** Org Mode Integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'ox-latex
+  ;; Configure Org's citation engine to use our Citar setup.
+  (setq org-cite-global-bibliography '())
+  (setq org-cite-bibliography '())
+  (setq org-cite-follow-processor 'citar)
+  (setq org-cite-activate-processor 'citar)
+
+  ;; Set Tectonic as the default compiler for Org LaTeX exports.
+  (setq org-latex-compiler "tectonic")
+  (setq org-latex-pdf-process
+        '("tectonic -X compile %f -o %o"))
+
+  ;; Define custom LaTeX classes for flexible document creation.
+  (add-to-list 'org-latex-classes
+        '("article"
+           "\\documentclass{article}"
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")
+           ("\\subsubsection{%s}" . "\\subsubsection*{%s}")) t)
+  (add-to-list 'org-latex-classes
+        '("beamer"
+           "\\documentclass{beamer}"
+           ("\\section{%s}" . "\\section*{%s}")
+           ("\\subsection{%s}" . "\\subsection*{%s}")) t))
+#+end_src
+
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+  "c" '(:ignore t :wk "compile/cite")
+  "c c" '(TeX-command-master :wk "Compile Document")
+  "c v" '(TeX-view :wk "View Output")
+  "c e" '(TeX-clean :wk "Clean Aux Files")
+  "c b" '(citar-insert-citation :wk "Insert Citation")
+  "c o" '(citar-open :wk "Open Reference"))
 #+end_src
 
