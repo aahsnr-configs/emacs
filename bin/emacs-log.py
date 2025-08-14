@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-A robust script to initialize an Emacs configuration, handle interactive
-prompts during startup, and log the entire process.
+A script to initialize an Emacs configuration, logging the entire process.
+It acts as an interactive proxy, forwarding startup prompts from the Emacs
+daemon to the user's terminal for manual input.
 
-This script includes live diagnostics to help identify the exact text of prompts.
-It is compatible with Python 3.13.
+This script is designed for Unix-like systems and is compatible with Python 3.13.
 """
 
 import os
@@ -15,26 +15,33 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 # --- Configuration ---
 EMACS_DIR: Path = Path.home() / ".config" / "emacs"
 LOG_DIR: Path = EMACS_DIR / "log"
 ORG_CONFIG_FILE: str = "Emacs.org"
-IO_INACTIVITY_TIMEOUT: float = 15.0
+# Maximum total time in seconds to keep the interactive session open.
+# After this, the script will detach, leaving the daemon running.
 TOTAL_STARTUP_TIMEOUT: float = 180.0
 
 
 def main() -> None:
     """Main function to orchestrate the Emacs setup and launch."""
     if sys.platform == "win32":
-        print("Error: This script requires a Unix-like OS.", file=sys.stderr)
+        print(
+            "Error: This script requires a Unix-like OS (Linux, macOS) due to the 'pty' module.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     try:
         os.chdir(EMACS_DIR)
     except FileNotFoundError:
-        print(f"Error: Emacs directory not found at '{EMACS_DIR}'.", file=sys.stderr)
+        print(
+            f"Error: Emacs directory not found at '{EMACS_DIR}'. Aborting.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,34 +75,19 @@ def main() -> None:
         handle_subprocess_error(e)
         sys.exit(1)
 
-    print("--> Starting Emacs daemon and monitoring for prompts...")
-    # IMPORTANT: Check the diagnostic output from the script and ensure these
-    # strings EXACTLY match what Emacs prints.
-    interactions = {
-        "check for compatible module binary to download? (y or n)": "n",
-        "zmq module not found. build it? (y or n)": "y",
-    }
+    print("--> Starting Emacs daemon in interactive proxy mode...")
+    print("--- You can now respond to any Emacs prompts directly below ---")
 
-    success = run_emacs_with_pty(
-        command=["emacs", "--daemon"], log_file_path=log_file, interactions=interactions
-    )
-
-    if not success:
-        print(
-            "\nWarning: Not all interactive prompts were handled before timeout. Please check the log."
-        )
-        print(
-            "         Ensure the prompt text in the script's 'interactions' dictionary is correct."
-        )
+    run_emacs_with_pty(command=["emacs", "--daemon"], log_file_path=log_file)
 
     print_outro(log_file)
 
 
-def run_emacs_with_pty(
-    command: List[str], log_file_path: Path, interactions: Dict[str, str]
-) -> bool:
-    """Executes a command in a pseudoterminal to automate interactive prompts."""
-    pending_interactions = interactions.copy()
+def run_emacs_with_pty(command: List[str], log_file_path: Path) -> None:
+    """
+    Executes a command in a pseudoterminal, acting as a proxy for I/O.
+    This allows the user to interact with the daemon's startup prompts.
+    """
     master_fd, slave_fd = pty.openpty()
 
     try:
@@ -106,92 +98,84 @@ def run_emacs_with_pty(
             os.close(slave_fd)
 
             start_time = time.monotonic()
-            output_buffer = b""
+            interactive_session_ended = False  # flag that is used to exit from main loop once an issue has taken place
 
-            while time.monotonic() - start_time < TOTAL_STARTUP_TIMEOUT:
-                if not pending_interactions or process.poll() is not None:
-                    break
+            while (
+                time.monotonic() - start_time < TOTAL_STARTUP_TIMEOUT
+                and interactive_session_ended == False
+            ):
+                ready_to_read, _, _ = select.select(
+                    [master_fd, sys.stdin.fileno()], [], [], 1.0
+                )  # Use fileno here to fix some systems.
 
-                ready, _, _ = select.select([master_fd], [], [], IO_INACTIVITY_TIMEOUT)
-                if not ready:
-                    continue
+                # 1. Handle output from Emacs
+                if master_fd in ready_to_read:
+                    try:
+                        output = os.read(master_fd, 1024)
+                        if not output:
+                            print(
+                                "\n[SCRIPT INFO] Emacs process closed its output stream. Interactive session complete."
+                            )
+                            interactive_session_ended = True
+                            break  # Exit loop, Emacs closed its output stream.
 
-                try:
-                    output = os.read(master_fd, 1024)
-                    if not output:
-                        break
+                        # Write to log file (bytes)
+                        log_file.write(output)
+                        log_file.flush()
 
-                    # --- Key Change 1: Diagnostic Printing ---
-                    # Print the raw output to the user's terminal to help debug prompts.
-                    print(f"[EMACS OUTPUT] {output.decode(errors='ignore')}", end="")
+                        # Write to user's terminal (decoded string)
+                        sys.stdout.write(output.decode(errors="ignore"))
+                        sys.stdout.flush()
+                    except OSError:
+                        print(
+                            "\n[SCRIPT INFO] Emacs process closed its output stream. Interactive session complete."
+                        )
+                        interactive_session_ended = True
+                        break  # pty was closed
 
-                    log_file.write(output)
-                    log_file.flush()
-                    output_buffer += output
+                # 2. Handle input from the User
+                if sys.stdin.fileno() in ready_to_read:
+                    user_input = os.read(sys.stdin.fileno(), 1024)
+                    os.write(master_fd, user_input)
 
-                    handled_prompts = []
-                    # --- Key Change 2: Case-Insensitive and Robust Matching ---
-                    buffer_lower = output_buffer.lower()
-
-                    for prompt, response in pending_interactions.items():
-                        prompt_lower_bytes = prompt.lower().encode()
-
-                        if prompt_lower_bytes in buffer_lower:
-                            print(f"\n[SCRIPT ACTION] Detected: '{prompt}'")
-                            print(f"[SCRIPT ACTION] Sending response: '{response}'")
-                            os.write(master_fd, (response + "\n").encode())
-
-                            # --- Key Change 3: Safer Buffer Handling ---
-                            # Remove only the processed part of the buffer.
-                            prompt_index = buffer_lower.find(prompt_lower_bytes)
-                            output_buffer = output_buffer[
-                                prompt_index + len(prompt_lower_bytes) :
-                            ]
-
-                            handled_prompts.append(prompt)
-                            break
-
-                    for prompt in handled_prompts:
-                        del pending_interactions[prompt]
-
-                except OSError:
-                    break
-
-            # Final status reporting
-            if not pending_interactions:
-                print(
-                    "\n[SCRIPT INFO] All prompts handled successfully. Monitoring stopped."
-                )
-            elif process.poll() is not None:
-                print("\n[SCRIPT INFO] Emacs process terminated unexpectedly.")
-            else:
-                print(
-                    f"\n[SCRIPT INFO] Reached total startup timeout of {TOTAL_STARTUP_TIMEOUT}s."
-                )
+            else:  # This 'else' belongs to the 'while' loop
+                if not interactive_session_ended:
+                    print(
+                        f"\n[SCRIPT INFO] Interactive session timed out after {TOTAL_STARTUP_TIMEOUT}s."
+                    )
+                    print(
+                        "              If Emacs continues to run in the background, prompts may still occur."
+                    )
 
     finally:
         os.close(master_fd)
 
-    return not pending_interactions
+    # Check if the Emacs process is still running after the interactive phase
+    if process.poll() is None:
+        print("[SCRIPT INFO] Emacs daemon is still running in the background.")
+        print(
+            "              The script has completed its initial setup.  You can close this terminal."
+        )
+    else:
+        print("[SCRIPT INFO] Emacs daemon has exited.")
 
 
 # Helper functions for clarity
 def print_intro(log_file: Path) -> None:
     """Prints the introductory information for the user."""
-    print("--- Emacs First Run & Logging Script (Python Version) ---")
+    print("--- Emacs First Run & Logging Script (Interactive Python Version) ---")
     print("\nThis script will:")
     print("  1. Kill any existing Emacs instances.")
     print(f"  2. Tangle '{ORG_CONFIG_FILE}' to produce init.el.")
-    print("  3. Start the Emacs daemon and answer startup prompts automatically.")
-    print("  4. Capture all output to a log file.")
-    print(f"\nLogging to: {log_file}")
-    print(f'Monitor full log: tail -f "{log_file}"\n')
+    print("  3. Start the Emacs daemon and forward any startup prompts to you.")
+    print("\nIMPORTANT: When prompted, type your input and press Enter.")
+    print(f"The full, raw log will be saved to: {log_file}\n")
 
 
 def print_outro(log_file: Path) -> None:
     """Prints the concluding messages for the user."""
     print("\n------------------------------------------------")
-    print("Emacs daemon should now be running in the background.")
+    print("Emacs daemon setup complete.")
     print(f"The full output has been saved to: {log_file}")
     print("\nReview the log with commands like:")
     print(f'  less "{log_file}"')
