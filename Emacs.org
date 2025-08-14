@@ -2098,6 +2098,10 @@ Jupyter-related Org configurations are kept here for cohesion and to guarantee
 correct load order, preventing startup errors.
 #+begin_src emacs-lisp
 (with-eval-after-load 'ob-jupyter
+  ;; Explicitly load the jupyter language for Org Babel.
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((jupyter . t)))
   ;; Use the official jupyter function to re-route all `python` src blocks to the
   ;; jupyter babel engine. This is the cleanest and most reliable method.
   (org-babel-jupyter-override-src-block "python")
