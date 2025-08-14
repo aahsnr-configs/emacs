@@ -2065,11 +2065,12 @@ configures Jupyter as the primary backend for Python code execution in Org,
 enabling features like asynchronous evaluation, rich multimedia output, and
 interactive REPLs.
 
-** Core Configuration (User Interface)
+** User Interface
 This block configures the main *jupyter* package, which provides the user-facing
 commands, REPL buffer, and kernel management UI.
 #+begin_src emacs-lisp
 (use-package jupyter
+  :defer t
   :init
   ;; This variable must be set *before* the package loads.
   ;; It ensures that evaluating code will automatically create and associate a
@@ -2091,7 +2092,7 @@ commands, REPL buffer, and kernel management UI.
               (lambda () (evil-insert-state))))
 #+end_src
 
-** Org Babel Integration (Execution Engine)
+** Execution Engine
 This block is CRITICAL. It explicitly loads and configures the `ob-jupyter`
 backend, which teaches Org mode how to communicate with Jupyter. All
 Jupyter-related Org configurations are kept here for cohesion and to guarantee
