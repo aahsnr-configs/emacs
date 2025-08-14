@@ -1393,14 +1393,6 @@ advanced dynamic project task template.
  "o d" '(org-deadline :wk "deadline")
  "o t" '(org-set-tags-command :wk "set tags")
  
- ;; Org Jupyter Keybindings
- "o" '(:ignore t :which-key "org")
- "o j" '(:ignore t :which-key "jupyter")
- "o j r" '(jupyter-restart-kernel :wk "restart kernel")
- "o j i" '(jupyter-interrupt-kernel :wk "interrupt kernel")
- "o j c" '(jupyter-connect-to-kernel :wk "connect to kernel")
- "o j l" '(jupyter-list-kernels :wk "list kernels")
- 
  ;; Org-roam specific bindings under "org roam"
  "o r" '(:ignore t :wk "roam")
  "o r f" '(org-roam-node-find :wk "find node")
