@@ -1985,6 +1985,86 @@ This configures *apheleia* to use *prettier* for auto-formatting.
   (setf (alist-get 'markdown-ts-mode apheleia-formatters)
         '("prettier" "--prose-wrap" "always")))
 #+end_src
+* Python Development
+This provides a modern and robust Python development environment, fully
+integrated with the existing LSP, diagnostics, formatting, and debugging frameworks. For this
+configuration to work, you must have the necessary Python packages installed in your environment. This provides a modern and robust Python development environment, fully integrated with the existing LSP, diagnostics, formatting, and debugging frameworks.
+** LSP: Eglot with Pyright
+We use *pyright-langserver* for core LSP features like code completion,
+navigation, and documentation. Crucially, we disable pyright's built-in type checking diagnostics to avoid conflicts with our dedicated *mypy* checker, ensuring we get
+a single, authoritative source for type errors.
+#+begin_src emacs-lisp
+(with-eval-after-load 'eglot
+  ;; Register pyright-langserver for Python modes.
+  (add-to-list 'eglot-server-programs
+               '((python-ts-mode python-mode) . ("pyright-langserver" "--stdio")))
+
+  ;; Configure pyright to cede type checking to mypy. This prevents
+  ;; duplicate and potentially conflicting diagnostics. Pyright will still
+  ;; provide other valuable, fast analysis.
+  (setf (alist-get '(python-ts-mode python-mode) eglot-workspace-configuration)
+        '(:python
+          (:analysis
+           (:typeCheckingMode "off")))))
+#+end_src
+
+** Diagnostics: Flymake with Ruff, Mypy, and Bandit
+My configuration already includes *flymake-collection*, which provides checkers for many tools. Here, we create a hook to specifically enable the checkers for Ruff, Mypy, and Bandit in any Python buffer. This gives us a powerful, multi-layered diagnostic setup without installing any extra Emacs packages.
+#+begin_src emacs-lisp
+(defun ar/python-diagnostics-setup ()
+  "Configure Flymake checkers for Python mode.
+This function enables the checkers provided by the flymake-collection package."
+  (setq-local flymake-checkers
+              '(flymake-collection-ruff
+                flymake-collection-mypy
+                flymake-collection-bandit)))
+
+(add-hook 'python-ts-mode-hook #'ar/python-diagnostics-setup)
+(add-hook 'python-mode-hook #'ar/python-diagnostics-setup)
+#+end_src
+
+** Formatting: Apheleia with Ruff
+We use *apheleia* to automatically format Python code on save. By using *ruff* as the backend, we ensure that formatting is consistent with our linter rules.
+#+begin_src emacs-lisp
+(with-eval-after-load 'apheleia
+  (setf (alist-get 'python-ts-mode apheleia-formatters)
+        '("ruff" "format" "-"))
+  (setf (alist-get 'python-mode apheleia-formatters)
+        '("ruff" "format" "-")))
+#+end_src
+
+** Debugging: Dape with debugpy
+This integrates Python's standard debugger, *debugpy*, with the *dape* framework.
+A debug template is registered, and a convenience function is created to easily
+start a debug session for the current Python file.
+#+begin_src emacs-lisp
+(with-eval-after-load 'dape
+  ;; Register a debug template for Python using debugpy. This defines how
+  ;; dape will launch the debugger for Python files.
+  (dape-register-debug-template
+   "Python (debugpy)"
+   (list :type "python"
+         :request "launch"
+         :name "Dape: Python File"
+         :program "${file}"
+         :console "internalConsole"))
+
+  ;; Interactive function to start a debug session for the current Python buffer.
+  (defun ar/dape-debug-python-file ()
+    "Start a DAPE debug session for the current Python file."
+    (interactive)
+    (unless (derived-mode-p 'python-ts-mode 'python-mode)
+      (error "Not in a Python buffer"))
+    (dape-debug-by-template "Python (debugpy)")))
+#+end_src
+
+** Keybindings
+#+begin_src emacs-lisp
+(ar/global-leader
+ ;; Add to the existing debug (dape) leader map
+ "d" '(:ignore t :wk "debug (dape)")
+ "d p" '(ar/dape-debug-python-file :wk "Debug Python File"))
+#+end_src
 
 * Version Control
 ** Magit: The Core Git Client
