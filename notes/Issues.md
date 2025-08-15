@@ -6,3 +6,4 @@
 - [x] treemacs gives me the error: Wrong type argument: commandp, treemacs-find-dir
 - [ ] Still some lag while writing when corfu-popupinfo opens and closes
 - [ ] The custom treemacs toggle functions gives the error: symbol's function definition is void: treemacs-visible-p
+- [ ] emacs only searches the currently opened headlines in org mode
