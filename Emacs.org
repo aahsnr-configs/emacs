@@ -720,7 +720,7 @@ appear, ensuring a consistent and predictable windowing layout.
 #+begin_src emacs-lisp
 (use-package indent-bars
   :hook ((prog-mode . indent-bars-mode)
-         (latex-mode . indent-bars-mode))
+         (atex-mode . indent-bars-mode))
   :config
   (require 'indent-bars-ts)
   (setopt indent-bars-no-descend-lists t
@@ -2762,3 +2762,282 @@ $0"
   "c o" '(citar-open :wk "Open Reference"))
 #+end_src
 
+* Markdown/Org Conversion
+** md-to-org
+#+begin_src emacs-lisp
+;; <
+(defun md-to-org (md-file &optional org-file)
+  "Convert a Markdown file to Org mode format using pandoc.
+MD-FILE is the input Markdown file path.
+ORG-FILE is the optional output Org file path. If not provided,
+it will use the same name as MD-FILE but with .org extension."
+  (interactive "fMarkdown file: ")
+  (let* ((input-file (expand-file-name md-file))
+         (output-file (or org-file
+                         (concat (file-name-sans-extension input-file) ".org")))
+         (pandoc-cmd (format "pandoc -f markdown -t org %s -o %s"
+                            (shell-quote-argument input-file)
+                            (shell-quote-argument output-file))))
+    (unless (executable-find "pandoc")
+      (error "Pandoc not found. Please install pandoc to use this function"))
+    (unless (file-exists-p input-file)
+      (error "Input file does not exist: %s" input-file))
+    (when (file-exists-p output-file)
+      (unless (y-or-n-p "Output file exists. Overwrite? ")
+        (error "Conversion cancelled")))
+    (message "Converting %s to %s..." input-file output-file)
+    (let ((result (shell-command pandoc-cmd)))
+      (if (= result 0)
+          (progn
+            (message "Successfully converted to %s" output-file)
+            (when (y-or-n-p "Open the converted file? ")
+              (find-file output-file)))
+        (error "Pandoc conversion failed with exit code %d" result)))))
+
+(defun md-to-org-current-buffer ()
+  "Convert the current Markdown buffer to Org mode format.
+Saves the current buffer first if modified, then converts it."
+  (interactive)
+  (unless (buffer-file-name)
+    (error "Buffer is not associated with a file"))
+  (when (buffer-modified-p)
+    (if (y-or-n-p "Buffer modified. Save before converting? ")
+        (save-buffer)
+      (error "Please save the buffer before converting")))
+  (md-to-org (buffer-file-name)))
+
+(defun md-to-org-region (start end)
+  "Convert the selected region from Markdown to Org mode format using pandoc.
+START and END define the region boundaries.
+The converted text replaces the original region."
+  (interactive "r")
+  (unless (executable-find "pandoc")
+    (error "Pandoc not found. Please install pandoc to use this function"))
+  (unless (use-region-p)
+    (error "No region selected"))
+  (when (= start end)
+    (error "Empty region selected"))
+  
+  (let* ((md-text (buffer-substring-no-properties start end))
+         (temp-md-file (make-temp-file "md-to-org-" nil ".md"))
+         (temp-org-file (make-temp-file "md-to-org-" nil ".org"))
+         (pandoc-cmd (format "pandoc -f markdown -t org %s -o %s"
+                            (shell-quote-argument temp-md-file)
+                            (shell-quote-argument temp-org-file))))
+    (unwind-protect
+        (progn
+          ;; Write markdown text to temp file with proper encoding
+          (with-temp-file temp-md-file
+            (insert md-text))
+          ;; Convert using pandoc
+          (let ((result (shell-command pandoc-cmd)))
+            (if (= result 0)
+                (if (file-exists-p temp-org-file)
+                    (let ((org-text (with-temp-buffer
+                                     (insert-file-contents temp-org-file)
+                                     (buffer-string))))
+                      ;; Remove trailing newline if original text didn't have one
+                      (when (and (> (length org-text) 0)
+                                 (not (string-suffix-p "\n" md-text))
+                                 (string-suffix-p "\n" org-text))
+                        (setq org-text (substring org-text 0 -1)))
+                      ;; Replace the region
+                      (save-excursion
+                        (delete-region start end)
+                        (goto-char start)
+                        (insert org-text))
+                      (message "Region converted from Markdown to Org mode"))
+                  (error "Pandoc output file not created"))
+              (error "Pandoc conversion failed with exit code %d" result))))
+      ;; Clean up temp files
+      (when (file-exists-p temp-md-file)
+        (delete-file temp-md-file))
+      (when (file-exists-p temp-org-file)
+        (delete-file temp-org-file)))))
+
+(defun md-to-org-region-to-new-buffer (start end)
+  "Convert the selected region from Markdown to Org mode and show in new buffer.
+START and END define the region boundaries.
+Creates a new buffer with the converted content instead of replacing the region."
+  (interactive "r")
+  (unless (executable-find "pandoc")
+    (error "Pandoc not found. Please install pandoc to use this function"))
+  (unless (use-region-p)
+    (error "No region selected"))
+  (when (= start end)
+    (error "Empty region selected"))
+  
+  (let* ((md-text (buffer-substring-no-properties start end))
+         (temp-md-file (make-temp-file "md-to-org-" nil ".md"))
+         (temp-org-file (make-temp-file "md-to-org-" nil ".org"))
+         (pandoc-cmd (format "pandoc -f markdown -t org %s -o %s"
+                            (shell-quote-argument temp-md-file)
+                            (shell-quote-argument temp-org-file))))
+    (unwind-protect
+        (progn
+          ;; Write markdown text to temp file
+          (with-temp-file temp-md-file
+            (insert md-text))
+          ;; Convert using pandoc
+          (let ((result (shell-command pandoc-cmd)))
+            (if (= result 0)
+                (if (file-exists-p temp-org-file)
+                    (let ((org-text (with-temp-buffer
+                                     (insert-file-contents temp-org-file)
+                                     (buffer-string))))
+                      ;; Create new buffer with converted content
+                      (with-current-buffer (get-buffer-create "*Markdown to Org Conversion*")
+                        (erase-buffer)
+                        (insert org-text)
+                        (org-mode)
+                        (goto-char (point-min))
+                        (display-buffer (current-buffer)))
+                      (message "Converted text displayed in new buffer"))
+                  (error "Pandoc output file not created"))
+              (error "Pandoc conversion failed with exit code %d" result))))
+      ;; Clean up temp files
+      (when (file-exists-p temp-md-file)
+        (delete-file temp-md-file))
+      (when (file-exists-p temp-org-file)
+        (delete-file temp-org-file)))))
+#+end_src
+
+** org-to-md
+#+begin_src emacs-lisp
+;; --- Org to Markdown Conversion ---
+;; <
+(defun org-to-md (org-file &optional md-file)
+  "Convert an Org mode file to Markdown format using pandoc.
+ORG-FILE is the input Org file path.
+MD-FILE is the optional output Markdown file path. If not provided,
+it will use the same name as ORG-FILE but with .md extension."
+  (interactive "fOrg file: ")
+  (let* ((input-file (expand-file-name org-file))
+         (output-file (or md-file
+                         (concat (file-name-sans-extension input-file) ".md")))
+         (pandoc-cmd (format "pandoc -f org -t markdown %s -o %s"
+                            (shell-quote-argument input-file)
+                            (shell-quote-argument output-file))))
+    (unless (executable-find "pandoc")
+      (error "Pandoc not found. Please install pandoc to use this function"))
+    (unless (file-exists-p input-file)
+      (error "Input file does not exist: %s" input-file))
+    (when (file-exists-p output-file)
+      (unless (y-or-n-p "Output file exists. Overwrite? ")
+        (error "Conversion cancelled")))
+    (message "Converting %s to %s..." input-file output-file)
+    (let ((result (shell-command pandoc-cmd)))
+      (if (= result 0)
+          (progn
+            (message "Successfully converted to %s" output-file)
+            (when (y-or-n-p "Open the converted file? ")
+              (find-file output-file)))
+        (error "Pandoc conversion failed with exit code %d" result)))))
+
+(defun org-to-md-current-buffer ()
+  "Convert the current Org buffer to Markdown format.
+Saves the current buffer first if modified, then converts it."
+  (interactive)
+  (unless (buffer-file-name)
+    (error "Buffer is not associated with a file"))
+  (when (buffer-modified-p)
+    (if (y-or-n-p "Buffer modified. Save before converting? ")
+        (save-buffer)
+      (error "Please save the buffer before converting")))
+  (org-to-md (buffer-file-name)))
+
+(defun org-to-md-region (start end)
+  "Convert the selected region from Org mode to Markdown format using pandoc.
+START and END define the region boundaries.
+The converted text replaces the original region."
+  (interactive "r")
+  (unless (executable-find "pandoc")
+    (error "Pandoc not found. Please install pandoc to use this function"))
+  (unless (use-region-p)
+    (error "No region selected"))
+  (when (= start end)
+    (error "Empty region selected"))
+    ;; <
+  (let* ((org-text (buffer-substring-no-properties start end))
+         (temp-org-file (make-temp-file "org-to-md-" nil ".org"))
+         (temp-md-file (make-temp-file "org-to-md-" nil ".md"))
+         (pandoc-cmd (format "pandoc -f org -t markdown %s -o %s"
+                            (shell-quote-argument temp-org-file)
+                            (shell-quote-argument temp-md-file))))
+    (unwind-protect
+        (progn
+          ;; Write org text to temp file with proper encoding
+          (with-temp-file temp-org-file
+            (insert org-text))
+          ;; Convert using pandoc
+          (let ((result (shell-command pandoc-cmd)))
+            (if (= result 0)
+                (if (file-exists-p temp-md-file)
+                    (let ((md-text (with-temp-buffer
+                                     (insert-file-contents temp-md-file)
+                                     (buffer-string))))
+                      ;; Remove trailing newline if original text didn't have one
+                      (when (and (> (length md-text) 0)
+                                 (not (string-suffix-p "\n" org-text))
+                                 (string-suffix-p "\n" md-text))
+                        (setq md-text (substring md-text 0 -1)))
+                      ;; Replace the region
+                      (save-excursion
+                        (delete-region start end)
+                        (goto-char start)
+                        (insert md-text))
+                      (message "Region converted from Org mode to Markdown"))
+                  (error "Pandoc output file not created"))
+              (error "Pandoc conversion failed with exit code %d" result))))
+      ;; Clean up temp files
+      (when (file-exists-p temp-org-file)
+        (delete-file temp-org-file))
+      (when (file-exists-p temp-md-file)
+        (delete-file temp-md-file)))))
+
+(defun org-to-md-region-to-new-buffer (start end)
+  "Convert the selected region from Org to Markdown and show in new buffer.
+START and END define the region boundaries.
+Creates a new buffer with the converted content instead of replacing the region."
+  (interactive "r")
+  (unless (executable-find "pandoc")
+    (error "Pandoc not found. Please install pandoc to use this function"))
+  (unless (use-region-p)
+    (error "No region selected"))
+  (when (= start end)
+    (error "Empty region selected"))
+
+  (let* ((org-text (buffer-substring-no-properties start end))
+         (temp-org-file (make-temp-file "org-to-md-" nil ".org"))
+         (temp-md-file (make-temp-file "org-to-md-" nil ".md"))
+         (pandoc-cmd (format "pandoc -f org -t markdown %s -o %s"
+                            (shell-quote-argument temp-org-file)
+                            (shell-quote-argument temp-md-file))))
+    (unwind-protect
+        (progn
+          ;; Write org text to temp file
+          (with-temp-file temp-org-file
+            (insert org-text))
+          ;; Convert using pandoc
+          (let ((result (shell-command pandoc-cmd)))
+            (if (= result 0)
+                (if (file-exists-p temp-md-file)
+                    (let ((md-text (with-temp-buffer
+                                     (insert-file-contents temp-md-file)
+                                     (buffer-string))))
+                      ;; Create new buffer with converted content
+                      (with-current-buffer (get-buffer-create "*Org to Markdown Conversion*")
+                        (erase-buffer)
+                        (insert md-text)
+                        (gfm-mode) ; Use gfm-mode for Markdown
+                        (goto-char (point-min))
+                        (display-buffer (current-buffer)))
+                      (message "Converted text displayed in new buffer"))
+                  (error "Pandoc output file not created"))
+              (error "Pandoc conversion failed with exit code %d" result))))
+      ;; Clean up temp files
+      (when (file-exists-p temp-org-file)
+        (delete-file temp-org-file))
+      (when (file-exists-p temp-md-file)
+        (delete-file temp-md-file)))))
+#+end_src
