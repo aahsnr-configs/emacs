@@ -1840,7 +1840,6 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 #+begin_src emacs-lisp
 
 (with-eval-after-load 'treesit
-  (add-to-list 'major-mode-remap-alist '(emacs-lisp-mode . emacs-lisp-ts-mode))
   (add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
   (add-to-list 'major-mode-remap-alist '(markdown-mode . markdown-ts-mode))
   (add-to-list 'major-mode-remap-alist '(latex-mode . latex-ts-mode))
