@@ -37,6 +37,7 @@
 
 - [ ] For the attached emacs configuration, setup yasnippet snippet inheritance, so that org-mode inheritaces the snippets from yas-define-snippets, keeping in mind the function yas-parent-mode does not exist
 - [ ] Export org files to latex and pdf files
+- [ ] Determine if texpresso-tonic can be used
 
 ## Programming modes
 
