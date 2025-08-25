@@ -99,3 +99,6 @@
 - [ ] SqrtMinusOne
 - [ ] <https://github.com/emacs-tw/awesome-emacs>
 - [ ] progfolio setup
+- [ ] [Quark Emacs](https://github.com/PythonNut/quark-emacs)
+- [ ] [Radian Emacs](https://github.com/radian-software/radian)
+- [ ] [Wilfred Emacs](https://www.wilfred.me.uk/.emacs.d/init.html)
