@@ -1,3 +1,4 @@
+```el
 ;; init-highlight.el --- Initialize highlighting configurations.	-*- lexical-binding: t -*-
 
 ;; Copyright (C) 2006-2025 Vincent Zhang
@@ -330,3 +331,4 @@ FACE defaults to inheriting from default and highlight."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; init-highlight.el ends here
+```

@@ -1,7 +1,8 @@
+```org
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+STARTUP: overview
-#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes 
+#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
 * Core Emacs Configuration
 This section incorporates the sensible defaults and settings from the minimal-emacs.d project. This provides a robust and well-optimized foundation.
@@ -98,6 +99,9 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ;; But truncate lines by default for performance. (visual-line-mode will override this)
 (setq-default truncate-lines t)
 
+;; Improve `show-paren-mode` behavior.
+(setq show-paren-delay 0.1
+      show-paren-when-point-inside-paren t)
 (setq blink-matching-paren nil) ; Don't blink, it's distracting.
 #+end_src
 
@@ -208,7 +212,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ;; after a period of idle time, directly saving to the file itself without
 ;; creating backup files.
 (setq auto-save-visited-interval 5)   ; Save after 5 seconds if inactivity
-(auto-save-visited-mode 1)     
+(auto-save-visited-mode 1)
 #+end_src
 
 ** Performance Tuning Packages
@@ -252,12 +256,13 @@ issues when running the Pure GTK (PGTK) build of Emacs on Wayland.
 Automatically tangle our Emacs.org config file when we save it.
 #+begin_src emacs-lisp
 (defun efs/org-babel-tangle-config ()
-  (when (string-equal (buffer-file-name) (expand-file-name "vanilla-emacs.md" user-emacs-directory))
+  (when (string-equal (file-name-directory (buffer-file-name))
+                      (expand-file-name user-emacs-directory))
     ;; Dynamic scoping to the rescue
     (let ((org-confirm-babel-evaluate nil))
       (org-babel-tangle))))
 
-(add-hook 'after-save-hook #'efs/org-babel-tangle-config)
+(add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
 #+end_src
 
 ** Automatic Package Updates
@@ -285,7 +290,7 @@ Automatically tangle our Emacs.org config file when we save it.
     :keymaps '(normal insert visual emacs)
     :prefix "SPC"
     :global-prefix "C-SPC")
-  
+
   (ar/global-leader
     ;; Core
     "SPC" '(execute-extended-command :wk "M-x")
@@ -345,7 +350,7 @@ Enable line numbers for some modes
   (doom-themes-neotree-config)
   (doom-themes-visual-bell-config)
   (doom-themes-org-config)
-  
+
   ;; Set distinct colors for bold and italic
   (custom-set-faces
    '(bold ((t (:foreground "#7aa2f7" :weight bold))))
@@ -464,17 +469,29 @@ or compilation buffers where the modeline provides useful info."
 * Evil
 ** Undo System
 #+begin_src emacs-lisp
-;; Treat undo history as a tree for powerful, visual navigation.
-(use-package vundo
-  :bind ("C-x u" . vundo)
+;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
+;; system, providing more convenient undo/redo functionality.
+(use-package undo-fu
+  :commands (undo-fu-only-undo
+             undo-fu-only-redo
+             undo-fu-only-redo-all
+             undo-fu-disable-checkpoint)
   :config
-  (setq vundo-glyph-alist vundo-unicode-symbols))
+  (global-unset-key (kbd "C-z"))
+  (global-set-key (kbd "C-z") 'undo-fu-only-undo)
+  (global-set-key (kbd "C-S-z") 'undo-fu-only-redo))
+
+;; The undo-fu-session package complements undo-fu by enabling the saving
+;; and restoration of undo history across Emacs sessions, even after restarting.
+(use-package undo-fu-session
+  :commands undo-fu-session-global-mode
+  :hook (after-init . undo-fu-session-global-mode))
 #+end_src
 
 ** Core Evil
 #+begin_src emacs-lisp
 ;; Uncomment the following if you are using undo-fu
-(setq evil-undo-system 'undo-tree)
+(setq evil-undo-system 'undo-fu)
 
 ;; Vim emulation
 (use-package evil
@@ -539,12 +556,6 @@ or compilation buffers where the modeline provides useful info."
   (evil-escape-key-sequence "jk")
   (evil-escape-delay 0.2)
   (evil-escape-excluded-modes '(dired-mode)))
-
-(use-package goggles
-  :defer t
-  :hook ((prog-mode text-mode org-mode) . goggles-mode)
-  :config
-  (setq-default goggles-pulse t)) ;; set to nil to disable pulsing
 #+end_src
 
 ** Keybindings
@@ -756,101 +767,6 @@ appear, ensuring a consistent and predictable windowing layout.
 
 #+end_src
 
-** Parenthesis Highlighting
-#+begin_src emacs-lisp
-(use-package paren
-  :ensure nil
-  :custom-face
-  (show-paren-match ((((class color) (background light))
-                      (:box (:line-width (-1 . -1) :color "gray73")))
-                     (((class color) (background dark))
-                      (:box (:line-width (-1 . -1) :color "gray56")))))
-  :hook (after-init . show-paren-mode)
-  :init
-  (setq show-paren-delay 0.1
-        show-paren-when-point-inside-paren t
-        show-paren-when-point-in-periphery t
-        blink-matching-paren nil))
-#+end_src
-
-** Aggressive Indent
-#+begin_src emacs-lisp
-(use-package aggressive-indent
-  :defer t
-  :hook (after-init . global-aggressive-indent-mode)
-  :config
-  ;; Disable in modes where it can be disruptive
-  (dolist (mode '(web-mode html-mode css-mode go-mode python-mode shell-mode org-mode vterm-mode))
-    (add-to-list 'aggressive-indent-excluded-modes mode)))
-#+end_src
-
-** Symbol Highlighting
-#+begin_src emacs-lisp
-(use-package symbol-overlay
-  :defer t
-  :hook (prog-mode . symbol-overlay-mode)
-  :bind (("M-i" . symbol-overlay-put)
-         ("M-n" . symbol-overlay-jump-next)
-         ("M-p" . symbol-overlay-jump-prev)))
-#+end_src
-
-** TODO Keyword Highlighting
-*Use tokyonight theme colors*
-#+begin_src emacs-lisp
-(use-package hl-todo
-  :defer t
-  :hook (after-init . global-hl-todo-mode)
-  :config
-  (setq hl-todo-highlight-punctuation ":"
-        hl-todo-keyword-faces
-        `(("TODO"       . ,(face-foreground 'error))
-          ("FIXME"      . ,(face-foreground 'error))
-          ("NOTE"       . ,(face-foreground 'success))
-          ("HACK"       . ,(face-foreground 'warning))
-          ("REVIEW"     . ,(face-foreground 'warning))
-          ("PERF"       . ,(face-foreground 'warning)))))
-#+end_src
-
-** Navigation with Avy
-#+begin_src emacs-lisp
-(use-package avy
-  :defer t
-  :bind (("C-:"   . avy-goto-char)
-         ("C-'"   . avy-goto-char-2)
-         ("M-g l" . avy-goto-line)
-         ("M-g w" . avy-goto-word-1)))
-#+end_src
-
-** Expand Region
-#+begin_src emacs-lisp
-(use-package expand-region
-  :defer t
-  :bind ("C-=" . er/expand-region)
-  :config
-  ;; Add tree-sitter integration for semantic expansion
-  (defun treesit-mark-bigger-node ()
-    "Use tree-sitter to mark regions."
-    (let* ((root (treesit-buffer-root-node))
-           (node (treesit-node-descendant-for-range root (region-beginning) (region-end)))
-           (node-start (treesit-node-start node))
-           (node-end (treesit-node-end node)))
-      (when (and (= (region-beginning) node-start) (= (region-end) node-end))
-        (when-let* ((node (treesit-node-parent node)))
-          (setq node-start (treesit-node-start node)
-                node-end (treesit-node-end node))))
-      (set-mark node-end)
-      (goto-char node-start)))
-  (add-to-list 'er/try-expand-list 'treesit-mark-bigger-node))
-#+end_src
-
-** Visual Feedback on Jump
-#+begin_src emacs-lisp
-(use-package pulse
-  :defer t
-  :ensure nil
-  :hook ((dumb-jump-after-jump imenu-after-jump bookmark-after-jump next-error) . pulse-momentary-highlight-one-line))
-#+end_src
-
 * Completion Framework
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
@@ -957,7 +873,7 @@ appear, ensuring a consistent and predictable windowing layout.
   :hook (after-init . global-corfu-mode)
   :config
   (corfu-history-mode)
-  (corfu-popupinfo-mode) ; don't set delay or 
+  (corfu-popupinfo-mode) ; don't set delay or
   :bind
   (:map corfu-map
         ("TAB" . corfu-next)
@@ -1153,7 +1069,7 @@ appear, ensuring a consistent and predictable windowing layout.
                    ("meeting"    . ?m)
                    ("urgent"     . ?u)
                    ("someday"    . ?s)))
-  
+
   (org-todo-keywords
    '((sequence "📥 TODO(t)" "⚡ NEXT(n)" "⚙️ PROG(p)" "⏳ WAIT(w@/!)" "|" "✅ DONE(d!)" "❌ CANCEL(c@)")
      (sequence "📝 PLAN(P)" "🚀 ACTIVE(A)" "⏸️ PAUSED(x)" "|" "🏆 ACHIEVED(a)" "🗑️ DROPPED(D)")))
@@ -1169,9 +1085,9 @@ appear, ensuring a consistent and predictable windowing layout.
      ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
      ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
      ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
-  
+
   ;; Use the element cache for a significant performance boost in Org files.
-  (org-element-use-cache t)) 
+  (org-element-use-cache t))
 #+end_src
 
 ** Babel & Structure Templates
@@ -1225,7 +1141,7 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
           ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
           ("🏆 ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
           ("🗑️ DROPPED"   . (:strike-through t :foreground "#565f89")))
-    
+
         ;; Style tags with a subtle box, inspired by Doom Emacs.
         org-modern-tag-faces
         `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#3b4261")))
@@ -1469,7 +1385,7 @@ advanced dynamic project task template.
  "o s" '(org-schedule :wk "schedule")
  "o d" '(org-deadline :wk "deadline")
  "o t" '(org-set-tags-command :wk "set tags")
- 
+
  ;; Org-roam specific bindings under "org roam"
  "o r" '(:ignore t :wk "roam")
  "o r f" '(org-roam-node-find :wk "find node")
@@ -1501,7 +1417,7 @@ advanced dynamic project task template.
 ;;   (persp-kill-foreign-buffers 'if-not-redirected)
 ;;   ;; A smarter way to handle buffers when switching perspectives.
 ;;   (persp-switch-method 'vars)
-;; 
+;;
 ;;   :config
 ;;   ;; Custom function to automatically create or switch to a project-specific perspective.
 ;;   (defun ar/projectile-switch-to-perspective ()
@@ -1512,14 +1428,14 @@ advanced dynamic project task template.
 ;;           (persp-switch project-name)
 ;;         (persp-add-new project-name)
 ;;         (persp-switch project-name))))
-;; 
+;;
 ;;   ;; Hook this function into projectile to run after switching projects.
 ;;   (add-hook 'projectile-after-switch-project-hook #'ar/projectile-switch-to-perspective)
-;; 
+;;
 ;;   ;; Load the saved perspectives when Emacs starts.
 ;;   (when (file-exists-p persp-state-default-file)
 ;;     (persp-load-state-from-file persp-state-default-file t)))
-;; 
+;;
 ;; ;; Define your custom leader keybindings for workspace management.
 ;; (ar/global-leader
 ;;  ;; workspace related keybindings
@@ -1550,9 +1466,9 @@ advanced dynamic project task template.
 ;;   :config
 ;;   ;; Ensure projectile's cache is not littered in the config directory.
 ;;   (setq projectile-cache-file (expand-file-name "projectile.cache" no-littering-var-directory))
-;; 
+;;
 ;;   (setq projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" no-littering-var-directory)))
-;; 
+;;
 ;; ;; Integrates projectile with the consult completion framework.
 ;; (use-package consult-projectile
 ;;   :after (projectile consult)
@@ -1560,7 +1476,7 @@ advanced dynamic project task template.
 ;;   (setq consult-projectile-source
 ;;         (list :prompt "Project: "
 ;;               :action #'consult-projectile-switch-project-action)))
-;; 
+;;
 ;; (ar/global-leader
 ;;  "p" '(:ignore t :wk "project (projectile)")
 ;;  "p p" '(projectile-switch-project :wk "switch project")
@@ -2085,7 +2001,7 @@ This package provides "website-like" rendering. It depends on `markdown-mode`.
   :config
   (with-eval-after-load 'markdown-mode
     (advice-add #'markdown-indent-line :before-until #'completion-at-point))
-  
+
   (defun ar/configure-md-roam-faces ()
     "Set md-roam faces to match theme and resolve font conflicts."
     (setq-local markdown-fontify-code-blocks-natively nil)
@@ -2623,17 +2539,29 @@ prefix for managing kernels and evaluating code from anywhere.
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
 #+end_src
 
-** Diff-HL: Live Diff Highlighting
+** Git Gutter: Live Diff Highlighting
+git-gutter provides live, inline diff indicators in the fringe, showing
+which lines have been added, modified, or deleted. This is a crucial
+feature for at-a-glance understanding of changes.
 #+begin_src emacs-lisp
-(use-package diff-hl
-  :defer t
-  :hook ((after-init . global-diff-hl-mode)
-         (dired-mode . diff-hl-dired-mode))
+(use-package git-gutter
+  :hook (prog-mode . git-gutter-mode)
+  :custom
+  ;; Only update the gutter when the buffer is saved, for performance.
+  (git-gutter:update-on-save t)
+  ;; Use a lighter touch for updates; avoids refreshing on every change.
+  (git-gutter:update-method "idle")
   :config
-  ;; Enable flydiff mode to update diffs on the fly
-  (diff-hl-flydiff-mode 1)
-  ;; Integrate with magit for smooth updates
-  (add-hook 'magit-post-refresh-hook #'diff-hl-magit-post-refresh))
+  ;; Define keybindings for evil-mode for navigating between hunks.
+  (with-eval-after-load 'evil
+    (define-key evil-normal-state-map (kbd "]g") 'git-gutter:next-hunk)
+    (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk))
+
+  ;; Add a keybinding to stage the current hunk directly.
+  ;; need to fix
+  ;; (define-key git-gutter-mode-map (kbd "C-x C-s") 'git-gutter:stage-hunk)
+
+)
 #+end_src
 
 ** Keybindings
@@ -2756,7 +2684,7 @@ Opens the notes in a split window to the right."
   (yas-prompt-functions '(yas-completing-prompt))
   ;; Only show important messages, hiding the "just-in-time loading" confirmation.
   :config
- 
+
   ;; --- Add Personal Snippets Directory ---
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
@@ -2850,7 +2778,7 @@ The converted text replaces the original region."
     (error "No region selected"))
   (when (= start end)
     (error "Empty region selected"))
-  
+
   (let* ((md-text (buffer-substring-no-properties start end))
          (temp-md-file (make-temp-file "md-to-org-" nil ".md"))
          (temp-org-file (make-temp-file "md-to-org-" nil ".org"))
@@ -2899,7 +2827,7 @@ Creates a new buffer with the converted content instead of replacing the region.
     (error "No region selected"))
   (when (= start end)
     (error "Empty region selected"))
-  
+
   (let* ((md-text (buffer-substring-no-properties start end))
          (temp-md-file (make-temp-file "md-to-org-" nil ".md"))
          (temp-org-file (make-temp-file "md-to-org-" nil ".org"))
@@ -3074,3 +3002,4 @@ Creates a new buffer with the converted content instead of replacing the region.
       (when (file-exists-p temp-md-file)
         (delete-file temp-md-file)))))
 #+end_src
+```

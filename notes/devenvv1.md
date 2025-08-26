@@ -234,9 +234,9 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 #### LSP: lsp-mode with Pyright
 
-```emacs-lisp
+```el
 (use-package lsp-pyright
-  :ensure t
+  :defer t
   :hook (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp)))
   :custom
   (lsp-pyright-type-checking-mode "off"))
@@ -244,7 +244,7 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 #### Diagnostics: Flycheck with Ruff, Mypy, and Bandit
 
-```emacs-lisp
+```el
 (defun ar/python-diagnostics-setup ()
   "Set up a Flycheck checker chain for Python mode."
   (setq-local flycheck-checkers '(ruff mypy bandit)))
@@ -253,7 +253,7 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 #### Formatting: Apheleia with Ruff
 
-```emacs-lisp
+```el
 (with-eval-after-load 'apheleia
   (setf (alist-get 'python-ts-mode apheleia-formatters)
         '("ruff" "format" "-")))
@@ -261,7 +261,7 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 #### Debugging: dap-mode with debugpy
 
-```emacs-lisp
+```el
 (with-eval-after-load 'dap-python
   (dap-register-debug-template
    "Python (debugpy)"
@@ -280,7 +280,7 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 #### Keybindings
 
-```emacs-lisp
+```el
 (ar/global-leader
  "d" '(:ignore t :wk "debug (dap)")
  "d p" '(ar/dap-debug-python-file :wk "Debug Python File"))
@@ -292,7 +292,7 @@ Diagnostics for Markdown files now use Flycheck with the `markdownlint-cli` tool
 
 #### Live Linting with Flycheck
 
-```emacs-lisp
+```el
 (defun ar/markdown-diagnostics-setup ()
   "Enable the markdownlint-cli checker for markdown buffers."
   (flycheck-select-checker 'markdown-markdownlint-cli))
@@ -305,7 +305,7 @@ The LaTeX environment now explicitly configures `lsp-latex` for integration with
 
 #### LSP, Completion, and Diagnostics
 
-```emacs-lisp
+```el
 ;; Explicitly configure lsp-latex for robust integration with texlab.
 (use-package lsp-latex
   :ensure t

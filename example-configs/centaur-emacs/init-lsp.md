@@ -1,3 +1,4 @@
+```el
 ;; init-lsp.el --- Initialize LSP configurations.	-*- lexical-binding: t -*-
 
 ;; Copyright (C) 2018-2025 Vincent Zhang
@@ -573,3 +574,4 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; init-lsp.el ends here
+```

@@ -1,29 +1,3 @@
-Excellent questions. You are digging into the fine details that separate a good configuration from a great one. Let's address your question first and then provide the updated configuration.
-
----
-
-### `LaTeX-mode` vs. `latex-mode`
-
-**Yes, for all practical purposes in Emacs Lisp, `LaTeX-mode` and `latex-mode` refer to the exact same thing.**
-
-Here is the technical reason why:
-
-The Emacs Lisp reader (the part of Emacs that interprets the code you write) is **case-insensitive by default** when it comes to symbols (like function and variable names). When Emacs reads your configuration, it internally converts symbol names to lowercase.
-
-Therefore, whether you write `LaTeX-mode`, `latex-mode`, or even `LaTeX-MoDe`, Emacs understands them all as the single symbol `latex-mode`.
-
-**Source:**
-
-This behavior is documented in the **GNU Emacs Lisp Reference Manual**, specifically in the section on Symbol Type. It states:
-
-> "The reader converts symbol names to lowercase, unless they are escaped."
-
-You can find the official source here: [GNU Emacs Lisp Reference Manual - Symbol Type](https://www.gnu.org/software/emacs/manual/html_node/elisp/Symbol-Type.html)
-
-**Convention:** While they are technically identical, the established convention in the Emacs community, and in the official AUCTeX documentation, is to write it as `LaTeX-mode`. This mirrors the capitalization of the LaTeX system itself and is considered more readable. Your configuration correctly follows this best practice.
-
----
-
 ### The Corrected and Rewritten Configuration
 
 You are also correct that `lsp-mode` should be activated for `tex-mode` (for plain TeX files) and `bibtex-mode` (for `.bib` bibliography files), as the `texlab` language server supports them.
@@ -68,21 +42,11 @@ This provides a declarative way to control where and how special-purpose buffers
   :config
   (setq shackle-rules
    '(;; --- DAP Mode Debugger UI Rules ---
-     ;; Place the REPL in a window at the bottom of the frame.
      ("\\`\\*dap-repl\\*" :align 'bottom :size 0.25)
-     ;; Group all other DAP UI panels in a sidebar on the right.
      ("\\`\\*dap-ui-.+\\*" :align 'right :size 0.33)
-
-     ;; --- Other Rules ---
-     ;; FIX: Add this rule at the beginning to prevent Shackle from managing Treemacs.
-     ;; This allows Treemacs to use its own logic for side-window placement.
-     ;;("^\\*treemacs.*\\*$" :side left :size 35)
-     ;; Rule for Help buffers
      ("\\`\\*Help" :align bottom :size 0.3)
-     ;; Rule for compilation/grep/etc.
      ("^\\*.*compilation.*\\*$" :align bottom :size 0.3)
      ("^\\*grep.*\\*$" :align bottom :size 0.3)
-     ;; Rule for Embark
      ("\\`\\*Embark Collect" :align bottom :size 0.25))
    shackle-inhibit-window-quit-on-same-buffer t))
 ```
@@ -95,20 +59,21 @@ The `*Development Tools*` section has been updated to correctly integrate with t
 
 ```el
 (use-package lsp-mode
+  :defer t
   :commands (lsp lsp-deferred)
   :hook ((prog-mode . lsp-deferred))
   :init
   (setq lsp-keymap-prefix "C-c l")
   :custom
   ;; --- UI & Functionality Enhancements ---
-  (lsp-semantic-tokens-enable t)          ; Enable for richer, more accurate highlighting.
-  (lsp-headerline-breadcrumb-enable t)    ; Show file path/context in the header line.
-  (lsp-lens-enable t)                     ; Display contextual info like references above functions.
-  (lsp-modeline-diagnostics-enable t)     ; Show diagnostic counts in the modeline.
+  (lsp-semantic-tokens-enable t)
+  (lsp-headerline-breadcrumb-enable t)
+  (lsp-lens-enable t)
+  (lsp-modeline-diagnostics-enable t)
 
   ;; --- Diagnostics & Completion Integration ---
-  (lsp-diagnostics-provider :flycheck)    ; Use flycheck for displaying diagnostics.
-  (lsp-completion-provider :capf)         ; CRITICAL: Use the standard completion-at-point mechanism.
+  (lsp-diagnostics-provider :flycheck)
+  (lsp-completion-provider :none)
 
   ;; --- Performance & Behavior ---
   (lsp-eldoc-render-all nil)
@@ -117,6 +82,7 @@ The `*Development Tools*` section has been updated to correctly integrate with t
   (lsp-signature-render-documentation nil))
 
 (use-package lsp-ui
+  :defer t
   :after lsp-mode
   :commands lsp-ui-mode
   :hook (lsp-mode . lsp-ui-mode)
@@ -162,9 +128,7 @@ We use _dap-mode_ for debugging. Its built-in UI components provide a persistent
 (add-hook 'after-init-hook #'dap-mode-load-breakpoints)
 
 ;; --- Built-in UI Integration ---
-;; Enable the automatic UI layout management.
 (dap-ui-mode 1)
-;; Enable the floating controls for a richer debugging UI.
 (dap-ui-controls-mode 1)
 
 ;; Use GUD's tooltip mode for mouse-hover variable inspection in the UI buffers.
@@ -172,7 +136,6 @@ We use _dap-mode_ for debugging. Its built-in UI components provide a persistent
 (add-hook 'dap-ui-expressions-mode-hook 'gud-tooltip-mode))
 
 (ar/global-leader
-;; Debugging Keybindings (DAP)
 "d" '(:ignore t :wk "debug (dap)")
 "d d" '(dap-debug :wk "Debug new")
 "d r" '(dap-debug-recent :wk "Debug recent")
@@ -204,6 +167,7 @@ We use _dap-mode_ for debugging. Its built-in UI components provide a persistent
   (flycheck-info    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
 
 (use-package sideline-flycheck
+  :defer t
   :hook (flycheck-mode . sideline-mode)
   :init
   (setq sideline-flycheck-display-mode 'point)
@@ -268,8 +232,8 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 ```el
 (use-package lsp-pyright
-  :ensure t
-  :hook (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp)))
+  :defer t
+  :hook (python-ts-mode . (lambda () (require 'lsp-pyright) (lsp-deferred)))
   :custom
   (lsp-pyright-type-checking-mode "off"))
 ```
@@ -312,7 +276,7 @@ The Python environment is now fully integrated with the central LSP, DAP, and Fl
 
 #### Keybindings
 
-```emacs-lisp
+```el
 (ar/global-leader
  "d" '(:ignore t :wk "debug (dap)")
  "d p" '(ar/dap-debug-python-file :wk "Debug Python File"))
@@ -340,7 +304,7 @@ The LaTeX environment now explicitly configures `lsp-latex` for integration with
 ```el
 ;; Explicitly configure lsp-latex for robust integration with texlab.
 (use-package lsp-latex
-  :ensure t
+  :defer t
   :after (lsp-mode tex)
   :hook (((LaTeX-mode tex-mode bibtex-mode) . lsp-deferred))
   :custom

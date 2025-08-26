@@ -52,6 +52,7 @@
 ## TASKS
 
 - [ ] Integrate <https://github.com/jamescherti/minimal-emacs.d>
+- [ ] Use tokyo night theme colors for hl-todo
 - [ ] Use projectile and persp-mode, along with their integration packages
 - [ ] Make sure the selected candidate in corfu popups are automatically selected
 - [ ] Make sure the documentation corfu generated is only available on key press events

@@ -1,3 +1,4 @@
+```el
 ;; init-org.el --- Initialize Org configurations.	-*- lexical-binding: t -*-
 
 ;; Copyright (C) 2006-2025 Vincent Zhang
@@ -328,3 +329,4 @@ prepended to the element after the #+HEADER: tag."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; init-org.el ends here
+```

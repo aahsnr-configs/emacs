@@ -1,3 +1,4 @@
+```el
 ;; init-edit.el --- Initialize editing configurations.	-*- lexical-binding: t -*-
 
 ;; Copyright (C) 2006-2025 Vincent Zhang
@@ -462,3 +463,4 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; init-edit.el ends here
+```

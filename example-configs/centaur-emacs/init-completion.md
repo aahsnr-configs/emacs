@@ -1,4 +1,5 @@
-;;; init-completion.el --- Initialize completion configurations.	-*- lexical-binding: t -*-
+```el
+;;; nit-completion.el --- Initialize completion configurations.	-*- lexical-binding: t -*-
 
 ;; Copyright (C) 2016-2025 Vincent Zhang
 
@@ -415,3 +416,4 @@ targets."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; init-completion.el ends here
+```
