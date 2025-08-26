@@ -1,5 +1,16 @@
 # EMACS PLAN
 
+## Debugging
+
+- Possible fixes for weird color issues with `polymode` and `poly-org`
+  - Disable the fancy #+begin_src and #+end_src from org-modern
+  - Set custom face colors for prog-mode with the following code and make sure to take into account and possibly a custom color for prog-mode:
+    ```el
+    (set-face-attribute 'org-block nil :background "#f8f8eb" :foreground "#00007f" :height 0.9)
+    (set-face-attribute 'org-block-begin-line nil :background "#e0dfd1" :foreground "#545454")
+    (set-face-attribute 'org-block-end-line nil :background "#e0dfd1" :foreground "#545454")
+    ```
+
 ## INSPIRATIONS
 
 - [Quark Emacs](https://github.com/PythonNut/quark-emacs)
