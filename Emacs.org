@@ -304,7 +304,7 @@ This setup defines a robust function to find and set the best available font fro
 
 (defun ar/set-fonts ()
   "Set fonts for the current frame, using the first available Nerd Font."
-  (let* ((preferred-fonts '("JetBrains Mono"))
+  (let* ((preferred-fonts '("JetBrainsMono Nerd Font"))
          (available-font (cl-find-if #'ar/font-exists-p preferred-fonts)))
     (if available-font
         (progn
@@ -451,6 +451,18 @@ or compilation buffers where the modeline provides useful info."
 #+end_src
 
 * Evil
+** Anzu
+*Show number of matches in mode-line while searching*
+#+begin_src emacs-lisp
+(use-package anzu
+  :defer t
+  :bind (([remap query-replace] . anzu-query-replace)
+         ([remap query-replace-regexp] . anzu-query-replace-regexp)
+         :map isearch-mode-map
+         ([remap isearch-query-replace] . anzu-isearch-query-replace)
+         ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
+  :hook (after-init . global-anzu-mode))
+#+end_src
 
 ** Undo System
 #+begin_src emacs-lisp
@@ -575,13 +587,38 @@ or compilation buffers where the modeline provides useful info."
          (markdown-mode . smartparens-mode)
          (org-mode . smartparens-mode))
   :config
-  ;;  (smartparens-global-strict-mode 1)
-  ;; --- Doom Emacs-style Keybindings ---
-  (sp-pair "<" nil :actions :rem)
+  ;;  ;;  (smartparens-global-strict-mode 1)
+  ;;  ;; --- Doom Emacs-style Keybindings ---
+  ;;  (sp-pair "<" nil :actions :rem)
 
   ;; --- UI and Behavior Customizations ---
   (setq sp-show-pair-delay 0.1
         sp-show-pair-from-inside t))
+#+end_src
+
+** Hydra for Key Chord Menus
+This section explicitly sets up `hydra` and `pretty-hydra`, which are used to
+create dispatch menus like the one for `hideshow`.
+#+begin_src emacs-lisp
+(use-package hydra :defer t)
+
+(use-package pretty-hydra
+  :defer t
+  :after hydra)
+#+end_src
+** Automatic parenthesis pairing
+#+begin_src emacs-lisp
+(use-package elec-pair
+  :ensure nil
+  :hook (after-init . electric-pair-mode)
+  :init
+  ;; This predicate helps avoid pairing in strings and comments.
+  (setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit)
+  :config
+  ;; CRITICAL: This runs *after* the package is loaded.
+  ;; It finds the default list of pairs and removes the entry for '<',
+  ;; which prevents it from being auto-paired. This is the correct method.
+  (setq electric-pair-pairs (assq-delete-all ?< electric-pair-pairs)))
 #+end_src
 
 ** Rainbow Delimiters
@@ -764,20 +801,35 @@ appear, ensuring a consistent and predictable windowing layout.
 #+begin_src emacs-lisp
 (use-package paren
   :ensure nil
+  :hook (after-init . show-paren-mode)
+  :init
+  ;; These settings are safe because the mode reads them when it loads.
+  (setq show-paren-style 'parenthesis
+        show-paren-delay 0.1
+        show-paren-when-point-inside-paren t
+        show-paren-when-point-in-periphery t
+        blink-matching-paren nil)
   :custom-face
   (show-paren-match ((((class color) (background light))
                       (:box (:line-width (-1 . -1) :color "gray73")))
                      (((class color) (background dark))
-                      (:box (:line-width (-1 . -1) :color "gray56")))))
-  :hook (after-init . show-paren-mode)
-  :init
-  (setq show-paren-delay 0.1
-        show-paren-when-point-inside-paren t
-        show-paren-when-point-in-periphery t
-        blink-matching-paren nil))
-#+end_src
+                      (:box (:line-width (-1 . -1) :color "gray56"))))))
 
+;; THE DEFINITIVE FIX:
+;; This advises the `show-paren-mode` function itself. Our code will run
+;; just BEFORE the mode is activated, at which point its library MUST have
+;; been loaded and its variables (like `show-paren-data`) are guaranteed
+;; to exist. This is the most robust way to solve this timing issue.
+(defun ar/configure-paren-after-loading (&rest _)
+  "Remove '<' from the list of paired delimiters for `show-paren-mode`."
+  (setq show-paren-data (assq-delete-all ?< show-paren-data))
+  ;; This advice is only needed once, so we remove it for efficiency.
+  (advice-remove #'show-paren-mode #'ar/configure-paren-after-loading))
+
+(advice-add #'show-paren-mode :before #'ar/configure-paren-after-loading)
+#+end_src
 ** Aggressive Indent
+
 #+begin_src emacs-lisp
 (use-package aggressive-indent
   :defer t
@@ -861,6 +913,108 @@ appear, ensuring a consistent and predictable windowing layout.
   :ensure nil
   :hook (after-init . delete-selection-mode))
 #+end_src
+
+** Redefine M-< and M-> for some modes
+#+begin_src emacs-lisp
+(use-package beginend
+  :defer t
+  :hook (after-init . beginend-global-mode))
+#+end_src
+
+** Handling capitalized subwords in a nomenclature
+#+begin_src emacs-lisp
+(use-package subword
+  :defer t
+  :ensure nil
+  :hook ((prog-mode . subword-mode)
+         (minibuffer-setup . subword-mode)))
+#+end_src
+
+** Flexible Text Folding
+#+begin_src emacs-lisp
+(use-package hideshow
+  :ensure nil
+  :after (hydra pretty-hydra) ;; This ensures hydra macros are available first
+  :hook (prog-mode . hs-minor-mode)
+  :bind (:map hs-minor-mode-map
+         ("C-~" . hideshow-hydra/body)
+         ("C-S-<escape>" . hideshow-hydra/body))
+  :config
+  ;; Define the pretty hydra menu for hideshow commands
+  (pretty-hydra-define hideshow-hydra (:title (pretty-hydra-title "HideShow" 'octicon "nf-oct-fold")
+                                       :color amaranth :quit-key ("q" "C-g"))
+    ("Fold"
+     (("t" hs-toggle-all "toggle all")
+      ("a" hs-show-all "show all")
+      ("i" hs-hide-all "hide all")
+      ("g" hs-toggle-hiding "toggle hiding")
+      ("c" hs-cycle "cycle block")
+      ("s" hs-show-block "show block")
+      ("h" hs-hide-block "hide block")
+      ("l" hs-hide-level "hide level"))
+     "Move"
+     (("C-a" mwim-beginning-of-code-or-line "⭰")
+      ("C-e" mwim-end-of-code-or-line "⭲")
+      ("C-b" backward-char "←")
+      ("C-n" next-line "↓")
+      ("C-p" previous-line "↑")
+      ("C-f" forward-char "→")
+      ("C-v" pager-page-down "↘")
+      ("M-v" pager-page-up "↖")
+      ("M-<" beginning-of-buffer "⭶")
+      ("M->" end-of-buffer "⭸"))))
+
+  ;; Your existing custom functions remain here
+  (defun hs-cycle (&optional level)
+    (interactive "p")
+    (let (message-log-max
+          (inhibit-message t))
+      (if (= level 1)
+          (pcase last-command
+            ('hs-cycle
+             (hs-hide-level 1)
+             (setq this-command 'hs-cycle-children))
+            ('hs-cycle-children
+             (save-excursion (hs-show-block))
+             (setq this-command 'hs-cycle-subtree))
+            ('hs-cycle-subtree
+             (hs-hide-block))
+            (_
+             (if (not (hs-already-hidden-p))
+                 (hs-hide-block)
+               (hs-hide-level 1)
+               (setq this-command 'hs-cycle-children))))
+        (hs-hide-level level)
+        (setq this-command 'hs-hide-level))))
+
+  (defun hs-toggle-all ()
+    "Toggle hide/show all."
+    (interactive)
+    (pcase last-command
+      ('hs-toggle-all
+       (save-excursion (hs-show-all))
+       (setq this-command 'hs-global-show))
+      (_ (hs-hide-all))))
+
+  (defun hs-display-code-line-counts (ov)
+    "Display line counts when hiding codes."
+    (when (eq 'code (overlay-get ov 'hs))
+      (overlay-put ov 'display
+                   (concat
+                    " "
+                    (propertize
+                     (if (char-displayable-p ?⏷) "⏷" "...")
+                     'face 'shadow)
+                    (propertize
+                     (format " (%d lines)"
+                             (count-lines (overlay-start ov)
+                                          (overlay-end ov)))
+                     'face '(:inherit shadow :height 0.8))
+                    " "))))
+  (setq hs-set-up-overlay #'hs-display-code-line-counts))
+#+end_src
+
+** Goto last change
 
 * Completion Framework
 ** Base Completion
@@ -1117,7 +1271,7 @@ appear, ensuring a consistent and predictable windowing layout.
                   (org-level-6 . 1.03)
                   (org-level-7 . 1.02)
                   (org-level-8 . 1)))
-    (set-face-attribute (car face) nil :font "JetBrains Mono" :weight 'bold :height (cdr face))))
+    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
 #+end_src
 
 ** Core Configuration
