@@ -1547,53 +1547,54 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
 ** Org Roam: The Knowledge Graph
 Org Roam is configured for rapid, Zettelkasten-style note-taking. Templates are minimal and flexible, and the UI is integrated to feel like a natural extension of Emacs.
 #+begin_src emacs-lisp
-(use-package org-roam
-  :defer t
-  :after org
-  :init
-  (setq org-roam-directory my/org-roam-directory)
-  (setq org-roam-db-location (expand-file-name "org-roam.db" no-littering-var-directory))
-  :custom
-  (org-roam-completion-everywhere t)
-  (org-roam-node-display-template
-   (concat "${title:*} "
-           (propertize "${tags:20}" 'face 'org-tag)))
-  :config
-  (org-roam-db-autosync-mode)
-
-  ;; Configure the backlinks buffer to appear in a right-hand sidebar.
-  (add-to-list 'display-buffer-alist
-               '("\\*org-roam\\*"
-                 (display-buffer-in-direction)
-                 (direction . right)
-                 (window-width . 0.33)
-                 (window-height . fit-window-to-buffer)))
-
-  ;; Templates for different kinds of notes (Zettelkasten).
-  (setq org-roam-capture-templates
-      '(("d" "default" plain "* %?"
-         :target (file+head "${slug}.org"
-                            "#+title: ${title}\n#+filetags: \n\n")
-         :unnarrowed t)
-        ("p" "project" plain "* Goal\n\n%?\n\n* Tasks\n\n* Notes\n\n* Log\n"
-         :target (file+head "projects/${slug}.org"
-                            "#+title: Project: ${title}\n#+filetags: project\n")
-         :unnarrowed t)
-        ("l" "literature note" plain "* Source\n  - Author: \n  - Title: \n  - Year: \n\n* Summary\n\n%?\n\n* Key Takeaways\n\n* Quotes\n"
-         :target (file+head "literature/${slug}.org"
-                            "#+title: ${title}\n#+filetags: literature\n")
-         :unnarrowed t)
-        ("i" "idea" plain "* %?"
-         :target (file+head "ideas/${slug}.org"
-                            "#+title: ${title}\n#+filetags: idea fleeting\n")
-         :unnarrowed t)
-        ("z" "zettel" plain "* %?\n\n* References\n\n"
-         :target (file+head "zettel/${slug}.org"
-                            "#+title: ${title}\n#+filetags: zettel permanent\n")
-         :unnarrowed t)
-        ("j" "journal" plain "* Log\n\n%?"
-         :target (file+olp+datetree (expand-file-name "journal.org" my/org-roam-directory))
-         :unnarrowed t))))
+(when (and (fboundp 'sqlite-available-p) (sqlite-available-p))
+  (use-package org-roam
+    :defer t
+    :after org
+    :init
+    (setq org-roam-directory my/org-roam-directory)
+    (setq org-roam-db-location (expand-file-name "org-roam.db" no-littering-var-directory))
+    :custom
+    (org-roam-completion-everywhere t)
+    (org-roam-node-display-template
+     (concat "${title:*} "
+             (propertize "${tags:20}" 'face 'org-tag)))
+    :config
+    (org-roam-db-autosync-mode)
+    
+    ;; Configure the backlinks buffer to appear in a right-hand sidebar.
+    (add-to-list 'display-buffer-alist
+                 '("\\*org-roam\\*"
+                   (display-buffer-in-direction)
+                   (direction . right)
+                   (window-width . 0.33)
+                   (window-height . fit-window-to-buffer)))
+    
+    ;; Templates for different kinds of notes (Zettelkasten).
+    (setq org-roam-capture-templates
+          '(("d" "default" plain "* %?"
+             :target (file+head "${slug}.org"
+                                "#+title: ${title}\n#+filetags: \n\n")
+             :unnarrowed t)
+            ("p" "project" plain "* Goal\n\n%?\n\n* Tasks\n\n* Notes\n\n* Log\n"
+             :target (file+head "projects/${slug}.org"
+                                "#+title: Project: ${title}\n#+filetags: project\n")
+             :unnarrowed t)
+            ("l" "literature note" plain "* Source\n  - Author: \n  - Title: \n  - Year: \n\n* Summary\n\n%?\n\n* Key Takeaways\n\n* Quotes\n"
+             :target (file+head "literature/${slug}.org"
+                                "#+title: ${title}\n#+filetags: literature\n")
+             :unnarrowed t)
+            ("i" "idea" plain "* %?"
+             :target (file+head "ideas/${slug}.org"
+                                "#+title: ${title}\n#+filetags: idea fleeting\n")
+             :unnarrowed t)
+            ("z" "zettel" plain "* %?\n\n* References\n\n"
+             :target (file+head "zettel/${slug}.org"
+                                "#+title: ${title}\n#+filetags: zettel permanent\n")
+             :unnarrowed t)
+            ("j" "journal" plain "* Log\n\n%?"
+             :target (file+olp+datetree (expand-file-name "journal.org" my/org-roam-directory))
+             :unnarrowed t)))))
 
 (use-package org-roam-ui
   :after org-roam
