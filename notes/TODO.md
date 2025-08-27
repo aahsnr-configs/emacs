@@ -1,5 +1,11 @@
 # EMACS PLAN
 
+## High Priority
+
+- [ ] Remove completion powered by emacs-jupyter
+- [ ] Add polymode to support python-ts-mode
+- [ ] Somehow make python-ts-mode with jupyter-python
+
 ## INSPIRATIONS
 
 - [Quark Emacs](https://github.com/PythonNut/quark-emacs)
