@@ -2671,8 +2671,9 @@ interactive REPLs.
 This block configures the main *jupyter* package, which provides the user-facing
 commands, REPL buffer, and kernel management UI.
 #+begin_src emacs-lisp
+(use-package zmq :demand t)
+
 (use-package jupyter
-  :defer t
   :init
   ;; This variable must be set *before* the package loads.
   ;; It ensures that evaluating code will automatically create and associate a
