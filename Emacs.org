@@ -2107,10 +2107,6 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
 (use-package dap-mode
   :defer t
   :config
-  ;; --- Breakpoint Persistence ---
-  ;; This single line replaces the old hook-based system. It automatically
-  ;; saves breakpoints on exit and reloads them on startup.
-  (dap-breakpoint-persistence-mode 1)
   ;; Set the breakpoint file location to be inside the var directory.
   (setq dap-breakpoints-file (expand-file-name "dap-breakpoints.json" no-littering-var-directory))
 
