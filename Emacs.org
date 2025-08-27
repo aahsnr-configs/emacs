@@ -215,9 +215,9 @@ This section incorporates the sensible defaults and settings from the minimal-em
 #+begin_src emacs-lisp
 ;;; Intelligent Garbage Collection
 ;; Run garbage collection only when Emacs is idle to prevent stuttering.
-(use-package gcmh
-  :config
-  (gcmh-mode 1))
+;; (use-package gcmh
+;;   :config
+;;   (gcmh-mode 1))
 
 ;;; Handling Large Files
 ;; Prevent slowdowns when opening very large files by disabling expensive modes.
@@ -1408,7 +1408,6 @@ Configure code block execution and create handy shortcuts for inserting common s
    '((emacs-lisp . t)
      (python . t)
      (shell . t)
-     (jupyter . t)
      (sql . t)))
 
   (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images)
@@ -2668,12 +2667,10 @@ configures Jupyter as the primary backend for Python code execution in Org,
 enabling features like asynchronous evaluation, rich multimedia output, and
 interactive REPLs.
 
-** User Interface
+** Older Setup
 This block configures the main *jupyter* package, which provides the user-facing
 commands, REPL buffer, and kernel management UI.
 #+begin_src emacs-lisp
-;; (use-package zmq :demand t)
-;; 
 ;; (use-package jupyter
 ;;   :init
 ;;   ;; This variable must be set *before* the package loads.
@@ -2694,14 +2691,7 @@ commands, REPL buffer, and kernel management UI.
 ;;   ;; This is a quality-of-life improvement for Evil users.
 ;;   (advice-add 'jupyter-org-interaction-mode :after
 ;;               (lambda () (evil-insert-state))))
-#+end_src
-
-** Execution Engine
-This block is CRITICAL. It explicitly loads and configures the `ob-jupyter`
-backend, which teaches Org mode how to communicate with Jupyter. All
-Jupyter-related Org configurations are kept here for cohesion and to guarantee
-correct load order, preventing startup errors.
-#+begin_src emacs-lisp
+;; 
 ;; (with-eval-after-load 'ob-jupyter
 ;;   ;; Explicitly load the jupyter language for Org Babel.
 ;;   (org-babel-do-load-languages
@@ -2721,12 +2711,7 @@ correct load order, preventing startup errors.
 ;; 
 ;;   ;; Add a hook to automatically redisplay inline images (like plots) after execution.
 ;;   (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images))
-#+end_src
-
-** Custom Functions
-These helper functions streamline common notebook workflows, like clearing all
-output, exporting to .ipynb, and managing the REPL.
-#+begin_src emacs-lisp
+;; 
 ;; (defun ar/jupyter-switch-to-repl ()
 ;;   "Switch to the Jupyter REPL buffer and go to the end."
 ;;   (interactive)
@@ -2757,13 +2742,7 @@ output, exporting to .ipynb, and managing the REPL.
 ;;   (interactive)
 ;;   (let ((filename (read-file-name "Export to notebook: " nil nil nil (format "%s.ipynb" (file-name-sans-extension buffer-file-name)))))
 ;;     (jupyter-org-export-to-notebook nil filename)))
-#+end_src
-
-** Evil Integration
-This optional section provides Vim-like keybindings for navigating and
-interacting with the Jupyter REPL buffer, making it consistent with the rest of
-the Evil-powered environment.
-#+begin_src emacs-lisp
+;; 
 ;; (with-eval-after-load 'evil
 ;;   (evil-define-key 'normal jupyter-repl-interaction-mode-map
 ;;     (kbd "C-j") 'jupyter-repl-next-cell-and-execute
@@ -2793,9 +2772,6 @@ the Evil-powered environment.
    'org-babel-load-languages
    '((jupyter . t)))
   (my/jupyter-refesh-langs))
-
-(with-eval-after-load 'ob-jupyter
-  (org-babel-jupyter-override-src-block "python"))
 
 (use-package ob-async
   :after org
@@ -2872,8 +2848,23 @@ the Evil-powered environment.
                  (substring data-s drawer-start)
                  (when (not (string-match-p ".*\n" data-s)) "\n")
                  "#+end_src")
-       (substring data-s drawer-start)))))
+   (substring data-s drawer-start)))))
 
+(with-eval-after-load 'evil
+  (evil-define-key 'normal jupyter-repl-interaction-mode-map
+    (kbd "C-j") 'jupyter-repl-next-cell-and-execute
+    (kbd "C-k") 'jupyter-repl-previous-cell)
+  (evil-define-key 'insert jupyter-repl-interaction-mode-map
+    (kbd "C-c C-c") 'jupyter-repl-send-buffer))
+
+(with-eval-after-load 'ob-jupyter
+  ;; Explicitly load the jupyter language for Org Babel.
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((jupyter . t)))
+  ;; Use the official jupyter function to re-route all `python` src blocks to the
+  ;; jupyter babel engine. This is the cleanest and most reliable method.
+  (org-babel-jupyter-override-src-block "python"))
 #+end_src
 
 
