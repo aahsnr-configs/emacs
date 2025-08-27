@@ -1194,11 +1194,18 @@ appear, ensuring a consistent and predictable windowing layout.
   (orderless-style-dispatchers nil)
   (orderless-matching-styles '(orderless-literal)))
 
-(add-hook 'corfu-mode-hook
-          (lambda ()
-            (setq-local completion-styles '(orderless-literal-only basic)
-                        completion-category-overrides nil
-                        completion-category-defaults nil)))
+
+(defun ar/corfu-completion-style-setup ()
+  "Set a restrictive completion style, but allow a flexible one for Org source blocks."
+  (if (derived-mode-p 'org-src-mode)
+      ;; Use a permissive style for Jupyter/Org source blocks
+      (setq-local completion-styles '(orderless basic))
+    ;; Use your preferred restrictive style everywhere else
+    (setq-local completion-styles '(orderless-literal-only basic)
+                completion-category-overrides nil
+                completion-category-defaults nil)))
+
+(add-hook 'corfu-mode-hook #'ar/corfu-completion-style-setup)
 #+end_src
 
 ** Nerd Icons for Corfu
@@ -2857,14 +2864,11 @@ commands, REPL buffer, and kernel management UI.
   (evil-define-key 'insert jupyter-repl-interaction-mode-map
     (kbd "C-c C-c") 'jupyter-repl-send-buffer))
 
-(with-eval-after-load 'ob-jupyter
+(with-eval-after-load 'org
   ;; Explicitly load the jupyter language for Org Babel.
   (org-babel-do-load-languages
    'org-babel-load-languages
-   '((jupyter . t)))
-  ;; Use the official jupyter function to re-route all `python` src blocks to the
-  ;; jupyter babel engine. This is the cleanest and most reliable method.
-  (org-babel-jupyter-override-src-block "python"))
+   '((jupyter . t))))
 #+end_src
 
 
