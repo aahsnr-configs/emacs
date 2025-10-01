@@ -215,9 +215,9 @@ This section incorporates the sensible defaults and settings from the minimal-em
 #+begin_src emacs-lisp
 ;;; Intelligent Garbage Collection
 ;; Run garbage collection only when Emacs is idle to prevent stuttering.
-;; (use-package gcmh
-;;   :config
-;;   (gcmh-mode 1))
+(use-package gcmh
+  :config
+  (gcmh-mode 1))
 
 ;;; Handling Large Files
 ;; Prevent slowdowns when opening very large files by disabling expensive modes.
@@ -303,18 +303,32 @@ This setup defines a robust function to find and set the best available font fro
     font-name))
 
 (defun ar/set-fonts ()
-  "Set fonts for the current frame, using the first available Nerd Font."
+  "Set fonts for the current frame, using a primary Nerd Font and a fallback for emojis."
   (let* ((preferred-fonts '("JetBrainsMono Nerd Font"))
-         (available-font (cl-find-if #'ar/font-exists-p preferred-fonts)))
+         (available-font (cl-find-if #'ar/font-exists-p preferred-fonts))
+         (emoji-font "Noto Color Emoji"))
     (if available-font
         (progn
+          ;; Set the primary font for most text.
           (set-face-attribute 'default nil :font available-font :height 140 :weight 'medium)
           (set-face-attribute 'fixed-pitch nil :font available-font :height 140 :weight 'medium)
           (set-face-attribute 'variable-pitch nil :font available-font :height 140 :weight 'medium)
+
+          ;; --- FIX STARTS HERE ---
+          ;; Set a specific fallback font for emoji characters.
+          ;; This tells Emacs to use Noto Color Emoji for the Unicode ranges
+          ;; that contain the icons you are using (e.g., 📥, 📝, 📔).
+          (when (ar/font-exists-p emoji-font)
+            (set-fontset-font t 'unicode (font-spec :family emoji-font) nil 'append))
+
+          ;; Ensure nerd font icons are still rendered with the primary nerd font.
+          (set-fontset-font t '(#xe000 . #xf8ff) (font-spec :family available-font) nil 'prepend)
+          ;; --- FIX ENDS HERE ---
+
           ;; Apply italic slant to comments and keywords for visual distinction
           (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
           (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
-      (warn "Nerd Fonts not found. Please install JetBrainsMono, FiraCode, or Hack Nerd Font."))))
+      (warn "Nerd Fonts not found. Please install JetBrainsMono Nerd Font."))))
 
 ;; Set fonts on startup and for new frames in daemon mode.
 (if (daemonp)
@@ -2018,7 +2032,7 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
   :hook (after-init . envrc-global-mode))
 #+end_src
 
-** Language Server Protocol: Eglot & Eglot Booster
+** Language Server Protocol: Lsp-Mode
 Eglot is the built-in LSP client. It will automatically use the correct
 language server from the PATH set by your direnv-managed environment. Boost
 Eglot performance using eglot booster

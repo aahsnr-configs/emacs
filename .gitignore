@@ -3,3 +3,4 @@ config.el
 init.el
 tree-sitter/
 log/
+elpa/
