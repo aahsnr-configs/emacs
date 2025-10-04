@@ -1092,7 +1092,8 @@ appear, ensuring a consistent and predictable windowing layout.
      ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
      ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
      ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
-  
+  ;; Suppress the "Babel evaluation exited with code 0" message.
+  (org-babel-execution-completed-message nil) 
   ;; Use the element cache for a significant performance boost in Org files.
   (org-element-use-cache t)) 
 #+end_src
@@ -1917,15 +1918,14 @@ a single, authoritative source for type errors.
 (with-eval-after-load 'eglot
   ;; Register pyright-langserver for Python modes.
   (add-to-list 'eglot-server-programs
-               '((python-ts-mode) . ("pyright-langserver" "--stdio")))
+               '((python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
+#+end_src
 
-  ;; Configure pyright to cede type checking to mypy. This prevents
-  ;; duplicate and potentially conflicting diagnostics. Pyright will still
-  ;; provide other valuable, fast analysis.
-  (setf (alist-get '(python-ts-mode) eglot-workspace-configuration)
-        '(:python
-          (:analysis
-           (:typeCheckingMode "off")))))
+#+begin_src emacs-lisp
+;; Disable Corfu in Jupyter org-src blocks to prevent completion conflicts
+(add-hook 'jupyter-org-interaction-mode-hook
+          (lambda ()
+            (setq-local corfu-auto nil)))
 #+end_src
 
 ** Diagnostics: Flymake with Ruff, Mypy, and Bandit
@@ -1990,31 +1990,49 @@ configures Jupyter as the primary backend for Python code execution in Org,
 enabling features like asynchronous evaluation, rich multimedia output, and
 interactive REPLs.
 
+** Core Setup
+Replace the following two sections with this simpler core section
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  ;; Explicitly load the jupyter language for Org Babel.
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((jupyter . t))))
+
+(setq org-babel-default-header-args:jupyter-python '((:async . "yes")
+                                                     (:session . "python")
+                                                     (:kernel . "python3")))
+    
+;; Add a hook to automatically redisplay inline images (like plots) after execution.
+(add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images)
+(setq ob-async-no-async-languages-alist '("jupyter-python"))
+#+end_src
+
 ** User Interface
 This block configures the main *jupyter* package, which provides the user-facing
 commands, REPL buffer, and kernel management UI.
 #+begin_src emacs-lisp
-(use-package jupyter
-  :defer t
-  :init
-  ;; This variable must be set *before* the package loads.
-  ;; It ensures that evaluating code will automatically create and associate a
-  ;; REPL buffer for a seamless notebook-like experience.
-  (setq jupyter-python-set-repl-for-current-buffer t)
-  :custom
-  ;; A list of kernelspec names that should be displayed at the top of the list.
-  (jupyter-favorite-kernels '("python3"))
-  ;; Do not display "Evaluating..." messages in the REPL.
-  (jupyter-repl-echo-evaluating-p nil)
-  :config
-  ;; When this is non-nil, jupyter-org buffers will get a client for the kernel
-  ;; specified by the first `python' src block upon opening the file.
-  (setq jupyter-org-get-client-on-load t)
-
-  ;; Advice to automatically enter insert state when jumping to the REPL.
-  ;; This is a quality-of-life improvement for Evil users.
-  (advice-add 'jupyter-org-interaction-mode :after
-              (lambda () (evil-insert-state))))
+;; (use-package jupyter
+;;   :defer t
+;;   :init
+;;   ;; This variable must be set *before* the package loads.
+;;   ;; It ensures that evaluating code will automatically create and associate a
+;;   ;; REPL buffer for a seamless notebook-like experience.
+;;   (setq jupyter-python-set-repl-for-current-buffer t)
+;;   :custom
+;;   ;; A list of kernelspec names that should be displayed at the top of the list.
+;;   (jupyter-favorite-kernels '("python3"))
+;;   ;; Do not display "Evaluating..." messages in the REPL.
+;;   (jupyter-repl-echo-evaluating-p nil)
+;;   :config
+;;   ;; When this is non-nil, jupyter-org buffers will get a client for the kernel
+;;   ;; specified by the first `python' src block upon opening the file.
+;;   (setq jupyter-org-get-client-on-load t)
+;; 
+;;   ;; Advice to automatically enter insert state when jumping to the REPL.
+;;   ;; This is a quality-of-life improvement for Evil users.
+;;   (advice-add 'jupyter-org-interaction-mode :after
+;;               (lambda () (evil-insert-state))))
 #+end_src
 
 ** Execution Engine
@@ -2023,25 +2041,25 @@ backend, which teaches Org mode how to communicate with Jupyter. All
 Jupyter-related Org configurations are kept here for cohesion and to guarantee
 correct load order, preventing startup errors.
 #+begin_src emacs-lisp
-(with-eval-after-load 'ob-jupyter
-  ;; Explicitly load the jupyter language for Org Babel.
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((jupyter . t)))
-  ;; Use the official jupyter function to re-route all `python` src blocks to the
-  ;; jupyter babel engine. This is the cleanest and most reliable method.
-  (org-babel-jupyter-override-src-block "python")
-
-  ;; Define default header arguments for all Jupyter Python source blocks.
-  ;; These ensure that results are returned to a drawer and execution is async.
-  (setq org-babel-default-header-args:jupyter-python
-        '((:results . "replace drawer")
-          (:async . "yes")
-          (:session . "python")
-          (:kernel . "python3")))
-
-  ;; Add a hook to automatically redisplay inline images (like plots) after execution.
-  (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images))
+;; (with-eval-after-load 'ob-jupyter
+;;   ;; Explicitly load the jupyter language for Org Babel.
+;;   (org-babel-do-load-languages
+;;    'org-babel-load-languages
+;;    '((jupyter . t)))
+;;   ;; Use the official jupyter function to re-route all `python` src blocks to the
+;;   ;; jupyter babel engine. This is the cleanest and most reliable method.
+;;   ;;(org-babel-jupyter-override-src-block "python")
+;; 
+;;   ;; Define default header arguments for all Jupyter Python source blocks.
+;;   ;; These ensure that results are returned to a drawer and execution is async.
+;;   (setq org-babel-default-header-args:jupyter-python
+;;         '((:results . "output replace drawer")
+;;           (:async . "yes")
+;;           (:session . "python")
+;;           (:kernel . "python3")))
+;; 
+;;   ;; Add a hook to automatically redisplay inline images (like plots) after execution.
+;;   (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images))
 #+end_src
 
 ** Custom Functions
@@ -2101,11 +2119,11 @@ prefix for managing kernels and evaluating code from anywhere.
  ;; Org Jupyter Keybindings
  "o j" '(:ignore t :wk "jupyter")
  "o j e" '(jupyter-eval-src-block :wk "Eval src block")
- "o j n" '(ar/jupyter-insert-src-block :wk "New src block")
- "o j v" '(ar/jupyter-switch-to-repl :wk "View REPL")
- "o j C" '(ar/jupyter-clear-all-results :wk "Clear all results")
- "o j R" '(ar/jupyter-restart-and-run-all :wk "Restart & Run All")
- "o j X" '(ar/jupyter-export-to-notebook :wk "Export to .ipynb")
+ ;; "o j n" '(ar/jupyter-insert-src-block :wk "New src block")
+ ;; "o j v" '(ar/jupyter-switch-to-repl :wk "View REPL")
+ ;; "o j C" '(ar/jupyter-clear-all-results :wk "Clear all results")
+ ;; "o j R" '(ar/jupyter-restart-and-run-all :wk "Restart & Run All")
+ ;; "o j X" '(ar/jupyter-export-to-notebook :wk "Export to .ipynb")
  "o j r" '(jupyter-restart-kernel :wk "Restart kernel")
  "o j i" '(jupyter-interrupt-kernel :wk "Interrupt kernel")
  "o j c" '(jupyter-connect-to-kernel :wk "Connect to kernel")
