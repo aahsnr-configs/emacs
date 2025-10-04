@@ -1993,6 +1993,8 @@ interactive REPLs.
 ** Core Setup
 Replace the following two sections with this simpler core section
 #+begin_src emacs-lisp
+(use-package jupyter)
+
 (with-eval-after-load 'org
   ;; Explicitly load the jupyter language for Org Babel.
   (org-babel-do-load-languages
