@@ -1,45 +1,22 @@
 # EMACS PLAN
 
-## High Priority
+# **Main ACTION**
 
-- [ ] Remove completion powered by emacs-jupyter
-- [ ] Add polymode to support python-ts-mode
-- [ ] Somehow make python-ts-mode with jupyter-python
-
-## INSPIRATIONS
-
-- [Quark Emacs](https://github.com/PythonNut/quark-emacs)
-
-- Make sure to look at [Scimax](https://github.com/jkitchin/scimax) at the following files:
-  - [ ] scimax/scimax-literate-programming.el
-  - [ ] scimax/scimax-org-src-blocks.el
-
-- Make sure to look at the following files from [Centaur Emacs](https://github.com/seagle0128/.emacs.d)
-  - [ ] [init-base](https://github.com/seagle0128/.emacs.d/blob/master/lisp/init-base.el)
-  - [ ] [init-completion](https://github.com/seagle0128/.emacs.d/blob/master/lisp/init-completion.el)
-  - [ ] [init-edit](https://github.com/seagle0128/.emacs.d/blob/master/lisp/init-edit.el)
-  - [ ] [init-highlight](https://github.com/seagle0128/.emacs.d/blob/master/lisp/init-highlight.el)
-  - [ ] [init-lsp](https://github.com/seagle0128/.emacs.d/blob/master/lisp/init-lsp.el)
-  - [ ] [init.org](https://github.com/seagle0128/.emacs.d/blob/master/lisp/init-org.el)
-
-## OPTIMIZATIONS
-
-- [ ] Headling folding/unfolding can introduce lag
-- [ ] Input Delay when using pgtk
+- [ ] Switch to lsp-mode and dap-mode
 
 ## QUESTIONS
 
 - [ ] Orderless,vertico, marginalia, nerd-icons-completion, consult, embark, embark-consult, corfu, nerd-icons-corfu, cape, dabbrev. What are some issues that these package face with eglot
-- [ ] Does corfu have native integration with eldoc
 - [ ] How does lsp-mode view documentation.
-- [ ] What will happen when cape-company-to-capf backend is provided to cape.
-- [ ] Will treesit work with lsp-mode and/or dap-mode
+- [ ] add cape-company-to-capf backend anyways
 - [ ] How does paredit work?
 - [ ] Are additional backends needed for cape and eglot
-- [ ] Can I use a formatter with texlab
-- [ ] Determine if I need flycheck-posframe
-- [ ] Make apheleia autoformats buffers on have
+- [x] Can I use a formatter with texlab
+- [x] Determine if I need flycheck-posframe
+- [x] Make apheleia autoformats buffers on have
 - [ ] Will AucTeX completion work with corfu?
+
+---
 
 ## LaTeX tasks
 
@@ -47,20 +24,24 @@
 - [ ] Export org files to latex and pdf files
 - [ ] Determine if texpresso-tonic can be used
 
-## Programming modes
-
-- LaTeX-mode
-- python-ts-mode
-- markdown-ts-mode
-
 ---
 
 ## TASKS
 
-- [ ] Integrate <https://github.com/jamescherti/minimal-emacs.d>
-- [ ] Use projectile and persp-mode, along with their integration packages
-- [ ] Make sure the selected candidate in corfu popups are automatically selected
-- [ ] Make sure the documentation corfu generated is only available on key press events
+---
+
+- [ ] Corfu completion now should have the following behaviour:
+  1. It should only show completion candidates on pressing _TAB_ and not _autocomplete_.
+  2. I should be able to cycle through the available candidates list using `jk` keys where `j` is down and `k` is up.
+  3. When I have highlighted a candidate from the list, I must be able to print that candidate onto my file/buffer only by pressing _Return_
+  4. If there is only one candidate I must be able to print that candidate only my file only by pressing _Return_.
+- [ ] Implement lsp-mode and related packages; implement dap-mode and related packages
+- [ ] Study and research the doom emacs project in [doom emacs](https://github.com/doomemacs/doomemacs) carefully. Then implement the configurations for org-agenda, projectile, and persp-mode. Make sure to only integrate the appropriate parts of the doom emacs' configuration that is suitable for my vanilla emacs configuration. Then also implement a suitable [org-super-agenda](https://github.com/alphapapa/org-super-agenda) configuration. Make sure these configuration are well integrated with my emacs configuration
+- [ ] Write a comprehensive [bufler](https://github.com/alphapapa/bufler.el) that is suitable for my emacs configuration and well integrated with as well
+- [ ] Set gc-cons-threshold to 100mb
+
+---
+
 - [ ] integrate org-mode and org-roam from the base emacs configuration into the writing environment
 - [ ] setup ligatures for LaTeX with additional math ligaturs
 - [ ] setup cdlatex for quick math insertions, and setup laas and auto-activating-snippets.
@@ -70,13 +51,9 @@
 - [ ] Set gc-cons-threshold to 100mb
 - [x] Set corfu to display documentation only on key input
 - [ ] Add whitespace-cleanup-mode
-- [ ] Use Scimax to setup many things
-- [ ] Add combobulate
 - [x] Write a more comprehensive shackles configuration
-- [ ] Make package-install load faster
 - [ ] EasySession
 - [ ] Make sure pdf-tools install epdinfo automatically
-- [ ] Heavily borrow from <https://github.com/seagle0128/.emacs.d>
 - [ ] Org-mode export support or bibliography note management with Org-roam later.
 - [ ] Winner-Mode
 - [ ] **Indent Bars**

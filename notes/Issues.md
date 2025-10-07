@@ -1,9 +1,3 @@
-- [x] Org mode currently not working
-- [ ] There is a lag when unfolding large org source code files
-- [ ] pdf-tools does not find the epdfinfo binary even though poppler is installed.
-- [ ] Treemacs does not let you see directories in the side
-- [x] doom-themes does not activate without :demand t
-- [x] treemacs gives me the error: Wrong type argument: commandp, treemacs-find-dir
-- [ ] Still some lag while writing when corfu-popupinfo opens and closes
-- [ ] The custom treemacs toggle functions gives the error: symbol's function definition is void: treemacs-visible-p
-- [ ] emacs only searches the currently opened headlines in org mode
+- [ ] consult-buffer not working
+- [ ] recent files not working
+- [ ] remove org-agenda files from recent files

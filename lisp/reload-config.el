@@ -7,7 +7,7 @@
   (interactive)
   ;; Assuming config.org is the main configuration file and this config.el is tangled from it.
   ;; If config.el is the primary config, change to: (load-file (expand-file-name "config.el" user-emacs-directory))
-  (let ((config-file "~/.emacs.d/post-init.el"))
+  (let ((config-file "~/"))
     (if (file-exists-p config-file)
         (progn
           (message "Reloading Emacs configuration from config.org...")

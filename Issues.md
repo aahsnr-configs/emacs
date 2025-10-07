@@ -1,3 +1,0 @@
-- [ ] consult-buffer not working
-- [ ] recent files not working
-- [ ] remove org-agenda files from recent files

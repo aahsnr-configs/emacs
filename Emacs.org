@@ -110,12 +110,20 @@ This section incorporates the sensible defaults and settings from the minimal-em
       user-mail-address "ahsanur041@proton.me")
 #+end_src
 
-** Source Scripts
+** Custom Functions
 #+begin_src emacs-lisp
-(require 'reload-config)
-;;(require 'buffer-move)
-;; (require 'garbage-collect)
-;; (require 'update-packages)
+(defun ar/reload-config ()
+  "Reload the Emacs configuration."
+  (interactive)
+  ;; Assuming config.org is the main configuration file and this config.el is tangled from it.
+  ;; If config.el is the primary config, change to: (load-file (expand-file-name "config.el" user-emacs-directory))
+  (let ((config-file "~/.config/emacs/init.el"))
+    (if (file-exists-p config-file)
+        (progn
+          (message "Reloading Emacs configuration from config.org...")
+          (org-babel-load-file config-file)
+          (message "Configuration reloaded successfully!"))
+      (error "Configuration file %s not found" config-file))))
 #+end_src
 
 ** Frame Title Formatting
@@ -277,6 +285,7 @@ Automatically tangle our Emacs.org config file when we save it.
   (auto-package-update-maybe)
   (auto-package-update-at-time "10:00"))
 #+end_src
+
 
 * General Keybindings
 #+begin_src emacs-lisp
@@ -1163,87 +1172,6 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
         org-appear-autosubmarkers t))
 #+end_src
 
-** Agenda: The Command Center
-#+begin_src emacs-lisp
-(use-package org-agenda
-  :ensure nil
-  :after org
-  :custom
-  (org-agenda-window-setup 'current-window)
-  (org-agenda-restore-windows-after-quit t)
-  (org-agenda-span 'week)
-  (org-agenda-start-on-weekday nil)
-  (org-agenda-start-day "today")
-  (org-agenda-skip-scheduled-if-done t)
-  (org-agenda-skip-deadline-if-done t)
-  (org-agenda-include-deadlines t)
-  (org-agenda-block-separator ?─)
-  (org-agenda-compact-blocks t)
-  (org-agenda-start-with-log-mode t)
-  (org-agenda-log-mode-items '(closed clock state))
-  (org-agenda-clockreport-parameter-plist '(:link t :maxlevel 2))
-  (org-agenda-time-grid '((daily today require-timed)
-                          (800 1000 1200 1400 1600 1800 2000)
-                          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (org-agenda-current-time-string "◀── now ─────────────────────────────────────────────────")
-
-  :config
-  (setq org-agenda-custom-commands
-        '(("d" "📅 Dashboard"
-           ((agenda "" ((org-deadline-warning-days 7)
-                        (org-agenda-overriding-header "📅 Agenda")))
-            (todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))
-            (tags-todo "project/🚀 ACTIVE" ((org-agenda-overriding-header "🚀 Active Projects")))
-            (tags-todo "+PRIORITY=\"A\"" ((org-agenda-overriding-header "🔥 High Priority")))
-            (todo "⏳ WAIT" ((org-agenda-overriding-header "⏳ Waiting On")))
-            (tags-todo "+habit" ((org-agenda-overriding-header "🔄 Habits")))
-            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects")))))
-
-          ("n" "⚡ Next Tasks"
-           ((todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))))
-
-          ("w" "💼 Work Context"
-           ((tags-todo "@work/⚡ NEXT" ((org-agenda-overriding-header "💼 Work Next")))
-            (tags-todo "@work/📥 TODO" ((org-agenda-overriding-header "💼 Work Tasks")))
-            (tags-todo "@work+project/🚀 ACTIVE" ((org-agenda-overriding-header "💼 Work Projects")))))
-
-          ("h" "🏠 Home Context"
-           ((tags-todo "@home/⚡ NEXT" ((org-agenda-overriding-header "🏠 Home Next")))
-            (tags-todo "@home/📥 TODO" ((org-agenda-overriding-header "🏠 Home Tasks")))))
-
-          ("p" "📋 Projects Overview"
-           ((tags "project" ((org-agenda-overriding-header "📋 All Projects")))))
-
-          ("g" "🎯 Goals Review"
-           ((tags-todo "goal" ((org-agenda-overriding-header "🎯 Goals")))))
-
-          ("r" "🔍 Review"
-           ((agenda "" ((org-agenda-span 'day) (org-agenda-overriding-header "📅 Today")))
-            (todo "✅ DONE" ((org-agenda-overriding-header "✅ Completed Today")
-                             (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottoday))))
-            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects"))))))))
-
-(use-package org-super-agenda
-  :after org-agenda
-  ;; Use a hook to enable the mode ONLY when an Org Agenda buffer is created.
-  :hook (org-agenda-mode . org-super-agenda-mode)
-  ;; Use :custom to configure variables. This does not activate the mode.
-  :custom
-  (org-super-agenda-groups
-   '((:name "🔥 Overdue" :deadline past)
-     (:name "📅 Today" :time-grid t :scheduled today)
-     (:name "⚡ Next" :todo "⚡ NEXT")
-     (:name "🔥 Important" :priority "A")
-     (:name "📋 Projects" :tag "project")
-     (:name "🏠 Home" :tag "@home")
-     (:name "💼 Work" :tag "@work")
-     (:name "⏳ Waiting" :todo "⏳ WAIT")
-     (:name "📚 Reading" :tag "read")
-     (:name "🎯 Goals" :tag "goal")
-     (:name "🔄 Habits" :tag "habit")
-     (:discard (:anything t)))))
-#+end_src
-
 ** Org Roam: The Knowledge Graph
 Org Roam is configured for rapid, Zettelkasten-style note-taking. Templates are minimal and flexible, and the UI is integrated to feel like a natural extension of Emacs.
 #+begin_src emacs-lisp
@@ -1408,189 +1336,6 @@ advanced dynamic project task template.
 #+end_src
 
 * Workflow Management
-** Workspaces with *persp-mode*
-*persp-mode.el* automatically creates and switches perspectives when you switch projects, a key feature for an organized workflows
-#+begin_src emacs-lisp
-;; (use-package persp-mode
-;;   :defer t
-;;   :hook (after-init . persp-mode)
-;;   :init
-;;   ;; Set the state file location before enabling the mode.
-;;   (setq persp-state-default-file (expand-file-name "perspectives.el" no-littering-var-directory))
-;;   (setq persp-mode-prefix-key (kbd "C-c p"))
-;;   :custom
-;;   ;; Automatically kill empty perspectives to keep the list clean.
-;;   (persp-autokill-buffer-on-remove 'if-empty)
-;;   (persp-sort 'create-time)
-;;   (persp-kill-foreign-buffers 'if-not-redirected)
-;;   ;; A smarter way to handle buffers when switching perspectives.
-;;   (persp-switch-method 'vars)
-;; 
-;;   :config
-;;   ;; Custom function to automatically create or switch to a project-specific perspective.
-;;   (defun ar/projectile-switch-to-perspective ()
-;;     "Switch to a perspective named after the current project, creating it if needed."
-;;     (interactive)
-;;     (when-let ((project-name (projectile-project-name)))
-;;       (if (get-perspective project-name)
-;;           (persp-switch project-name)
-;;         (persp-add-new project-name)
-;;         (persp-switch project-name))))
-;; 
-;;   ;; Hook this function into projectile to run after switching projects.
-;;   (add-hook 'projectile-after-switch-project-hook #'ar/projectile-switch-to-perspective)
-;; 
-;;   ;; Load the saved perspectives when Emacs starts.
-;;   (when (file-exists-p persp-state-default-file)
-;;     (persp-load-state-from-file persp-state-default-file t)))
-;; 
-;; ;; Define your custom leader keybindings for workspace management.
-;; (ar/global-leader
-;;  ;; workspace related keybindings
-;;  "w" '(:ignore t :wk "workspaces")
-;;  "w n" '(persp-next :wk "next workspace")
-;;  "w p" '(persp-prev :wk "previous workspace")
-;;  "w s" '(persp-switch :wk "switch workspace")
-;;  "w b" '(persp-switch-to-buffer :wk "switch buffer in workspace")
-;;  "w c" '(persp-add-new :wk "create workspace")
-;;  "w r" '(persp-rename :wk "rename workspace")
-;;  "w k" '(persp-kill :wk "kill workspace"))
-#+end_src
-
-** Project Management with projectile
-*proctile* is faster, more configurable, and integrates seamlessly with the rest of your ecosystem, especially `consult`.
-#+begin_src emacs-lisp
-;; (use-package projectile
-;;   :defer t
-;;   :hook (after-init . projectile-mode)
-;;   :custom
-;;   (setq projectile-project-search-path '("~/Projects/" "~/Code/"))
-;;   (projectile-completion-system 'default) ; Use standard completing-read, which consult will enhance
-;;   (projectile-enable-caching t)
-;;   (projectile-switch-project-action #'projectile-dired)
-;;   ;; Ignore common nuisance directories and files
-;;   (projectile-globally-ignored-directories '(".git" ".idea" ".ensime_cache" ".eunit" ".svn" "node_modules" "bower_components"))
-;;   (projectile-globally-ignored-files '(".#*" "*~" "*.pyc" "*.swp"))
-;;   :config
-;;   ;; Ensure projectile's cache is not littered in the config directory.
-;;   (setq projectile-cache-file (expand-file-name "projectile.cache" no-littering-var-directory))
-;; 
-;;   (setq projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" no-littering-var-directory)))
-;; 
-;; ;; Integrates projectile with the consult completion framework.
-;; (use-package consult-projectile
-;;   :after (projectile consult)
-;;   :config
-;;   (setq consult-projectile-source
-;;         (list :prompt "Project: "
-;;               :action #'consult-projectile-switch-project-action)))
-;; 
-;; (ar/global-leader
-;;  "p" '(:ignore t :wk "project (projectile)")
-;;  "p p" '(projectile-switch-project :wk "switch project")
-;;  "p f" '(projectile-find-file :wk "find file")
-;;  "p d" '(projectile-find-dir :wk "find directory")
-;;  "p b" '(consult-projectile-buffer :wk "find buffer")
-;;  "p g" '(consult-ripgrep :wk "grep in project")
-;;  "p s" '(:ignore t :wk "save/kill")
-;;  "p s s" '(projectile-save-project-buffers :wk "save project buffers")
-;;  "p s k" '(projectile-kill-buffers :wk "kill project buffers")
-;;  "p c" '(projectile-compile-project :wk "compile project")
-;;  "p R" '(projectile-replace :wk "replace in project"))
-#+end_src
-
-** Buffer Management: A *bufler*-style *ibuffer*
-This configuration enhances the built-in `ibuffer` to group buffers by project
-and special modes, mimicking the core functionality of the `bufler` package without
-adding an extra dependency. The UI is modernized with custom formatting and
-nerd-icons, and Evil-friendly keybindings are added for efficient management.
-
-#+begin_src emacs-lisp
-(use-package ibuffer
-  :ensure nil ; Built-in package
-  :commands (ibuffer)
-  :hook (ibuffer-mode . ar/ibuffer-setup-hook)
-  :custom
-  (ibuffer-never-show-regexps
-   '("\\` " ; Buffers starting with a space (e.g., *temp*)
-     "\\*dashboard\\*$"
-     "\\*scratch\\*$"
-     "\\*Messages\\*$"
-     "\\*Help\\*$"
-     "\\*Backtrace\\*$"
-     "\\*Compile-Log\\*$"
-     "\\*Flymake diagnostics"
-     "\\*eglot-events\\*$"
-     "\\*Embark Collect"
-     "\\*vterm\\*"))
-
-  ;; Customize the visual format for a clean, column-based layout.
-  ;; This format shows: mark, icon, buffer name, size, mode, and file path.
-  (ibuffer-formats
-   '((mark modified read-only " "
-           (icon 4 4 :left :elide)
-           (name 35 35 :left :elide)
-           " "
-           (size-h 9 9 :right :elide)
-           " "
-           (mode 16 16 :left :elide)
-           " "
-           filename-and-process)))
-
-  :config
-  ;; This is the main function called every time ibuffer is opened.
-  (defun ar/ibuffer-setup-hook ()
-    "Set up ibuffer with project grouping, icons, sorting, and evil keys."
-    (nerd-icons-ibuffer-mode)
-    (ar/ibuffer-set-project-groups)
-    (ibuffer-do-sort-by-last-access-time)
-    (ibuffer-update nil t))
-
-  ;; This function intelligently generates the filter groups for projects.
-  (defun ar/ibuffer-set-project-groups ()
-    "Create and set ibuffer filter groups based on known projects."
-    (let ((groups '()))
-      ;; Create a group for each known project.
-      (dolist (proj (project-known-projects))
-        (let* ((proj-name (project-name proj))
-               (proj-root (project-root proj)))
-          (push `(,proj-name (:eval (and (buffer-file-name)
-                                        (string-prefix-p proj-root (buffer-file-name)))))
-                groups)))
-      ;; Add a final catch-all group for any files not in a known project.
-      (push '("Miscellaneous" (:predicate (lambda (buf)
-                                            (and (buffer-file-name buf)
-                                                 (not (project-buffer-p buf))))))
-            groups)
-      (setq ibuffer-filter-groups (nreverse groups))))
-
-  ;; Add Evil keybindings for a more intuitive, Vim-like experience.
-  (with-eval-after-load 'evil
-    (evil-define-key 'normal ibuffer-mode-map
-      (kbd "j") 'ibuffer-next-line
-      (kbd "k") 'ibuffer-previous-line
-      (kbd "d") 'ibuffer-mark-for-delete
-      (kbd "x") 'ibuffer-do-delete
-      (kbd "s") 'ibuffer-do-save
-      (kbd "g") 'revert-buffer
-      (kbd "q") 'quit-window)))
-
-;; Ensure the `nerd-icons-ibuffer` package is loaded for the icons to work.
-(use-package nerd-icons-ibuffer
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode))
-
-;; Global leader keybindings remain the same, providing clear entry points.
-(ar/global-leader
-  "b"   '(:ignore t :wk "buffers")
-  "b b" '(consult-buffer :wk "switch buffer")
-  "b i" '(ibuffer :wk "ibuffer (by project)")
-  "b k" '(kill-current-buffer :wk "kill buffer")
-  "b n" '(next-buffer :wk "next buffer")
-  "b p" '(previous-buffer :wk "previous buffer")
-  "b r" '(revert-buffer :wk "revert buffer")
-  "b s" '(save-buffer :wk "save buffer"))
-#+end_src
-
 ** Dired
 This setup enhances the built-in Dired, turning it into a fast, modern, and feature-rich file manager that integrates perfectly with Evil mode and your other packages.
 #+begin_src emacs-lisp
@@ -1683,7 +1428,7 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
   :defer t
   :custom
   (neo-smart-open t)
-  (neo-window-width 35)
+  (neo-window-width 30)
   (neo-show-hidden-files t)
   (neo-autorefresh t)
   (neo-theme 'nerd-icons)
@@ -1910,7 +1655,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 This provides a modern and robust Python development environment, fully
 integrated with the existing LSP, diagnostics, formatting, and debugging frameworks. For this
 configuration to work, you must have the necessary Python packages installed in your environment. This provides a modern and robust Python development environment, fully integrated with the existing LSP, diagnostics, formatting, and debugging frameworks.
-** LSP: Eglot with Pyright
+** LSP: Eglot with basedpyright
 We use *pyright-langserver* for core LSP features like code completion,
 navigation, and documentation. Crucially, we disable pyright's built-in type checking diagnostics to avoid conflicts with our dedicated *mypy* checker, ensuring we get
 a single, authoritative source for type errors.
@@ -1918,7 +1663,7 @@ a single, authoritative source for type errors.
 (with-eval-after-load 'eglot
   ;; Register pyright-langserver for Python modes.
   (add-to-list 'eglot-server-programs
-               '((python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
+               '((python-mode python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -1999,7 +1744,9 @@ Replace the following two sections with this simpler core section
   ;; Explicitly load the jupyter language for Org Babel.
   (org-babel-do-load-languages
    'org-babel-load-languages
-   '((jupyter . t))))
+   '((jupyter . t)))
+  
+  (org-babel-jupyter-override-src-block "python"))
 
 (setq org-babel-default-header-args:jupyter-python '((:async . "yes")
                                                      (:session . "python")
@@ -2008,60 +1755,6 @@ Replace the following two sections with this simpler core section
 ;; Add a hook to automatically redisplay inline images (like plots) after execution.
 (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images)
 (setq ob-async-no-async-languages-alist '("jupyter-python"))
-#+end_src
-
-** User Interface
-This block configures the main *jupyter* package, which provides the user-facing
-commands, REPL buffer, and kernel management UI.
-#+begin_src emacs-lisp
-;; (use-package jupyter
-;;   :defer t
-;;   :init
-;;   ;; This variable must be set *before* the package loads.
-;;   ;; It ensures that evaluating code will automatically create and associate a
-;;   ;; REPL buffer for a seamless notebook-like experience.
-;;   (setq jupyter-python-set-repl-for-current-buffer t)
-;;   :custom
-;;   ;; A list of kernelspec names that should be displayed at the top of the list.
-;;   (jupyter-favorite-kernels '("python3"))
-;;   ;; Do not display "Evaluating..." messages in the REPL.
-;;   (jupyter-repl-echo-evaluating-p nil)
-;;   :config
-;;   ;; When this is non-nil, jupyter-org buffers will get a client for the kernel
-;;   ;; specified by the first `python' src block upon opening the file.
-;;   (setq jupyter-org-get-client-on-load t)
-;; 
-;;   ;; Advice to automatically enter insert state when jumping to the REPL.
-;;   ;; This is a quality-of-life improvement for Evil users.
-;;   (advice-add 'jupyter-org-interaction-mode :after
-;;               (lambda () (evil-insert-state))))
-#+end_src
-
-** Execution Engine
-This block is CRITICAL. It explicitly loads and configures the `ob-jupyter`
-backend, which teaches Org mode how to communicate with Jupyter. All
-Jupyter-related Org configurations are kept here for cohesion and to guarantee
-correct load order, preventing startup errors.
-#+begin_src emacs-lisp
-;; (with-eval-after-load 'ob-jupyter
-;;   ;; Explicitly load the jupyter language for Org Babel.
-;;   (org-babel-do-load-languages
-;;    'org-babel-load-languages
-;;    '((jupyter . t)))
-;;   ;; Use the official jupyter function to re-route all `python` src blocks to the
-;;   ;; jupyter babel engine. This is the cleanest and most reliable method.
-;;   ;;(org-babel-jupyter-override-src-block "python")
-;; 
-;;   ;; Define default header arguments for all Jupyter Python source blocks.
-;;   ;; These ensure that results are returned to a drawer and execution is async.
-;;   (setq org-babel-default-header-args:jupyter-python
-;;         '((:results . "output replace drawer")
-;;           (:async . "yes")
-;;           (:session . "python")
-;;           (:kernel . "python3")))
-;; 
-;;   ;; Add a hook to automatically redisplay inline images (like plots) after execution.
-;;   (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images))
 #+end_src
 
 ** Custom Functions
@@ -2119,20 +1812,20 @@ prefix for managing kernels and evaluating code from anywhere.
 #+begin_src emacs-lisp
 (ar/global-leader
  ;; Org Jupyter Keybindings
- "o j" '(:ignore t :wk "jupyter")
- "o j e" '(jupyter-eval-src-block :wk "Eval src block")
- ;; "o j n" '(ar/jupyter-insert-src-block :wk "New src block")
- ;; "o j v" '(ar/jupyter-switch-to-repl :wk "View REPL")
- ;; "o j C" '(ar/jupyter-clear-all-results :wk "Clear all results")
- ;; "o j R" '(ar/jupyter-restart-and-run-all :wk "Restart & Run All")
- ;; "o j X" '(ar/jupyter-export-to-notebook :wk "Export to .ipynb")
- "o j r" '(jupyter-restart-kernel :wk "Restart kernel")
- "o j i" '(jupyter-interrupt-kernel :wk "Interrupt kernel")
- "o j c" '(jupyter-connect-to-kernel :wk "Connect to kernel")
- "o j l" '(jupyter-list-kernels :wk "List kernels")
- "o j s" '(jupyter-switch-kernel :wk "Switch kernel")
- "o j k" '(jupyter-shutdown-kernel :wk "Shutdown kernel")
- "o j d" '(jupyter-doc :wk "View documentation"))
+ "j" '(:ignore t :wk "jupyter")
+ "j e" '(jupyter-eval-src-block :wk "Eval src block")
+ "j n" '(ar/jupyter-insert-src-block :wk "New src block")
+ "j v" '(ar/jupyter-switch-to-repl :wk "View REPL")
+ "j C" '(ar/jupyter-clear-all-results :wk "Clear all results")
+ "j R" '(ar/jupyter-restart-and-run-all :wk "Restart & Run All")
+ "j X" '(ar/jupyter-export-to-notebook :wk "Export to .ipynb")
+ "j r" '(jupyter-restart-kernel :wk "Restart kernel")
+ "j i" '(jupyter-interrupt-kernel :wk "Interrupt kernel")
+ "j c" '(jupyter-connect-to-kernel :wk "Connect to kernel")
+ "j l" '(jupyter-list-kernels :wk "List kernels")
+ "j s" '(jupyter-switch-kernel :wk "Switch kernel")
+ "j k" '(jupyter-shutdown-kernel :wk "Shutdown kernel")
+ "j d" '(jupyter-doc :wk "View documentation"))
 #+end_src
 
 * Version Control
