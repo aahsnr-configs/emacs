@@ -1,7 +1,7 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+STARTUP: overview
-#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes 
+#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
 * Core Emacs Configuration
 This section incorporates the sensible defaults and settings from the minimal-emacs.d project. This provides a robust and well-optimized foundation.
@@ -219,7 +219,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ;; after a period of idle time, directly saving to the file itself without
 ;; creating backup files.
 (setq auto-save-visited-interval 5)   ; Save after 5 seconds if inactivity
-(auto-save-visited-mode 1)     
+(auto-save-visited-mode 1)
 #+end_src
 
 ** Performance Tuning Packages
@@ -298,7 +298,7 @@ Automatically tangle our Emacs.org config file when we save it.
     :keymaps '(normal insert visual emacs)
     :prefix "SPC"
     :global-prefix "C-SPC")
-  
+
   (ar/global-leader
     ;; Core
     "SPC" '(execute-extended-command :wk "M-x")
@@ -358,7 +358,7 @@ Enable line numbers for some modes
   (doom-themes-neotree-config)
   (doom-themes-visual-bell-config)
   (doom-themes-org-config)
-  
+
   ;; Set distinct colors for bold and italic
   (custom-set-faces
    '(bold ((t (:foreground "#7aa2f7" :weight bold))))
@@ -883,17 +883,36 @@ appear, ensuring a consistent and predictable windowing layout.
   (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
+#+begin_comment
+;; MODIFICATION: The Corfu configuration has been updated.
+;; A smart TAB function is added to provide a robust manual completion trigger,
+;; which is necessary for the Jupyter workflow fix. The TAB binding in :map
+;; corfu-map has been removed as this new function handles all TAB logic.
+#+end_comment
 ** Corfu: The Core UI
 #+begin_src emacs-lisp
 (use-package corfu
   :hook (after-init . global-corfu-mode)
   :config
   (corfu-history-mode)
-  (corfu-popupinfo-mode) ; don't set delay or 
+  (corfu-popupinfo-mode)
+
+  ;; --- START OF MODIFIED CONFIGURATION ---
+  ;; This function makes TAB smart. It tries to complete, and if there are
+  ;; no completions, it falls back to a standard indentation command.
+  (defun ar/corfu-complete-or-indent ()
+    "Try to complete with Corfu, otherwise indent."
+    (interactive)
+    (or (corfu-complete)
+        (indent-for-tab-command)))
+
+  ;; Bind our new smart TAB function in Evil's insert mode.
+  ;; This is the key to making manual completion work.
+  (define-key evil-insert-state-map (kbd "TAB") #'ar/corfu-complete-or-indent)
+  ;; --- END OF MODIFIED CONFIGURATION ---
+
   :bind
   (:map corfu-map
-        ("TAB" . corfu-next)
-        ([tab] . corfu-next)
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
         ("C-c h" . corfu-info-documentation))
@@ -1016,9 +1035,9 @@ appear, ensuring a consistent and predictable windowing layout.
                   (org-level-3 . 1.10)
                   (org-level-4 . 1.07)
                   (org-level-5 . 1.05)
-                  (org-level-6 . 1.03)
-                  (org-level-7 . 1.02)
-                  (org-level-8 . 1)))
+  (org-level-6 . 1.03)
+  (org-level-7 . 1.02)
+  (org-level-8 . 1)))
     (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
 #+end_src
 
@@ -1085,7 +1104,7 @@ appear, ensuring a consistent and predictable windowing layout.
                    ("meeting"    . ?m)
                    ("urgent"     . ?u)
                    ("someday"    . ?s)))
-  
+
   (org-todo-keywords
    '((sequence "📥 TODO(t)" "⚡ NEXT(n)" "⚙️ PROG(p)" "⏳ WAIT(w@/!)" "|" "✅ DONE(d!)" "❌ CANCEL(c@)")
      (sequence "📝 PLAN(P)" "🚀 ACTIVE(A)" "⏸️ PAUSED(x)" "|" "🏆 ACHIEVED(a)" "🗑️ DROPPED(D)")))
@@ -1102,10 +1121,10 @@ appear, ensuring a consistent and predictable windowing layout.
      ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
      ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
   ;; Suppress the "Babel evaluation exited with code 0" message.
-  (org-babel-execution-completed-message nil) 
+  (org-babel-execution-completed-message nil)
   ;; Use the element cache for a significant performance boost in Org files.
-  (org-element-use-cache t)) 
-#+end_src
+  (org-element-use-cache t))
+#end_src
 
 ** Babel & Structure Templates
 Configure code block execution and create handy shortcuts for inserting common structures.
@@ -1158,7 +1177,7 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
           ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
           ("🏆 ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
           ("🗑️ DROPPED"   . (:strike-through t :foreground "#565f89")))
-    
+
         ;; Style tags with a subtle box, inspired by Doom Emacs.
         org-modern-tag-faces
         `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#3b4261")))
@@ -1321,7 +1340,7 @@ advanced dynamic project task template.
  "o s" '(org-schedule :wk "schedule")
  "o d" '(org-deadline :wk "deadline")
  "o t" '(org-set-tags-command :wk "set tags")
- 
+
  ;; Org-roam specific bindings under "org roam"
  "o r" '(:ignore t :wk "roam")
  "o r f" '(org-roam-node-find :wk "find node")
@@ -1463,7 +1482,7 @@ Eglot performance using eglot booster
 (use-package eglot
   :ensure nil
   :defer t
-  :hook (prog-mode . eglot-ensure) 
+  :hook (prog-mode . eglot-ensure)
   :custom
   (eglot-autoshutdown t)
   (eglot-events-buffer-size 0)
@@ -1608,21 +1627,21 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
               (lambda ()
                 (interactive)
                 (evil-textobj-tree-sitter-goto-textobj "function.outer")))
-  
+
   ;; Goto start of previous function
   (define-key evil-normal-state-map
               (kbd "[f")
               (lambda ()
                 (interactive)
                 (evil-textobj-tree-sitter-goto-textobj "function.outer" t)))
-  
+
   ;; Goto end of next function
   (define-key evil-normal-state-map
               (kbd "]F")
               (lambda ()
                 (interactive)
                 (evil-textobj-tree-sitter-goto-textobj "function.outer" nil t)))
-  
+
   ;; Goto end of previous function
   (define-key evil-normal-state-map
               (kbd "[F")
@@ -1655,7 +1674,7 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 This provides a modern and robust Python development environment, fully
 integrated with the existing LSP, diagnostics, formatting, and debugging frameworks. For this
 configuration to work, you must have the necessary Python packages installed in your environment. This provides a modern and robust Python development environment, fully integrated with the existing LSP, diagnostics, formatting, and debugging frameworks.
-** LSP: Eglot with basedpyright
+** LSP: Eglot with Pyright
 We use *pyright-langserver* for core LSP features like code completion,
 navigation, and documentation. Crucially, we disable pyright's built-in type checking diagnostics to avoid conflicts with our dedicated *mypy* checker, ensuring we get
 a single, authoritative source for type errors.
@@ -1663,16 +1682,14 @@ a single, authoritative source for type errors.
 (with-eval-after-load 'eglot
   ;; Register pyright-langserver for Python modes.
   (add-to-list 'eglot-server-programs
-               '((python-mode python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
+               '((python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
 #+end_src
 
-#+begin_src emacs-lisp
-;; Disable Corfu in Jupyter org-src blocks to prevent completion conflicts
-(add-hook 'jupyter-org-interaction-mode-hook
-          (lambda ()
-            (setq-local corfu-auto nil)))
-#+end_src
-
+#+begin_comment
+;; MODIFICATION: The original jupyter-org-interaction-mode-hook has been
+;; moved to the Jupyter Notebooks section where it is more relevant. It has been
+;; replaced by the diagnostics setup for standard Python files here.
+#+end_comment
 ** Diagnostics: Flymake with Ruff, Mypy, and Bandit
 My configuration already includes *flymake-collection*, which provides checkers for many tools. Here, we create a hook to specifically enable the checkers for Ruff, Mypy, and Bandit in any Python buffer. This gives us a powerful, multi-layered diagnostic setup without installing any extra Emacs packages.
 #+begin_src emacs-lisp
@@ -1728,6 +1745,12 @@ start a debug session for the current Python file.
  "d p" '(ar/dape-debug-python-file :wk "Debug Python File"))
 #+end_src
 
+#+begin_comment
+;; MODIFICATION: This entire section has been rewritten and expanded.
+;; It now includes the robust configuration for a unified Jupyter and LSP
+;; workflow, including the fix for inline completion and the advanced logic
+;; for the C-c ' unified editing buffer.
+#+end_comment
 * Jupyter Notebooks
 This section integrates the Jupyter ecosystem into Emacs, providing a powerful,
 interactive environment for Python programming directly within Org mode. It
@@ -1736,7 +1759,6 @@ enabling features like asynchronous evaluation, rich multimedia output, and
 interactive REPLs.
 
 ** Core Setup
-Replace the following two sections with this simpler core section
 #+begin_src emacs-lisp
 (use-package jupyter)
 
@@ -1745,16 +1767,58 @@ Replace the following two sections with this simpler core section
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((jupyter . t)))
-  
+
   (org-babel-jupyter-override-src-block "python"))
 
 (setq org-babel-default-header-args:jupyter-python '((:async . "yes")
                                                      (:session . "python")
                                                      (:kernel . "python3")))
-    
+
 ;; Add a hook to automatically redisplay inline images (like plots) after execution.
 (add-hook 'org-babel-after-execute-hook 'org-redisplay-inline-images)
 (setq ob-async-no-async-languages-alist '("jupyter-python"))
+#+end_src
+
+** Advanced Configuration for a Unified Workflow
+#+begin_src emacs-lisp
+;; --- Stabilize Jupyter and Corfu Integration ---
+;; Fix Corfu auto-completion error in Org-mode Jupyter blocks by disabling
+;; the auto-timer while allowing manual completion via the smart TAB function.
+(add-hook 'jupyter-org-interaction-mode-hook
+          (lambda ()
+            (setq-local corfu-auto nil)))
+
+
+;; --- Create a Unified Editing Experience in C-c ' ---
+
+;; 1. Automatically start the LSP client in the special edit buffer.
+(add-hook 'org-babel-edit-prep-hook #'eglot-ensure)
+
+;; 2. Define the function to connect the edit buffer to the live Jupyter kernel.
+(defun ar/connect-org-edit-buffer-to-jupyter (&rest _)
+  "Connect the special org-edit buffer to a live Jupyter kernel."
+  ;; Information is fetched from the *original* Org buffer.
+  (let* ((src-info (org-babel-get-src-block-info '(".")))
+         (lang (nth 0 src-info))
+         (header-args (nth 2 src-info))
+         (session (cdr (assoc :session header-args))))
+
+    ;; Only proceed if we are in a jupyter-python block with a session.
+    (when (and (string-equal lang "python") session)
+      ;; Switch context to the newly created special edit buffer.
+      (with-current-buffer (org-babel-get-special-edit-buffer)
+        ;; Find the running kernel associated with the session name.
+        (when-let ((kernel (jupyter-get-running-kernel-from-session session)))
+          ;; Connect this buffer to that kernel.
+          (jupyter-connect-to-kernel kernel)
+
+          ;; Most importantly, add Jupyter's live completion function to this
+          ;; buffer's list of completion providers.
+          (add-to-list 'completion-at-point-functions #'jupyter-completion-at-point nil t))))))
+
+;; 3. Use `advice-add` to run our function *after* `org-edit-special` has finished.
+;;    This is the robust and correct way to implement this feature.
+(advice-add 'org-edit-special :after #'ar/connect-org-edit-buffer-to-jupyter)
 #+end_src
 
 ** Custom Functions
@@ -2025,7 +2089,7 @@ Opens the notes in a split window to the right."
   (yas-prompt-functions '(yas-completing-prompt))
   ;; Only show important messages, hiding the "just-in-time loading" confirmation.
   :config
- 
+
   ;; --- Add Personal Snippets Directory ---
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
@@ -2110,7 +2174,7 @@ This package provides "website-like" rendering. It depends on `markdown-mode`.
   :config
   (with-eval-after-load 'markdown-mode
     (advice-add #'markdown-indent-line :before-until #'completion-at-point))
-  
+
   (defun ar/configure-md-roam-faces ()
     "Set md-roam faces to match theme and resolve font conflicts."
     (setq-local markdown-fontify-code-blocks-natively nil)
@@ -2287,7 +2351,7 @@ and aesthetic ligatures.
           ("\\rightarrow" . ?→) ("\\leftarrow" . ?←) ("\\Rightarrow" . ?⇒)
           ("\\leq" . ?≤) ("\\geq" . ?≥))))
 (add-hook 'LaTeX-mode-hook #'ar/latex-prettify-symbols-setup)
-#+end_src
+#end_src
 
 ** Org Mode Integration
 #+begin_src emacs-lisp
@@ -2315,7 +2379,7 @@ and aesthetic ligatures.
            "\\documentclass{beamer}"
            ("\\section{%s}" . "\\section*{%s}")
            ("\\subsection{%s}" . "\\subsection*{%s}")) t))
-#+end_src
+#end_src
 
 ** Custom Snippets for Scientific Writing
 #+begin_src emacs-lisp
@@ -2529,7 +2593,7 @@ The converted text replaces the original region."
     (error "No region selected"))
   (when (= start end)
     (error "Empty region selected"))
-  
+
   (let* ((md-text (buffer-substring-no-properties start end))
          (temp-md-file (make-temp-file "md-to-org-" nil ".md"))
          (temp-org-file (make-temp-file "md-to-org-" nil ".org"))
@@ -2578,7 +2642,7 @@ Creates a new buffer with the converted content instead of replacing the region.
     (error "No region selected"))
   (when (= start end)
     (error "Empty region selected"))
-  
+
   (let* ((md-text (buffer-substring-no-properties start end))
          (temp-md-file (make-temp-file "md-to-org-" nil ".md"))
          (temp-org-file (make-temp-file "md-to-org-" nil ".org"))
