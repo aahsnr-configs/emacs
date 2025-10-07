@@ -124,7 +124,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
  frame-title-format
  '(:eval (format "[%%b%s] - %s"
            (if (buffer-modified-p)
-                      " •"
+                      " â€¢"
              "")
            system-name)))
 #+end_src
@@ -434,7 +434,7 @@ Enable line numbers for some modes
   :hook (after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
-  (which-key-separator " → ")
+  (which-key-separator " â†’ ")
   (which-key-popup-type 'minibuffer))
 #+end_src
 
@@ -999,7 +999,7 @@ appear, ensuring a consistent and predictable windowing layout.
   ;; Replace list hyphen with dot
   (font-lock-add-keywords 'org-mode
                           '(("^ *\\([-]\\) "
-                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "â€¢"))))))
 
   ;; Set faces for heading levels
   (dolist (face '((org-level-1 . 1.2)
@@ -1057,7 +1057,7 @@ appear, ensuring a consistent and predictable windowing layout.
   (org-return-follows-link t) ; RET follows links
   (org-src-fontify-natively t) ; Better fontification for source blocks
   (org-pretty-entities t)  ; Display LaTeX-like entities
-  (org-ellipsis " ⤵")  ; Custom ellipsis for folded headings
+  (org-ellipsis " â¤µ")  ; Custom ellipsis for folded headings
   (org-cycle-separator-lines 2) ; Two blank lines between headings when cycling
   (org-startup-indented t) ; Start Org buffers indented
   (org-startup-folded 'content) ; Fold content by default
@@ -1078,20 +1078,20 @@ appear, ensuring a consistent and predictable windowing layout.
                    ("someday"    . ?s)))
   
   (org-todo-keywords
-   '((sequence "📥 TODO(t)" "⚡ NEXT(n)" "⚙️ PROG(p)" "⏳ WAIT(w@/!)" "|" "✅ DONE(d!)" "❌ CANCEL(c@)")
-     (sequence "📝 PLAN(P)" "🚀 ACTIVE(A)" "⏸️ PAUSED(x)" "|" "🏆 ACHIEVED(a)" "🗑️ DROPPED(D)")))
+   '((sequence "ðŸ“¥ TODO(t)" "âš¡ NEXT(n)" "âš™ï¸ PROG(p)" "â³ WAIT(w@/!)" "|" "âœ… DONE(d!)" "âŒ CANCEL(c@)")
+     (sequence "ðŸ“ PLAN(P)" "ðŸš€ ACTIVE(A)" "â¸ï¸ PAUSED(x)" "|" "ðŸ† ACHIEVED(a)" "ðŸ—‘ï¸ DROPPED(D)")))
   (org-todo-keyword-faces
-   '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
-     ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
-     ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
-     ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
-     ("✅ DONE"      . (:foreground "#9ece6a" :weight bold))
-     ("❌ CANCEL"    . (:foreground "#565f89" :weight bold))
-     ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
-     ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-     ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
-     ("🏆 ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
-     ("🗑️ DROPPED"   . (:foreground "#565f89" :weight bold))))
+   '(("ðŸ“¥ TODO"      . (:foreground "#f7768e" :weight bold))
+     ("âš¡ NEXT"      . (:foreground "#ff9e64" :weight bold))
+     ("âš™ï¸ PROG"      . (:foreground "#7aa2f7" :weight bold))
+     ("â³ WAIT"      . (:foreground "#e0af68" :weight bold))
+     ("âœ… DONE"      . (:foreground "#9ece6a" :weight bold))
+     ("âŒ CANCEL"    . (:foreground "#565f89" :weight bold))
+     ("ðŸ“ PLAN"      . (:foreground "#73daca" :weight bold))
+     ("ðŸš€ ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+     ("â¸ï¸ PAUSED"    . (:foreground "#c0caf5" :weight bold))
+     ("ðŸ† ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
+     ("ðŸ—‘ï¸ DROPPED"   . (:foreground "#565f89" :weight bold))))
   ;; Suppress the "Babel evaluation exited with code 0" message.
   (org-babel-execution-completed-message nil) 
   ;; Use the element cache for a significant performance boost in Org files.
@@ -1125,35 +1125,35 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
   :hook (org-mode . org-modern-mode)
   :config
   ;; This package provides a cleaner, more modern look for Org buffers.
-  (setq org-modern-hide-stars "· "
-        org-modern-star '("◉" "○" "◈" "◇" "◆" "▷")
-        org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
+  (setq org-modern-hide-stars "Â· "
+        org-modern-star '("â—‰" "â—‹" "â—ˆ" "â—‡" "â—†" "â–·")
+        org-modern-list '((43 . "âž¤") (45 . "â€“") (42 . "â€¢"))
         org-modern-table-vertical 1
         org-modern-table-horizontal 0.1
         org-modern-block-name
-        '(("src" "»" "«")
-          ("example" "»" "«")
-          ("quote" "❝" "❞"))
+        '(("src" "Â»" "Â«")
+          ("example" "Â»" "Â«")
+          ("quote" "â" "âž"))
 
         ;; Style TODO keywords directly in the headline.
         ;; This complements the main `org-todo-keyword-faces`.
         org-modern-todo-faces
-        '(("📥 TODO"      . (:foreground "#f7768e" :weight bold))
-          ("⚡ NEXT"      . (:foreground "#ff9e64" :weight bold))
-          ("⚙️ PROG"      . (:foreground "#7aa2f7" :weight bold))
-          ("⏳ WAIT"      . (:foreground "#e0af68" :weight bold))
-          ("✅ DONE"      . (:background "#2f3c22" :foreground "#9ece6a" :weight bold))
-          ("❌ CANCEL"    . (:strike-through t :foreground "#565f89"))
-          ("📝 PLAN"      . (:foreground "#73daca" :weight bold))
-          ("🚀 ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-          ("⏸️ PAUSED"    . (:foreground "#c0caf5" :weight bold))
-          ("🏆 ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
-          ("🗑️ DROPPED"   . (:strike-through t :foreground "#565f89")))
+        '(("ðŸ“¥ TODO"      . (:foreground "#f7768e" :weight bold))
+          ("âš¡ NEXT"      . (:foreground "#ff9e64" :weight bold))
+          ("âš™ï¸ PROG"      . (:foreground "#7aa2f7" :weight bold))
+          ("â³ WAIT"      . (:foreground "#e0af68" :weight bold))
+          ("âœ… DONE"      . (:background "#2f3c22" :foreground "#9ece6a" :weight bold))
+          ("âŒ CANCEL"    . (:strike-through t :foreground "#565f89"))
+          ("ðŸ“ PLAN"      . (:foreground "#73daca" :weight bold))
+          ("ðŸš€ ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+          ("â¸ï¸ PAUSED"    . (:foreground "#c0caf5" :weight bold))
+          ("ðŸ† ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
+          ("ðŸ—‘ï¸ DROPPED"   . (:strike-through t :foreground "#565f89")))
     
         ;; Style tags with a subtle box, inspired by Doom Emacs.
         org-modern-tag-faces
         `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#3b4261")))
-        org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☒") (priority . "⚑") (on . "◉") (off . "○"))))
+        org-modern-checkbox '((todo . "â˜") (done . "â˜‘") (cancel . "â˜’") (priority . "âš‘") (on . "â—‰") (off . "â—‹"))))
 
 (use-package org-appear
   :hook (org-mode . org-appear-mode)
@@ -1177,51 +1177,51 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
   (org-agenda-skip-scheduled-if-done t)
   (org-agenda-skip-deadline-if-done t)
   (org-agenda-include-deadlines t)
-  (org-agenda-block-separator ?─)
+  (org-agenda-block-separator ?â”€)
   (org-agenda-compact-blocks t)
   (org-agenda-start-with-log-mode t)
   (org-agenda-log-mode-items '(closed clock state))
   (org-agenda-clockreport-parameter-plist '(:link t :maxlevel 2))
   (org-agenda-time-grid '((daily today require-timed)
                           (800 1000 1200 1400 1600 1800 2000)
-                          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (org-agenda-current-time-string "◀── now ─────────────────────────────────────────────────")
+                          " â”„â”„â”„â”„â”„ " "â”„â”„â”„â”„â”„â”„â”„â”„â”„â”„â”„â”„â”„â”„â”„"))
+  (org-agenda-current-time-string "â—€â”€â”€ now â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€")
 
   :config
   (setq org-agenda-custom-commands
-        '(("d" "📅 Dashboard"
+        '(("d" "ðŸ“… Dashboard"
            ((agenda "" ((org-deadline-warning-days 7)
-                        (org-agenda-overriding-header "📅 Agenda")))
-            (todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))
-            (tags-todo "project/🚀 ACTIVE" ((org-agenda-overriding-header "🚀 Active Projects")))
-            (tags-todo "+PRIORITY=\"A\"" ((org-agenda-overriding-header "🔥 High Priority")))
-            (todo "⏳ WAIT" ((org-agenda-overriding-header "⏳ Waiting On")))
-            (tags-todo "+habit" ((org-agenda-overriding-header "🔄 Habits")))
-            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects")))))
+                        (org-agenda-overriding-header "ðŸ“… Agenda")))
+            (todo "âš¡ NEXT" ((org-agenda-overriding-header "âš¡ Next Tasks")))
+            (tags-todo "project/ðŸš€ ACTIVE" ((org-agenda-overriding-header "ðŸš€ Active Projects")))
+            (tags-todo "+PRIORITY=\"A\"" ((org-agenda-overriding-header "ðŸ”¥ High Priority")))
+            (todo "â³ WAIT" ((org-agenda-overriding-header "â³ Waiting On")))
+            (tags-todo "+habit" ((org-agenda-overriding-header "ðŸ”„ Habits")))
+            (stuck "" ((org-agenda-overriding-header "ðŸš« Stuck Projects")))))
 
-          ("n" "⚡ Next Tasks"
-           ((todo "⚡ NEXT" ((org-agenda-overriding-header "⚡ Next Tasks")))))
+          ("n" "âš¡ Next Tasks"
+           ((todo "âš¡ NEXT" ((org-agenda-overriding-header "âš¡ Next Tasks")))))
 
-          ("w" "💼 Work Context"
-           ((tags-todo "@work/⚡ NEXT" ((org-agenda-overriding-header "💼 Work Next")))
-            (tags-todo "@work/📥 TODO" ((org-agenda-overriding-header "💼 Work Tasks")))
-            (tags-todo "@work+project/🚀 ACTIVE" ((org-agenda-overriding-header "💼 Work Projects")))))
+          ("w" "ðŸ’¼ Work Context"
+           ((tags-todo "@work/âš¡ NEXT" ((org-agenda-overriding-header "ðŸ’¼ Work Next")))
+            (tags-todo "@work/ðŸ“¥ TODO" ((org-agenda-overriding-header "ðŸ’¼ Work Tasks")))
+            (tags-todo "@work+project/ðŸš€ ACTIVE" ((org-agenda-overriding-header "ðŸ’¼ Work Projects")))))
 
-          ("h" "🏠 Home Context"
-           ((tags-todo "@home/⚡ NEXT" ((org-agenda-overriding-header "🏠 Home Next")))
-            (tags-todo "@home/📥 TODO" ((org-agenda-overriding-header "🏠 Home Tasks")))))
+          ("h" "ðŸ  Home Context"
+           ((tags-todo "@home/âš¡ NEXT" ((org-agenda-overriding-header "ðŸ  Home Next")))
+            (tags-todo "@home/ðŸ“¥ TODO" ((org-agenda-overriding-header "ðŸ  Home Tasks")))))
 
-          ("p" "📋 Projects Overview"
-           ((tags "project" ((org-agenda-overriding-header "📋 All Projects")))))
+          ("p" "ðŸ“‹ Projects Overview"
+           ((tags "project" ((org-agenda-overriding-header "ðŸ“‹ All Projects")))))
 
-          ("g" "🎯 Goals Review"
-           ((tags-todo "goal" ((org-agenda-overriding-header "🎯 Goals")))))
+          ("g" "ðŸŽ¯ Goals Review"
+           ((tags-todo "goal" ((org-agenda-overriding-header "ðŸŽ¯ Goals")))))
 
-          ("r" "🔍 Review"
-           ((agenda "" ((org-agenda-span 'day) (org-agenda-overriding-header "📅 Today")))
-            (todo "✅ DONE" ((org-agenda-overriding-header "✅ Completed Today")
+          ("r" "ðŸ” Review"
+           ((agenda "" ((org-agenda-span 'day) (org-agenda-overriding-header "ðŸ“… Today")))
+            (todo "âœ… DONE" ((org-agenda-overriding-header "âœ… Completed Today")
                              (org-agenda-skip-function '(org-agenda-skip-entry-if 'nottoday))))
-            (stuck "" ((org-agenda-overriding-header "🚫 Stuck Projects"))))))))
+            (stuck "" ((org-agenda-overriding-header "ðŸš« Stuck Projects"))))))))
 
 (use-package org-super-agenda
   :after org-agenda
@@ -1230,17 +1230,17 @@ This section makes Org mode beautiful and ergonomic, with modern styling and sea
   ;; Use :custom to configure variables. This does not activate the mode.
   :custom
   (org-super-agenda-groups
-   '((:name "🔥 Overdue" :deadline past)
-     (:name "📅 Today" :time-grid t :scheduled today)
-     (:name "⚡ Next" :todo "⚡ NEXT")
-     (:name "🔥 Important" :priority "A")
-     (:name "📋 Projects" :tag "project")
-     (:name "🏠 Home" :tag "@home")
-     (:name "💼 Work" :tag "@work")
-     (:name "⏳ Waiting" :todo "⏳ WAIT")
-     (:name "📚 Reading" :tag "read")
-     (:name "🎯 Goals" :tag "goal")
-     (:name "🔄 Habits" :tag "habit")
+   '((:name "ðŸ”¥ Overdue" :deadline past)
+     (:name "ðŸ“… Today" :time-grid t :scheduled today)
+     (:name "âš¡ Next" :todo "âš¡ NEXT")
+     (:name "ðŸ”¥ Important" :priority "A")
+     (:name "ðŸ“‹ Projects" :tag "project")
+     (:name "ðŸ  Home" :tag "@home")
+     (:name "ðŸ’¼ Work" :tag "@work")
+     (:name "â³ Waiting" :todo "â³ WAIT")
+     (:name "ðŸ“š Reading" :tag "read")
+     (:name "ðŸŽ¯ Goals" :tag "goal")
+     (:name "ðŸ”„ Habits" :tag "habit")
      (:discard (:anything t)))))
 #+end_src
 
@@ -1309,7 +1309,7 @@ Org Roam is configured for rapid, Zettelkasten-style note-taking. Templates are 
   :init (consult-org-roam-mode 1))
 #+end_src
 
-** 📥 TODO Capture: The Gateway to Org
+** ðŸ“¥ TODO Capture: The Gateway to Org
 Your central inbox for capturing tasks, notes, and ideas, now featuring the
 advanced dynamic project task template.
 *Use dynamic directory*
@@ -1319,38 +1319,38 @@ advanced dynamic project task template.
   :after org
   :custom
   (org-capture-templates
-   '(("t" "📥 Task" entry (file+headline "~/org/inbox.org" "Tasks")
-      "* 📥 TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n")
+   '(("t" "ðŸ“¥ Task" entry (file+headline "~/org/inbox.org" "Tasks")
+      "* ðŸ“¥ TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n")
 
-     ("n" "📝 Note" entry (file+headline "~/org/inbox.org" "Notes")
+     ("n" "ðŸ“ Note" entry (file+headline "~/org/inbox.org" "Notes")
       "* %? :note:\n  :PROPERTIES:\n  :CREATED: %U\n  :SOURCE: \n  :END:\n")
 
-     ("j" "📔 Journal" entry (file+olp+datetree "~/org/journal.org")
+     ("j" "ðŸ“” Journal" entry (file+olp+datetree "~/org/journal.org")
       "* %U %?\n")
 
-     ("m" "🤝 Meeting" entry (file+headline "~/org/inbox.org" "Meetings")
+     ("m" "ðŸ¤ Meeting" entry (file+headline "~/org/inbox.org" "Meetings")
       "* Meeting: %? :meeting:\n  :PROPERTIES:\n  :CREATED: %U\n  :ATTENDEES: \n  :END:\n** Agenda\n** Notes\n** Action Items\n")
 
-     ("p" "📝 Project" entry (file+headline "~/org/projects.org" "Projects")
-      "* 📝 PLAN %? :project:\n  :PROPERTIES:\n  :CREATED: %U\n  :GOAL: \n  :DEADLINE: \n  :END:\n** Goals\n** Tasks\n*** 📥 TODO Define project scope\n** Resources\n** Notes\n")
+     ("p" "ðŸ“ Project" entry (file+headline "~/org/projects.org" "Projects")
+      "* ðŸ“ PLAN %? :project:\n  :PROPERTIES:\n  :CREATED: %U\n  :GOAL: \n  :DEADLINE: \n  :END:\n** Goals\n** Tasks\n*** ðŸ“¥ TODO Define project scope\n** Resources\n** Notes\n")
      ;;New template to add tasks directly to existing projects.
-     ("P" "📌 Project Task" entry
+     ("P" "ðŸ“Œ Project Task" entry
       (file (lambda ()
               (let* ((project-list (ar/find-org-projects))
                      (project-name (completing-read "Select Project: " project-list)))
                 (cdr (assoc project-name project-list)))))
-      "* 📥 TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n"
+      "* ðŸ“¥ TODO %?\n  :PROPERTIES:\n  :CREATED: %U\n  :END:\n"
       :prepend t
       :headline "Tasks")
 
-     ("b" "📚 Book" entry (file+headline "~/org/reading.org" "Reading List")
+     ("b" "ðŸ“š Book" entry (file+headline "~/org/reading.org" "Reading List")
       "* %? :book:read:\n  :PROPERTIES:\n  :CREATED: %U\n  :AUTHOR: \n  :GENRE: \n  :PAGES: \n  :STARTED: \n  :FINISHED: \n  :RATING: \n  :END:\n** Summary\n** Key Takeaways\n** Quotes\n")
 
-     ("h" "🔄 Habit" entry (file+headline "~/org/habits.org" "Habits")
-      "* 📥 TODO %? :habit:\n  SCHEDULED: %(format-time-string \"%<<%Y-%m-%d %a .+1d>>\")\n  :PROPERTIES:\n  :CREATED: %U\n  :STYLE: habit\n  :END:\n")
+     ("h" "ðŸ”„ Habit" entry (file+headline "~/org/habits.org" "Habits")
+      "* ðŸ“¥ TODO %? :habit:\n  SCHEDULED: %(format-time-string \"%<<%Y-%m-%d %a .+1d>>\")\n  :PROPERTIES:\n  :CREATED: %U\n  :STYLE: habit\n  :END:\n")
 
-     ("g" "🎯 Goal" entry (file+headline "~/org/goals.org" "Goals")
-      "* 🎯 GOAL %? :goal:\n  DEADLINE: %(org-read-date nil nil \"+1y\")\n  :PROPERTIES:\n  :CREATED: %U\n  :TYPE: \n  :END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** 📥 TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
+     ("g" "ðŸŽ¯ Goal" entry (file+headline "~/org/goals.org" "Goals")
+      "* ðŸŽ¯ GOAL %? :goal:\n  DEADLINE: %(org-read-date nil nil \"+1y\")\n  :PROPERTIES:\n  :CREATED: %U\n  :TYPE: \n  :END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** ðŸ“¥ TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
 #+end_src
 
 ** Org Habit
@@ -1362,12 +1362,12 @@ advanced dynamic project task template.
   (org-habit-graph-column 60)
   (org-habit-show-habits-only-for-today t)
   (org-habit-pregraph-format "  ") ;; Corrected typo
-  (org-habit-graph-mature-star "✅")
-  (org-habit-graph-fresh-star "👌")
-  (org-habit-graph-ready-star "👍")
-  (org-habit-graph-early-star "🌱")
-  (org-habit-graph-late-star "👎")
-  (org-habit-graph-future-star "…"))
+  (org-habit-graph-mature-star "âœ…")
+  (org-habit-graph-fresh-star "ðŸ‘Œ")
+  (org-habit-graph-ready-star "ðŸ‘")
+  (org-habit-graph-early-star "ðŸŒ±")
+  (org-habit-graph-late-star "ðŸ‘Ž")
+  (org-habit-graph-future-star "â€¦"))
 #+end_src
 
 ** Evil Integration
@@ -2588,11 +2588,11 @@ and aesthetic ligatures.
   "Enable prettify-symbols-mode and add custom LaTeX ligatures."
   (prettify-symbols-mode 1)
   (mapc (lambda (rule) (push rule prettify-symbols-compose-rules))
-        '(("\\sum" . ?∑) ("\\int" . ?∫) ("\\in" . ?∈) ("\\forall" . ?∀)
-          ("\\exists" . ?∃) ("\\lambda" . ?λ) ("\\alpha" . ?α) ("\\beta" . ?β)
-          ("\\gamma" . ?γ) ("\\delta" . ?δ) ("\\epsilon" . ?ε) ("\\pi" . ?π)
-          ("\\rightarrow" . ?→) ("\\leftarrow" . ?←) ("\\Rightarrow" . ?⇒)
-          ("\\leq" . ?≤) ("\\geq" . ?≥))))
+        '(("\\sum" . ?âˆ‘) ("\\int" . ?âˆ«) ("\\in" . ?âˆˆ) ("\\forall" . ?âˆ€)
+          ("\\exists" . ?âˆƒ) ("\\lambda" . ?Î») ("\\alpha" . ?Î±) ("\\beta" . ?Î²)
+          ("\\gamma" . ?Î³) ("\\delta" . ?Î´) ("\\epsilon" . ?Îµ) ("\\pi" . ?Ï€)
+          ("\\rightarrow" . ?â†’) ("\\leftarrow" . ?â†) ("\\Rightarrow" . ?â‡’)
+          ("\\leq" . ?â‰¤) ("\\geq" . ?â‰¥))))
 (add-hook 'LaTeX-mode-hook #'ar/latex-prettify-symbols-setup)
 #+end_src
 
