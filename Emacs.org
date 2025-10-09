@@ -1,4 +1,4 @@
-#+TITLE: Emacs Configuration
+#+TITLE: Emacs CoNfiguration
 #+AUTHOR: Ahsanur Rahman
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
@@ -286,7 +286,6 @@ Automatically tangle our Emacs.org config file when we save it.
   (auto-package-update-at-time "10:00"))
 #+end_src
 
-
 * General Keybindings
 #+begin_src emacs-lisp
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
@@ -310,32 +309,27 @@ Automatically tangle our Emacs.org config file when we save it.
 ** Fonts
 This setup defines a robust function to find and set the best available font from a priority list. It prevents errors if a font is not installed and warns the user.
 #+begin_src emacs-lisp
-(defun ar/font-exists-p (font-name)
-  "Check if a font with FONT-NAME exists on the system."
-  (when (find-font (font-spec :name font-name))
-    font-name))
-
 (defun ar/set-fonts ()
-  "Set fonts for the current frame, using the first available Nerd Font."
-  (let* ((preferred-fonts '("JetBrainsMono Nerd Font"))
-         (available-font (cl-find-if #'ar/font-exists-p preferred-fonts)))
-    (if available-font
-        (progn
-          (set-face-attribute 'default nil :font available-font :height 140 :weight 'medium)
-          (set-face-attribute 'fixed-pitch nil :font available-font :height 140 :weight 'medium)
-          (set-face-attribute 'variable-pitch nil :font available-font :height 140 :weight 'medium)
-          ;; Apply italic slant to comments and keywords for visual distinction
-          (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
-          (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
-      (warn "Nerd Fonts not found. Please install JetBrainsMono, FiraCode, or Hack Nerd Font."))))
+  "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
+  (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font" :height 140 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrainsMono Nerd Font" :height 140 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrainsMono Nerd Font" :height 140 :weight 'medium)
+  ;; Apply italic slant to comments and keywords for visual distinction
+  (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
+  (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
 
 ;; Set fonts on startup and for new frames in daemon mode.
 (if (daemonp)
     (add-hook 'after-make-frame-functions (lambda (frame) (with-selected-frame frame (ar/set-fonts))))
   (ar/set-fonts))
-;; Uncomment the following line if line spacing needs adjusting.
-(setq-default line-spacing 0.01)
+
+;; Adjust line spacing for better readability.
+(setq-default line-spacing 0.02)
+
+;; Ensure full syntax highlighting decoration.
 (setq font-lock-maximum-decoration t)
+
+;; Inhibit font cache compaction for performance.
 (setq inhibit-compacting-font-caches t)
 #+end_src
 
@@ -1124,7 +1118,7 @@ appear, ensuring a consistent and predictable windowing layout.
   (org-babel-execution-completed-message nil)
   ;; Use the element cache for a significant performance boost in Org files.
   (org-element-use-cache t))
-#end_src
+#+end_src
 
 ** Babel & Structure Templates
 Configure code block execution and create handy shortcuts for inserting common structures.
@@ -2379,7 +2373,7 @@ and aesthetic ligatures.
            "\\documentclass{beamer}"
            ("\\section{%s}" . "\\section*{%s}")
            ("\\subsection{%s}" . "\\subsection*{%s}")) t))
-#end_src
+#+end_src
 
 ** Custom Snippets for Scientific Writing
 #+begin_src emacs-lisp
