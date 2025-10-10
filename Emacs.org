@@ -10,22 +10,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 ;;; init.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
 #+end_src
 
-** Package Management
-#+begin_src emacs-lisp
-(require 'package)
-
-(setq package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
-                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-                         ("melpa" . "https://melpa.org/packages/")))
-(package-initialize)
-(unless package-archive-contents
-  (package-refresh-contents))
-
-(require 'use-package)
-(setq use-package-always-ensure t
-      use-package-expand-minimally t)
-#+end_src
-
 ** General Behaviour
 #+begin_src emacs-lisp
 ;; Allow for shorter "y" or "n" responses.
@@ -108,22 +92,6 @@ This section incorporates the sensible defaults and settings from the minimal-em
 #+begin_src emacs-lisp
 (setq user-full-name "Ahsanur Rahman"
       user-mail-address "ahsanur041@proton.me")
-#+end_src
-
-** Custom Functions
-#+begin_src emacs-lisp
-(defun ar/reload-config ()
-  "Reload the Emacs configuration."
-  (interactive)
-  ;; Assuming config.org is the main configuration file and this config.el is tangled from it.
-  ;; If config.el is the primary config, change to: (load-file (expand-file-name "config.el" user-emacs-directory))
-  (let ((config-file "~/.config/emacs/init.el"))
-    (if (file-exists-p config-file)
-        (progn
-          (message "Reloading Emacs configuration from config.org...")
-          (org-babel-load-file config-file)
-          (message "Configuration reloaded successfully!"))
-      (error "Configuration file %s not found" config-file))))
 #+end_src
 
 ** Frame Title Formatting
@@ -270,20 +238,6 @@ Automatically tangle our Emacs.org config file when we save it.
       (org-babel-tangle))))
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
-#+end_src
-
-** Automatic Package Updates
-#+begin_src emacs-lisp
-(use-package auto-package-update
-  :custom
-  (auto-package-update-interval 4)
-  (auto-package-update-hide-results t)
-  (auto-package-update-delete-old-versions t)
-  :config
-  ;; Run package updates automatically at startup, but only if the configured
-  ;; interval has elapsed.
-  (auto-package-update-maybe)
-  (auto-package-update-at-time "10:00"))
 #+end_src
 
 * General Keybindings
@@ -680,15 +634,15 @@ appear, ensuring a consistent and predictable windowing layout.
 
 ** Combobulate
 #+begin_src emacs-lisp
-(use-package combobulate
-   :custom
-   ;; You can customize Combobulate's key prefix here.
-   ;; Note that you may have to restart Emacs for this to take effect!
-   (combobulate-key-prefix "C-c o")
-   :hook ((prog-mode . combobulate-mode))
-   ;; Amend this to the directory where you keep Combobulate's source
-   ;; code.
-   :load-path ("~/.config/emacs/lisp/combobulate"))
+;; (use-package combobulate
+;;    :custom
+;;    ;; You can customize Combobulate's key prefix here.
+;;    ;; Note that you may have to restart Emacs for this to take effect!
+;;    (combobulate-key-prefix "C-c o")
+;;    :hook ((prog-mode . combobulate-mode))
+;;    ;; Amend this to the directory where you keep Combobulate's source
+;;    ;; code.
+;;    :load-path ("~/.config/emacs/lisp/combobulate"))
 #+end_src
 ** Helpful
 *helpful* is an alternative to the built-in Emacs help that provides much more contextual information.
@@ -798,6 +752,7 @@ appear, ensuring a consistent and predictable windowing layout.
 (use-package vertico
   :hook (after-init . vertico-mode)
   :custom
+  (vertico-scroll-margin 3)
   (vertico-resize nil)
   (vertico-cycle t)
   (vertico-count 10))
@@ -877,12 +832,6 @@ appear, ensuring a consistent and predictable windowing layout.
   (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
-#+begin_comment
-;; MODIFICATION: The Corfu configuration has been updated.
-;; A smart TAB function is added to provide a robust manual completion trigger,
-;; which is necessary for the Jupyter workflow fix. The TAB binding in :map
-;; corfu-map has been removed as this new function handles all TAB logic.
-#+end_comment
 ** Corfu: The Core UI
 #+begin_src emacs-lisp
 (use-package corfu
@@ -1038,7 +987,6 @@ appear, ensuring a consistent and predictable windowing layout.
 ** Core Configuration
 #+begin_src emacs-lisp
 (use-package org
-  :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :hook
   ;; Hooks for org-mode itself.
@@ -1256,7 +1204,6 @@ advanced dynamic project task template.
 *Use dynamic directory*
 #+begin_src emacs-lisp
 (use-package org-capture
-  :ensure nil
   :after org
   :custom
   (org-capture-templates
@@ -1297,7 +1244,6 @@ advanced dynamic project task template.
 ** Org Habit
 #+begin_src emacs-lisp
 (use-package org-habit
-  :ensure nil
   :after org
   :custom
   (org-habit-graph-column 60)
@@ -1407,7 +1353,6 @@ This setup enhances the built-in Dired, turning it into a fast, modern, and feat
 
 ;; dired-x for additional functionality
 (use-package dired-x
-  :ensure nil
   :after dired
   :custom (dired-x-hands-off-my-keys nil)
   :config
@@ -1474,13 +1419,12 @@ language server from the PATH set by your direnv-managed environment. Boost
 Eglot performance using eglot booster
 #+begin_src emacs-lisp
 (use-package eglot
-  :ensure nil
   :defer t
-  :hook (prog-mode . eglot-ensure)
+  :hook ((prog-mode . eglot-ensure))
   :custom
   (eglot-autoshutdown t)
   (eglot-events-buffer-size 0)
-  ;;(eglot-extend-to-xref nil)
+  (eglot-extend-to-xref nil)
   (eglot-ignored-server-capabilities
    '(:hoverProvider
      :documentHighlightProvider
@@ -1492,7 +1436,6 @@ Eglot performance using eglot booster
   (eglot-stay-out-of '(yasnippet)))
 
 (use-package eglot-booster
-  :vc (:url "https://github.com/jdtsmith/eglot-booster" :branch main)
   :after eglot
   :config
   (eglot-booster-mode))
@@ -1597,17 +1540,27 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
 
 ** Tree-sitter for syntax highlighting
 #+begin_src emacs-lisp
+(use-package treesit
+  :
+  :when (and (fboundp 'treesit-available-p)
+             (treesit-available-p))
+  :custom
+  (treesit-font-lock-level 2)
+  :config
+  ;; Remap major modes to tree-sitter variants
+  (setq major-mode-remap-alist
+        '((python-mode . python-ts-mode)
+          (javascript-mode . js-ts-mode)
+          (typescript-mode . typescript-ts-mode)
+          (json-mode . json-ts-mode)
+          (latex-mode . latex-ts-mode)
+          (css-mode . css-ts-mode)
+          (yaml-mode . yaml-ts-mode)
+          (bash-mode . bash-ts-mode)
+          (rust-mode . rust-ts-mode)
+          (c-mode . c-ts-mode)
+          (c++-mode . c++-ts-mode))))
 
-(with-eval-after-load 'treesit
-  (add-to-list 'major-mode-remap-alist '(python-mode . python-ts-mode))
-  (add-to-list 'major-mode-remap-alist '(markdown-mode . markdown-ts-mode))
-  (add-to-list 'major-mode-remap-alist '(latex-mode . latex-ts-mode))
-  ;; Add any other languages you commonly use
-  ;; (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
-  ;; (add-to-list 'major-mode-remap-alist '(c++-mode . c++-ts-mode))
-  ;; (add-to-list 'major-mode-remap-alist '(js-mode . js-ts-mode))
-  ;; (add-to-list 'major-mode-remap-alist '(typescript-mode . typescript-ts-mode))
-  )
 
 (use-package treesit-fold
   :hook (treesit-auto-mode-hook . treesit-fold-mode))
@@ -1642,6 +1595,15 @@ This setup uses the built-in *flymake* for live diagnostics, enhanced by *flymak
             (lambda ()
               (interactive)
               (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
+#+end_src
+
+** Highlight Indent Guides
+#+begin_src emacs-lisp
+(use-package highlight-indent-guides
+  :hook (prog-mode . highlight-indent-guides-mode)
+  :custom
+  (highlight-indent-guides-method 'character)
+  (highlight-indent-guides-responsive 'top))
 #+end_src
 
 ** Keybindings
@@ -1679,11 +1641,6 @@ a single, authoritative source for type errors.
                '((python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
 #+end_src
 
-#+begin_comment
-;; MODIFICATION: The original jupyter-org-interaction-mode-hook has been
-;; moved to the Jupyter Notebooks section where it is more relevant. It has been
-;; replaced by the diagnostics setup for standard Python files here.
-#+end_comment
 ** Diagnostics: Flymake with Ruff, Mypy, and Bandit
 My configuration already includes *flymake-collection*, which provides checkers for many tools. Here, we create a hook to specifically enable the checkers for Ruff, Mypy, and Bandit in any Python buffer. This gives us a powerful, multi-layered diagnostic setup without installing any extra Emacs packages.
 #+begin_src emacs-lisp
@@ -1739,12 +1696,6 @@ start a debug session for the current Python file.
  "d p" '(ar/dape-debug-python-file :wk "Debug Python File"))
 #+end_src
 
-#+begin_comment
-;; MODIFICATION: This entire section has been rewritten and expanded.
-;; It now includes the robust configuration for a unified Jupyter and LSP
-;; workflow, including the fix for inline completion and the advanced logic
-;; for the C-c ' unified editing buffer.
-#+end_comment
 * Jupyter Notebooks
 This section integrates the Jupyter ecosystem into Emacs, providing a powerful,
 interactive environment for Python programming directly within Org mode. It
@@ -1754,8 +1705,6 @@ interactive REPLs.
 
 ** Core Setup
 #+begin_src emacs-lisp
-(use-package jupyter)
-
 (with-eval-after-load 'org
   ;; Explicitly load the jupyter language for Org Babel.
   (org-babel-do-load-languages
@@ -1891,8 +1840,7 @@ prefix for managing kernels and evaluating code from anywhere.
 *magit* is the central hub for all Git operations. This configuration ensures it works seamlessly with a full-frame UI and other packages.
 #+begin_src emacs-lisp
 (use-package magit
-  :init
-  (setq magit-auto-revert-mode nil)
+  :init (setq magit-auto-revert-mode nil)
   :commands (magit-status magit-blame)
   :custom
   ;; For a focused view, display the Magit status buffer in its own frame.
@@ -2122,102 +2070,12 @@ Opens the notes in a split window to the right."
   "s v" '(yas-visit-snippet-file :wk "visit snippet file"))
 #+end_src
 
-* Markdown Environment
-
-A production-ready setup for a modern Markdown workflow in Emacs 30. This
-configuration provides live rendering, a table of contents, superior code block highlighting, powerful table editing, linting, and auto-formatting, with
-intelligent conflict resolution and a robust loading order.
-
-** Core Markdown Mode with Tree-sitter and Enhancements
-This configures `markdown-mode` as the foundation. It is the core component
-that all other Markdown packages will depend on.
-#+begin_src emacs-lisp
-(use-package markdown-mode
-  :commands (markdown-mode gfm-mode)
-  :mode (("\\.md\\'" . gfm-mode)
-         ("\\.markdown\\'" . gfm-mode))
-  :init
-  :config
-  ;; Fontify code blocks using their native major modes for rich highlighting.
-  (setq markdown-fontify-code-blocks-natively t)
-
-  ;; Define keybindings for both standard and Tree-sitter modes,
-  ;; ensuring the keymap variables exist before trying to modify them.
-  (dolist (m-map '(markdown-ts-mode-map))
-    (when (boundp m-map)
-      (let ((map (symbol-value m-map)))
-        (define-key map (kbd "C-c C-b") #'markdown-toggle-bold)
-        (define-key map (kbd "C-c C-s") #'markdown-toggle-italic)
-        (define-key map (kbd "C-c C-q") #'markdown-toggle-blockquote)
-        (define-key map (kbd "C-c C-l") #'markdown-insert-link)
-        (define-key map (kbd "C-c C-i") #'markdown-insert-image)
-        (define-key map (kbd "C-c t") #'markdown-edit-table)
-        (define-key map (kbd "C-c p") #'markdown-open)
-        (define-key map (kbd "C-c o") #'imenu-list-smart-toggle))))
-
-  (add-hook 'markdown-ts-mode-hook #'treesit-fold-mode))
-#+end_src
-
-** Live In-Buffer Rendering with *md-roam*
-This package provides "website-like" rendering. It depends on `markdown-mode`.
-#+begin_src emacs-lisp
-(use-package md-roam
-  :vc (:url "https://github.com/nobiot/md-roam" :branch main)
-  :after markdown-mode
-  :hook (markdown-ts-mode . md-roam-mode)
-  :config
-  (with-eval-after-load 'markdown-mode
-    (advice-add #'markdown-indent-line :before-until #'completion-at-point))
-
-  (defun ar/configure-md-roam-faces ()
-    "Set md-roam faces to match theme and resolve font conflicts."
-    (setq-local markdown-fontify-code-blocks-natively nil)
-    (set-face-attribute 'md-roam-h1-face nil :foreground "#7aa2f7" :height 1.4 :weight 'bold)
-    (set-face-attribute 'md-roam-h2-face nil :foreground "#73daca" :height 1.3 :weight 'bold)
-    (set-face-attribute 'md-roam-h3-face nil :foreground "#bb9af7" :height 1.2 :weight 'bold)
-    (set-face-attribute 'md-roam-h4-face nil :foreground "#e0af68" :height 1.1 :weight 'bold)
-    (set-face-attribute 'md-roam-h5-face nil :foreground "#ff9e64" :height 1.0 :weight 'bold)
-    (set-face-attribute 'md-roam-h6-face nil :foreground "#c0caf5" :height 1.0 :weight 'bold)
-    (set-face-attribute 'md-roam-code-face nil :background "#2f3c22")
-    (set-face-attribute 'md-roam-blockquote-face nil :slant 'italic :foreground "#565f89"))
-  (add-hook 'md-roam-mode-hook #'ar/configure-md-roam-faces))
-#+end_src
-
-** Table of Contents Sidebar with *imenu-list*
-Provides a dynamic, clickable table of contents for easy navigation.
-#+begin_src emacs-lisp
-(use-package imenu-list
-  :after markdown-mode
-  :config
-  (setq imenu-list-focus-after-activation t
-        imenu-list-auto-update t))
-#+end_src
-
-** Live Linting with *flymake-markdownlint*
-Integrates *markdownlint* with Flymake for on-the-fly style checking.
-#+begin_src emacs-lisp
-(use-package flymake-markdownlint
-  :after markdown-mode
-  :hook (markdown-ts-mode . flymake-markdownlint-enable))
-#+end_src
-
-** Auto-formatting with Apheleia
-This configures *apheleia* to use *prettier* for auto-formatting.
-#+begin_src emacs-lisp
-(with-eval-after-load 'apheleia
-  (setf (alist-get 'gfm-mode apheleia-formatters)
-        '("prettier" "--prose-wrap" "always"))
-  (setf (alist-get 'markdown-ts-mode apheleia-formatters)
-        '("prettier" "--prose-wrap" "always")))
-#+end_src
-
 * LaTeX Writing Environment
 This provides a complete scientific writing environment for both *.tex* and *.org* files. It integrates *AUCTeX* for core editing, *Tectonic* as the compiler, and a multi-layered system for completion, diagnostics, formatting, and a streamlined Zotero-based citation workflow.
 ** Core Backend: AUCTeX and Tectonic
 This configures the foundational packages. *AUCTeX* is the primary editing environment, enhanced with *Tectonic* as the default compiler for its modern, all-in-one approach.
 #+begin_src emacs-lisp
 (use-package tex
-  :ensure auctex
   :defer t
   :config
   ;; Set the default TeX engine to Tectonic.
@@ -2285,7 +2143,6 @@ This configures *apheleia* to use the *latexindent* tool for formatting, ensurin
 ** Citation Ecosystem: Citar and Zotero
 This section configures a streamlined citation workflow centered around **Citar** and Zotero. It removes redundant packages for a simpler, more powerful setup.
 #+begin_src emacs-lisp
-;; RefTeX is still useful for non-citation references (labels, etc.).
 (use-package reftex
   :ensure nil
   :after tex
@@ -2326,8 +2183,6 @@ This section configures a streamlined citation workflow centered around **Citar*
 This section improves the interactive writing experience with faster math input
 and aesthetic ligatures.
 #+begin_src emacs-lisp
-(use-package math-symbol-lists)
-
 (use-package cdlatex
   :hook (LaTeX-mode . cdlatex-mode))
 
@@ -2345,7 +2200,7 @@ and aesthetic ligatures.
           ("\\rightarrow" . ?→) ("\\leftarrow" . ?←) ("\\Rightarrow" . ?⇒)
           ("\\leq" . ?≤) ("\\geq" . ?≥))))
 (add-hook 'LaTeX-mode-hook #'ar/latex-prettify-symbols-setup)
-#end_src
+#+end_src
 
 ** Org Mode Integration
 #+begin_src emacs-lisp
