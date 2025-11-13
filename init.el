@@ -921,42 +921,49 @@ Runs `doom-escape-hook' before quitting."
     "j l" '(jinx-languages :wk "Select language")
     "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer")))
 
-;; This function provides a more robust way to quit the minibuffer
-;; and clean up any *Completions* buffers, addressing the M-x ESC issue.
-(defun ar/minibuffer-quit ()
+;; Enable evil-collection's minibuffer setup
+(setq evil-collection-setup-minibuffer t)
+
+;; Core escape function for minibuffer
+(defun ar/minibuffer-keyboard-quit ()
   "Abort recursive edit and clean up completion windows."
   (interactive)
-  ;; Explicitly kill the completions window first, if it exists
-  (when (get-buffer-window "*Completions*")
-    (delete-window (get-buffer-window "*Completions*")))
-  
-  ;; If the mark is active in delete-selection-mode, just deactivate it.
   (if (and delete-selection-mode transient-mark-mode mark-active)
-      (setq deactivate-mark  t)
-    ;; Otherwise, abort the recursive edit (exit the minibuffer)
+      (setq deactivate-mark t)
+    (when (get-buffer "*Completions*")
+      (delete-windows-on "*Completions*"))
     (abort-recursive-edit)))
 
-
-;; This custom escape command also clears search highlights for evil-mode.
+;; Escape function for clearing evil search highlights
 (defun my/escape-key ()
-  "Clear evil search highlight and then quit."
+  "Clear evil search highlight and quit."
   (interactive)
-  (evil-ex-nohighlight)
+  (when (bound-and-true-p evil-mode)
+    (evil-ex-nohighlight))
   (keyboard-quit))
 
+;; Bind escape in normal/visual states
 (general-define-key
  :keymaps '(normal visual global)
  [escape] #'my/escape-key)
 
-;; In the minibuffer, ESC should call the custom quit function
-(general-define-key
- :keymaps '(minibuffer-local-map
-            minibuffer-local-ns-map
-            minibuffer-local-completion-map
-            minibuffer-local-must-match-map
-            minibuffer-local-isearch-map
-            evil-mode-minibuffer-map)
- [escape] #'ar/minibuffer-quit)
+;; Bind escape in ALL minibuffer keymaps
+(define-key minibuffer-local-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-ns-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-completion-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-must-match-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-isearch-map [escape] #'ar/minibuffer-keyboard-quit)
+
+;; CRITICAL: Bind escape in vertico-map (this is what was missing!)
+(with-eval-after-load 'vertico
+  (define-key vertico-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit))
+
+;; Also handle evil's own minibuffer maps
+(with-eval-after-load 'evil
+  (when (boundp 'evil-ex-completion-map)
+    (define-key evil-ex-completion-map [escape] #'ar/minibuffer-keyboard-quit))
+  (when (boundp 'evil-ex-search-keymap)
+    (define-key evil-ex-search-keymap [escape] #'ar/minibuffer-keyboard-quit)))
 
 (defun ar/deadgrep-fix-buffer-advice (fun &rest args)
   (let ((buf (apply fun args)))
