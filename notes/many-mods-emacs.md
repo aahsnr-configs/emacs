@@ -124,8 +124,8 @@ The default flavor is Mocha, and you can set the flavor with `setq catppuccin-fl
 
   ;; Set distinct colors for bold and italic using Catppuccin Mocha colors
   (custom-set-faces
-   '(bold ((t (:foreground "#89b4fa" :weight bold))))      ; Blue
-   '(italic ((t (:foreground "#cba6f7" :slant italic)))))) ; Mauve
+   '(bold ((t (:foreground "#f5e0dc" :weight bold))))      ; Blue
+   '(italic ((t (:foreground "#f38ba8" :slant italic)))))) ; Mauve
 #+end_src
 ```
 
