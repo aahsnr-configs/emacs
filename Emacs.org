@@ -167,7 +167,7 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 (setq ad-redefinition-action 'accept)
 
 ;; Move Custom-Set-Variables to Different File
-(setq custom-file (concat user-emacs-directory "custom-set-variables.el"))
+(setq custom-file (concat user-emacs-directory "custom.el"))
 (load custom-file 'noerror)
 
 ;; So Long mitigates slowness due to extremely long lines.
@@ -183,6 +183,10 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 
 ;; Enable `erase-buffer' function
 (put 'erase-buffer 'disabled nil)
+
+;; Enable `hl-line-mode` globally
+(global-hl-line-mode 1)
+
 
 ;; Default .args, .in, .out files to text-mode
 (add-to-list 'auto-mode-alist '("\\.in\\'" . text-mode))
@@ -311,16 +315,8 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   (easysession-save-interval (* 10 60))  ; Save every 10 minutes
 
   :init
-  ;; Key mappings:
-  ;; C-c l for switching sessions
-  ;; and C-c s for saving the current session
   (global-set-key (kbd "C-c l") 'easysession-switch-to)
   (global-set-key (kbd "C-c s") 'easysession-save-as)
-
-  ;; The depth 102 and 103 have been added to to `add-hook' to ensure that the
-  ;; session is loaded after all other packages. (Using 103/102 is particularly
-  ;; useful for those using minimal-emacs.d, where some optimizations restore
-  ;; `file-name-handler-alist` at depth 101 during `emacs-startup-hook`.)
   (add-hook 'emacs-startup-hook #'easysession-load-including-geometry 102)
   (add-hook 'emacs-startup-hook #'easysession-save-mode 103))
 #+end_src
@@ -363,9 +359,9 @@ This setup defines a robust function to find and set the best available font fro
 #+begin_src emacs-lisp
 (defun ar/set-fonts ()
   "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
-  (set-face-attribute 'default nil :font "CaskaydiaCove Nerd Font" :height 130 :weight 'regular)
-  (set-face-attribute 'fixed-pitch nil :font "CaskaydiaCove Nerd Font" :height 130 :weight 'regular)
-  (set-face-attribute 'variable-pitch nil :font "CaskaydiaCove Nerd Font" :height 130 :weight 'regular)
+  (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
   ;; Apply italic slant to comments and keywords for visual distinction
   (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
   (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
@@ -419,7 +415,7 @@ Enable line numbers for some modes
 #+begin_src emacs-lisp
 (use-package nerd-icons
   :custom
-  (nerd-icons-font-family "CaskaydiaCove Nerd Font")
+  (nerd-icons-font-family "Symbols Nerd Font")
   (nerd-icons-color-icons t))
 #+end_src
 
@@ -511,7 +507,6 @@ Enable line numbers for some modes
 =what do the comments mean=
 #+begin_src emacs-lisp
 (setq evil-undo-system 'undo-fu)
-
 
 (use-package evil
   :init
@@ -1297,228 +1292,19 @@ The original function deletes trailing whitespace of the current line."
 ** Smooth Scrolling
 
 #+begin_src emacs-lisp
-;; Vertical Scroll
-(setq scroll-step 1)
-(setq scroll-margin 1)
-(setq scroll-conservatively 101)
-(setq scroll-up-aggressively 0.01)
-(setq scroll-down-aggressively 0.01)
-(setq auto-window-vscroll nil)
-(setq fast-but-imprecise-scrolling nil)
-(setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
-(setq mouse-wheel-progressive-speed nil)
-;; Horizontal Scroll
-(setq hscroll-step 1)
-(setq hscroll-margin 1)
-#+end_src
-
-* Popup Management System
-** Shackle: Display Rules
-#+begin_src emacs-lisp
-(use-package shackle
-  :init
-  (setq shackle-default-alignment 'below
-        shackle-default-size 0.4
-        shackle-select-reused-windows nil
-        shackle-inhibit-window-quit-on-same-windows nil
-        shackle-default-window-parameters '((mode-line-format . nil)))
-
-  :config
-  ;; Define popup rules matching Doom Emacs patterns
-  (setq shackle-rules
-        '(;; Fallback rule for special buffers (those starting with space or *)
-          ("^\\*[Hh]elp" :select t :size 0.35 :align below :popup t)
-          ("^\\*info" :select t :size 0.4 :align below :popup t)
-          ("^\\*Man" :select t :size 0.45 :align below :popup t)
-          ("^\\*WoMan" :select t :size 0.45 :align below :popup t)
-
-          ;; Compilation and messages
-          ("^\\*compilation\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Compile-Log\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Messages\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Warnings\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Backtrace\\*" :select t :size 0.4 :align below :popup t)
-
-          ;; Shell and terminal
-          ("^\\*shell\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*eshell\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*term\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*vterm" :select t :size 0.35 :align below :popup t)
-
-          ;; Org mode
-          ("^\\*Org Src" :select t :size 0.5 :align right :popup t)
-          ("^\\*Org Agenda\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Agenda Commands\\*" :select t :size 0.4 :align below :popup t)
-          ("^CAPTURE-.*\\.org" :regexp t :select t :size 0.4 :align below :popup t)
-          ("^\\*Org Select\\*" :select t :size 0.3 :align below :popup t)
-
-          ;; Magit (Removed specific Magit mode rules as Magit handles display)
-          ("^magit-revision:" :regexp t :select t :size 0.6 :align below :popup t)
-          ("^magit:" :regexp t :select t :size 0.7 :align below :popup t)
-
-          ;; Development tools
-          ("^\\*Flycheck errors\\*" :select t :size 0.3 :align below :popup t)
-          ("^\\*lsp-help\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*eldoc" :select nil :size 0.3 :align below :popup t)
-          ("^\\*xref\\*" :select t :size 0.3 :align below :popup t)
-
-          ;; LSP Bridge
-          ("^\\*lsp-bridge" :select nil :size 0.35 :align below :popup t)
-
-          ;; Debugger (dape)
-          ("^\\*dape-repl" :select nil :size 0.35 :align below :popup t)
-          ("^\\*dape-info" :select nil :size 0.35 :align right :popup t)
-
-          ;; Grep, occur, deadgrep
-          ("^\\*grep\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Occur\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*deadgrep" :select t :size 0.4 :align below :popup t)
-
-          ;; Completion
-          ("^\\*Completions\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Embark Actions\\*" :select t :size 0.3 :align below :popup t)
-          ("^\\*Embark Collect" :select t :size 0.5 :align below :popup t)
-
-          ;; Miscellaneous
-          ("^\\*Apropos\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Bookmark List\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Calculator\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Calc" :select t :size 0.4 :align below :popup t)
-          ("^\\*Colors\\*" :select t :size 0.3 :align below :popup t)
-          ("^\\*undo-tree\\*" :select t :size 0.3 :align right :popup t)
-
-          ;; PDF Tools and Org Noter
-          ("^\\*Outline" :select nil :size 0.3 :align right :popup t)
-
-          ;; Jupyter and EIN
-          ("^\\*ein:notebooklist" :select t :size 0.5 :align below :popup t)
-          ("^\\*ob-async" :select nil :size 0.3 :align below :popup t)
-
-          ;; Proced
-          (proced-mode :select t :size 0.5 :align below)
-
-          ;; Deft
-          (deft-mode :select t :same t)))
-
-  ;; Enable shackle mode
-  (shackle-mode 1))
-#+end_src
-
-** Popper: Quick Popup Access
-#+begin_src emacs-lisp
-(use-package popper
-  :bind (("C-`" . popper-toggle)
-         ("M-`" . popper-cycle)
-         ("C-M-`" . popper-toggle-type))
-
-  :init
-  (setq popper-reference-buffers
-        '("\\*Messages\\*"
-          "\\*Warnings\\*"
-          "\\*Backtrace\\*"
-          "Output\\*$"
-          "\\*Async Shell Command\\*"
-          "^\\*eshell.*\\*$" eshell-mode
-          "^\\*shell.*\\*$" shell-mode
-          "^\\*term.*\\*$" term-mode
-          "^\\*vterm.*\\*$" vterm-mode
-          help-mode
-          helpful-mode
-          compilation-mode
-          "^\\*Completions\\*"
-          "^\\*Occur\\*"
-          "^\\*grep\\*"
-          "^\\*deadgrep"
-          "^\\*Flycheck errors\\*"
-          "^\\*eldoc"
-          "^\\*xref\\*"
-          "^\\*lsp-help\\*"
-          "^\\*lsp-bridge"
-          "^\\*dape-repl"
-          "^\\*Embark"
-          "^\\*Org Agenda\\*"))
-
-  (setq popper-group-function #'popper-group-by-project)
-
-  :config
-  (popper-mode 1)
-  (popper-echo-mode 1)
-  (setq popper-display-control t)
-  (setq popper-display-function nil))
-#+end_src
-
-** Popup Utilities and Keybindings
-#+begin_src emacs-lisp
-(defun ar/popup-close-all ()
-  "Close all popup windows."
-  (interactive)
-  (dolist (window (window-list))
-    (when (window-parameter window 'popup)
-      (delete-window window)))
-  ;; Also close popper popups
-  (when (bound-and-true-p popper-mode)
-    (popper-close-all)))
-
-(defun ar/popup-raise ()
-  "Raise (show) the last popup window."
-  (interactive)
-  (if (bound-and-true-p popper-mode)
-      (popper-toggle)
-    (message "No popup system active")))
-
-(defun ar/popup-toggle-messages ()
-  "Toggle the *Messages* buffer as a popup."
-  (interactive)
-  (let ((buf (get-buffer "*Messages*")))
-    (if buf
-        (if (get-buffer-window buf)
-            (delete-window (get-buffer-window buf))
-          (display-buffer buf))
-      (message "No *Messages* buffer"))))
-
-;; Evil integration: close popups with ESC
-(with-eval-after-load 'evil
-  (defun ar/popup-close-on-escape ()
-    "Close popup windows when pressing ESC.
-Returns t if a popup was closed, nil otherwise."
-    (cond
-     ;; If current buffer is a popper popup, close it
-     ((and (bound-and-true-p popper-mode)
-           (popper-popup-p (current-buffer)))
-      (popper-close-latest)
-      t)
-
-     ;; If there are any open popper popups, close the latest one
-     ((and (bound-and-true-p popper-mode)
-           popper-open-popup-alist)
-      (popper-close-latest)
-      t)
-
-     ;; Close shackle popups by window parameter
-     ((seq-find (lambda (win)
-                  (window-parameter win 'popup))
-		(window-list))
-      (delete-window (seq-find (lambda (win)
-				 (window-parameter win 'popup))
-                               (window-list)))
-      t)
-
-     ;; No popup to close
-     (t nil)))
-
-  ;; Add to doom-escape-hook
-  (add-hook 'doom-escape-hook #'ar/popup-close-on-escape))
-
-;; Keybindings
-(ar/global-leader
-  "w p" '(:ignore t :wk "popup")
-  "w p t" '(popper-toggle :wk "Toggle Latest Popup")
-  "w p c" '(popper-cycle :wk "Cycle Popups")
-  "w p T" '(popper-toggle-type :wk "Toggle Popup Type")
-  "w p k" '(popper-kill-latest-popup :wk "Kill Latest Popup")
-  "w p K" '(ar/popup-close-all :wk "Close All Popups")
-  "w p r" '(ar/popup-raise :wk "Raise Last Popup")
-  "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages"))
+;; ;; Vertical Scroll
+;; (setq scroll-step 1)
+;; (setq scroll-margin 1)
+;; (setq scroll-conservatively 101)
+;; (setq scroll-up-aggressively 0.01)
+;; (setq scroll-down-aggressively 0.01)
+;; (setq auto-window-vscroll nil)
+;; (setq fast-but-imprecise-scrolling nil)
+;; (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+;; (setq mouse-wheel-progressive-speed nil)
+;; ;; Horizontal Scroll
+;; (setq hscroll-step 1)
+;; (setq hscroll-margin 1)
 #+end_src
 
 * Completion Framework
@@ -1806,7 +1592,7 @@ then it takes a second invocation to abort the minibuffer."
                   (org-level-6 . 1.03)
                   (org-level-7 . 1.02)
                   (org-level-8 . 1)))
-    (set-face-attribute (car face) nil :font "CaskaydiaCove Nerd Font" :weight 'bold :height (cdr face))))
+    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
 #+end_src
 
 ** Core Configuration
@@ -3020,6 +2806,107 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
   "p y" '(my/project-find-py-file :wk "Find .py"))
 #+end_src
 
+** Treemacs
+#+begin_src emacs-lisp
+(use-package treemacs
+  :commands (treemacs
+             treemacs-select-window
+             treemacs-delete-other-windows
+             treemacs-select-directory
+             treemacs-bookmark
+             treemacs-find-file
+             treemacs-find-tag)
+
+  :bind
+  (:map global-map
+        ("M-0"       . treemacs-select-window)
+        ("C-x t 1"   . treemacs-delete-other-windows)
+        ("C-x t t"   . treemacs)
+        ("C-x t d"   . treemacs-select-directory)
+        ("C-x t B"   . treemacs-bookmark)
+        ("C-x t C-t" . treemacs-find-file)
+        ("C-x t M-t" . treemacs-find-tag))
+
+  :init
+  (with-eval-after-load 'winum
+    (define-key winum-keymap (kbd "M-0") #'treemacs-select-window))
+
+  :config
+  (setq treemacs-collapse-dirs                   (if treemacs-python-executable 3 0)
+        treemacs-deferred-git-apply-delay        0.5
+        treemacs-directory-name-transformer      #'identity
+        treemacs-display-in-side-window          t
+        treemacs-eldoc-display                   'simple
+        treemacs-file-event-delay                2000
+        treemacs-file-extension-regex            treemacs-last-period-regex-value
+        treemacs-file-follow-delay               0.2
+        treemacs-file-name-transformer           #'identity
+        treemacs-follow-after-init               t
+        treemacs-expand-after-init               t
+        treemacs-find-workspace-method           'find-for-file-or-pick-first
+        treemacs-git-command-pipe                ""
+        treemacs-goto-tag-strategy               'refetch-index
+        treemacs-header-scroll-indicators        '(nil . "^^^^^^")
+        treemacs-hide-dot-git-directory          t
+        treemacs-indentation                     2
+        treemacs-indentation-string              " "
+        treemacs-is-never-other-window           t ; fix treemacs at bottom
+        treemacs-max-git-entries                 5000
+        treemacs-missing-project-action          'ask
+        treemacs-move-files-by-mouse-dragging    t
+        treemacs-move-forward-on-expand          nil
+        treemacs-no-png-images                   nil
+        treemacs-no-delete-other-windows         t
+        treemacs-project-follow-cleanup          nil
+        treemacs-persist-file                    (expand-file-name ".cache/treemacs-persist" user-emacs-directory)
+        treemacs-position                        'left
+        treemacs-read-string-input               'from-child-frame
+        treemacs-recenter-distance               0.1
+        treemacs-recenter-after-file-follow      nil
+        treemacs-recenter-after-tag-follow       nil
+        treemacs-recenter-after-project-jump     'always
+        treemacs-recenter-after-project-expand   'on-distance
+        treemacs-litter-directories              '("/node_modules" "/.venv" "/.cask")
+        treemacs-project-follow-into-home        nil
+        treemacs-show-cursor                     nil
+        treemacs-show-hidden-files               t
+        treemacs-silent-filewatch                nil
+        treemacs-silent-refresh                  nil
+        treemacs-sorting                         'alphabetic-asc
+        treemacs-select-when-already-in-treemacs 'move-back
+        treemacs-space-between-root-nodes        t
+        treemacs-tag-follow-cleanup              t
+        treemacs-tag-follow-delay                1.5
+        treemacs-text-scale                      nil
+        treemacs-user-mode-line-format           nil
+        treemacs-user-header-line-format         nil
+        treemacs-wide-toggle-width               70
+        treemacs-width                           35
+        treemacs-width-increment                 1
+        treemacs-width-is-initially-locked       t
+        treemacs-workspace-switch-cleanup        nil)
+
+  ;; The default width and height of the icons is 22 pixels. If you are
+  ;; using a Hi-DPI display, uncomment this to double the icon size.
+  ;; (treemacs-resize-icons 44)
+
+  (treemacs-follow-mode t)
+  (treemacs-filewatch-mode t)
+  (treemacs-fringe-indicator-mode 'always)
+
+  ;;(when treemacs-python-executable
+  ;;  (treemacs-git-commit-diff-mode t))
+
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null treemacs-python-executable)))
+    (`(t . t)
+     (treemacs-git-mode 'deferred))
+    (`(t . _)
+     (treemacs-git-mode 'simple)))
+
+  (treemacs-hide-gitignored-files-mode nil))
+#+end_src
+
 ** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
@@ -3655,6 +3542,215 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
                          ("cite" "\\cite{${1:key}}$0" "cite")
                          ("ref" "\\ref{${1:label}}$0" "reference")
                            ("eqref" "\\eqref{${1:eq:label}}$0" "equation reference"))))
+#+end_src
+
+* Popup Management System
+** Shackle: Display Rules
+#+begin_src emacs-lisp
+;; (use-package shackle
+;;   :init
+;;   (setq shackle-default-alignment 'below
+;;         shackle-default-size 0.4
+;;         shackle-select-reused-windows nil
+;;         shackle-inhibit-window-quit-on-same-windows nil
+;;         shackle-default-window-parameters '((mode-line-format . nil)))
+
+;;   :config
+;;   ;; Define popup rules matching Doom Emacs patterns
+;;   (setq shackle-rules
+;;         '(;; Fallback rule for special buffers (those starting with space or *)
+;;           ("^\\*[Hh]elp" :select t :size 0.35 :align below :popup t)
+;;           ("^\\*info" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Man" :select t :size 0.45 :align below :popup t)
+;;           ("^\\*WoMan" :select t :size 0.45 :align below :popup t)
+
+;;           ;; Compilation and messages
+;;           ("^\\*compilation\\*" :select nil :size 0.3 :align below :popup t)
+;;           ("^\\*Compile-Log\\*" :select nil :size 0.3 :align below :popup t)
+;;           ("^\\*Messages\\*" :select nil :size 0.3 :align below :popup t)
+;;           ("^\\*Warnings\\*" :select nil :size 0.3 :align below :popup t)
+;;           ("^\\*Backtrace\\*" :select t :size 0.4 :align below :popup t)
+
+;;           ;; Shell and terminal
+;;           ("^\\*shell\\*" :select t :size 0.35 :align below :popup t)
+;;           ("^\\*eshell\\*" :select t :size 0.35 :align below :popup t)
+;;           ("^\\*term\\*" :select t :size 0.35 :align below :popup t)
+;;           ("^\\*vterm" :select t :size 0.35 :align below :popup t)
+
+;;           ;; Org mode
+;;           ("^\\*Org Src" :select t :size 0.5 :align right :popup t)
+;;           ("^\\*Org Agenda\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Agenda Commands\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^CAPTURE-.*\\.org" :regexp t :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Org Select\\*" :select t :size 0.3 :align below :popup t)
+
+;;           ;; Magit (Removed specific Magit mode rules as Magit handles display)
+;;           ("^magit-revision:" :regexp t :select t :size 0.6 :align below :popup t)
+;;           ("^magit:" :regexp t :select t :size 0.7 :align below :popup t)
+
+;;           ;; Development tools
+;;           ("^\\*Flycheck errors\\*" :select t :size 0.3 :align below :popup t)
+;;           ("^\\*lsp-help\\*" :select t :size 0.35 :align below :popup t)
+;;           ("^\\*eldoc" :select nil :size 0.3 :align below :popup t)
+;;           ("^\\*xref\\*" :select t :size 0.3 :align below :popup t)
+
+;;           ;; LSP Bridge
+;;           ("^\\*lsp-bridge" :select nil :size 0.35 :align below :popup t)
+
+;;           ;; Debugger (dape)
+;;           ("^\\*dape-repl" :select nil :size 0.35 :align below :popup t)
+;;           ("^\\*dape-info" :select nil :size 0.35 :align right :popup t)
+
+;;           ;; Grep, occur, deadgrep
+;;           ("^\\*grep\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Occur\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*deadgrep" :select t :size 0.4 :align below :popup t)
+
+;;           ;; Completion
+;;           ("^\\*Completions\\*" :select nil :size 0.3 :align below :popup t)
+;;           ("^\\*Embark Actions\\*" :select t :size 0.3 :align below :popup t)
+;;           ("^\\*Embark Collect" :select t :size 0.5 :align below :popup t)
+
+;;           ;; Miscellaneous
+;;           ("^\\*Apropos\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Bookmark List\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Calculator\\*" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Calc" :select t :size 0.4 :align below :popup t)
+;;           ("^\\*Colors\\*" :select t :size 0.3 :align below :popup t)
+;;           ("^\\*undo-tree\\*" :select t :size 0.3 :align right :popup t)
+
+;;           ;; PDF Tools and Org Noter
+;;           ("^\\*Outline" :select nil :size 0.3 :align right :popup t)
+
+;;           ;; Jupyter and EIN
+;;           ("^\\*ein:notebooklist" :select t :size 0.5 :align below :popup t)
+;;           ("^\\*ob-async" :select nil :size 0.3 :align below :popup t)
+
+;;           ;; Proced
+;;           (proced-mode :select t :size 0.5 :align below)
+
+;;           ;; Deft
+;;           (deft-mode :select t :same t)))
+
+;;   ;; Enable shackle mode
+;;   (shackle-mode 1))
+#+end_src
+
+** Popper: Quick Popup Access
+#+begin_src emacs-lisp
+;; (use-package popper
+;;   :bind (("C-`" . popper-toggle)
+;;          ("M-`" . popper-cycle)
+;;          ("C-M-`" . popper-toggle-type))
+
+;;   :init
+;;   (setq popper-reference-buffers
+;;         '("\\*Messages\\*"
+;;           "\\*Warnings\\*"
+;;           "\\*Backtrace\\*"
+;;           "Output\\*$"
+;;           "\\*Async Shell Command\\*"
+;;           "^\\*eshell.*\\*$" eshell-mode
+;;           "^\\*shell.*\\*$" shell-mode
+;;           "^\\*term.*\\*$" term-mode
+;;           "^\\*vterm.*\\*$" vterm-mode
+;;           help-mode
+;;           helpful-mode
+;;           compilation-mode
+;;           "^\\*Completions\\*"
+;;           "^\\*Occur\\*"
+;;           "^\\*grep\\*"
+;;           "^\\*deadgrep"
+;;           "^\\*Flycheck errors\\*"
+;;           "^\\*eldoc"
+;;           "^\\*xref\\*"
+;;           "^\\*lsp-help\\*"
+;;           "^\\*lsp-bridge"
+;;           "^\\*dape-repl"
+;;           "^\\*Embark"
+;;           "^\\*Org Agenda\\*"))
+
+;;   (setq popper-group-function #'popper-group-by-project)
+
+;;   :config
+;;   (popper-mode 1)
+;;   (popper-echo-mode 1)
+;;   (setq popper-display-control t)
+;;   (setq popper-display-function nil))
+#+end_src
+
+** Popup Utilities and Keybindings
+#+begin_src emacs-lisp
+;; (defun ar/popup-close-all ()
+;;   "Close all popup windows."
+;;   (interactive)
+;;   (dolist (window (window-list))
+;;     (when (window-parameter window 'popup)
+;;       (delete-window window)))
+;;   ;; Also close popper popups
+;;   (when (bound-and-true-p popper-mode)
+;;     (popper-close-all)))
+
+;; (defun ar/popup-raise ()
+;;   "Raise (show) the last popup window."
+;;   (interactive)
+;;   (if (bound-and-true-p popper-mode)
+;;       (popper-toggle)
+;;     (message "No popup system active")))
+
+;; (defun ar/popup-toggle-messages ()
+;;   "Toggle the *Messages* buffer as a popup."
+;;   (interactive)
+;;   (let ((buf (get-buffer "*Messages*")))
+;;     (if buf
+;;         (if (get-buffer-window buf)
+;;             (delete-window (get-buffer-window buf))
+;;           (display-buffer buf))
+;;       (message "No *Messages* buffer"))))
+
+;; ;; Evil integration: close popups with ESC
+;; (with-eval-after-load 'evil
+;;   (defun ar/popup-close-on-escape ()
+;;     "Close popup windows when pressing ESC.
+;; Returns t if a popup was closed, nil otherwise."
+;;     (cond
+;;      ;; If current buffer is a popper popup, close it
+;;      ((and (bound-and-true-p popper-mode)
+;;            (popper-popup-p (current-buffer)))
+;;       (popper-close-latest)
+;;       t)
+
+;;      ;; If there are any open popper popups, close the latest one
+;;      ((and (bound-and-true-p popper-mode)
+;;            popper-open-popup-alist)
+;;       (popper-close-latest)
+;;       t)
+
+;;      ;; Close shackle popups by window parameter
+;;      ((seq-find (lambda (win)
+;;                   (window-parameter win 'popup))
+;; 		(window-list))
+;;       (delete-window (seq-find (lambda (win)
+;; 				 (window-parameter win 'popup))
+;;                                (window-list)))
+;;       t)
+
+;;      ;; No popup to close
+;;      (t nil)))
+
+;;   ;; Add to doom-escape-hook
+;;   (add-hook 'doom-escape-hook #'ar/popup-close-on-escape))
+
+;; ;; Keybindings
+;; (ar/global-leader
+;;   "w p" '(:ignore t :wk "popup")
+;;   "w p t" '(popper-toggle :wk "Toggle Latest Popup")
+;;   "w p c" '(popper-cycle :wk "Cycle Popups")
+;;   "w p T" '(popper-toggle-type :wk "Toggle Popup Type")
+;;   "w p k" '(popper-kill-latest-popup :wk "Kill Latest Popup")
+;;   "w p K" '(ar/popup-close-all :wk "Close All Popups")
+;;   "w p r" '(ar/popup-raise :wk "Raise Last Popup")
+;;   "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages"))
 #+end_src
 
 * Miscelleanous

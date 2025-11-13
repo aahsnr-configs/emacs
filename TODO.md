@@ -192,7 +192,7 @@ it's loaded in the right order.
   (require 'ox-latex)
 ```
 
-# Stuff to add in Emacs.org in the following order
+# Add to Emacs 
 - [x] Exec From Path Shell 
 - [x] Sudo Edit
 - [x] Optimize Editing Experience
@@ -217,4 +217,7 @@ it's loaded in the right order.
 - [ ] **Later** Add some emacs packages listed in awesome emacs
 - [ ] **Important** Integrate back to minimal-emacs.d and add many of their recommended packages
 
+# Issues
+- [ ] **Urgent** There is a lag when cursor highlights the next matching parenthesis
+- [ ] **Urgent** There is still a lag/stutter when lsp-bridge completion opens while I am typing
 
