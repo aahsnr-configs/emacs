@@ -64,6 +64,9 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   (and (display-graphic-p) python-p pip-p)
   "Do we have EAF environment setup?")
 
+(defvar doom-escape-hook nil
+  "Hook run when `doom/escape' is called.")
+
 (defvar bootstrap-version)
 (let ((bootstrap-file
        (expand-file-name
@@ -485,10 +488,16 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   
   ;; Doom-style: Make ESC quit everything
   (defun doom/escape (&optional interactive)
-    "Run `keyboard-quit'. If in evil, exit to normal mode."
+    "Run `keyboard-quit'. If in evil, exit to normal mode.
+Runs `doom-escape-hook' before quitting."
     (interactive "<p>")
     (when (fboundp 'evil-force-normal-state)
       (evil-force-normal-state))
+    
+    ;; NEW: Run the custom escape hook
+    (when (fboundp 'run-hook-wrapped)
+        (run-hook-wrapped 'doom-escape-hook #'ignore))
+        
     (keyboard-quit))
   
   (global-set-key [remap keyboard-quit] #'doom/escape)
@@ -912,16 +921,21 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
     "j l" '(jinx-languages :wk "Select language")
     "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer")))
 
-;; This function provides a more robust way to quit the minibuffer.
-(defun minibuffer-keyboard-quit ()
-  "Abort recursive edit.
-In Delete Selection mode, if the mark is active, just deactivate it;
-then it takes a second \\[keyboard-quit] to abort the minibuffer."
+;; This function provides a more robust way to quit the minibuffer
+;; and clean up any *Completions* buffers, addressing the M-x ESC issue.
+(defun ar/minibuffer-quit ()
+  "Abort recursive edit and clean up completion windows."
   (interactive)
+  ;; Explicitly kill the completions window first, if it exists
+  (when (get-buffer-window "*Completions*")
+    (delete-window (get-buffer-window "*Completions*")))
+  
+  ;; If the mark is active in delete-selection-mode, just deactivate it.
   (if (and delete-selection-mode transient-mark-mode mark-active)
       (setq deactivate-mark  t)
-    (when (get-buffer "*Completions*") (delete-windows-on "*Completions*"))
+    ;; Otherwise, abort the recursive edit (exit the minibuffer)
     (abort-recursive-edit)))
+
 
 ;; This custom escape command also clears search highlights for evil-mode.
 (defun my/escape-key ()
@@ -930,18 +944,19 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
   (evil-ex-nohighlight)
   (keyboard-quit))
 
-;; --- Apply the Custom Escape Key Behavior ---
 (general-define-key
  :keymaps '(normal visual global)
  [escape] #'my/escape-key)
 
+;; In the minibuffer, ESC should call the custom quit function
 (general-define-key
  :keymaps '(minibuffer-local-map
             minibuffer-local-ns-map
             minibuffer-local-completion-map
             minibuffer-local-must-match-map
-            minibuffer-local-isearch-map)
- [escape] 'minibuffer-keyboard-quit)
+            minibuffer-local-isearch-map
+            evil-mode-minibuffer-map)
+ [escape] #'ar/minibuffer-quit)
 
 (defun ar/deadgrep-fix-buffer-advice (fun &rest args)
   (let ((buf (apply fun args)))
@@ -1048,7 +1063,8 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
   (setq shackle-default-alignment 'below
         shackle-default-size 0.4
         shackle-select-reused-windows nil
-        shackle-inhibit-window-quit-on-same-windows nil)
+        shackle-inhibit-window-quit-on-same-windows nil
+        shackle-default-window-parameters '((mode-line-format . nil)))
   
   :config
   ;; Define popup rules matching Doom Emacs patterns
@@ -1075,13 +1091,11 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
           ;; Org mode
           ("^\\*Org Src" :select t :size 0.5 :align right :popup t)
           ("^\\*Org Agenda\\*" :select t :size 0.4 :align below :popup t)
+          ("^\\*Agenda Commands\\*" :select t :size 0.4 :align below :popup t)
           ("^CAPTURE-.*\\.org" :regexp t :select t :size 0.4 :align below :popup t)
           ("^\\*Org Select\\*" :select t :size 0.3 :align below :popup t)
           
-          ;; Magit
-          (magit-status-mode :select t :size 0.7 :align below :inhibit-window-quit t)
-          (magit-log-mode :select t :size 0.7 :align below)
-          (magit-diff-mode :select t :size 0.7 :align below)
+          ;; Magit (Removed specific Magit mode rules as Magit handles display)
           ("^magit-revision:" :regexp t :select t :size 0.6 :align below :popup t)
           ("^magit:" :regexp t :select t :size 0.7 :align below :popup t)
           
@@ -1161,7 +1175,8 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
           "^\\*lsp-help\\*"
           "^\\*lsp-bridge"
           "^\\*dape-repl"
-          "^\\*Embark"))
+          "^\\*Embark"
+          "^\\*Org Agenda\\*"))
   
   (setq popper-group-function #'popper-group-by-project)
   
@@ -1209,16 +1224,6 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
   
   ;; Add to evil escape sequence
   (add-hook 'doom-escape-hook #'ar/popup-close-on-escape))
-
-;; Hide modeline in popups (optional, like Doom)
-(defun ar/popup-hide-modeline ()
-  "Hide mode line in popup windows."
-  (when (and (window-parameter nil 'popup)
-             (not (eq (selected-window) (minibuffer-window))))
-    (setq mode-line-format nil)))
-
-;; Optional: Enable modeline hiding
-(add-hook 'window-configuration-change-hook #'ar/popup-hide-modeline)
 
 ;; Keybindings
 (ar/global-leader
