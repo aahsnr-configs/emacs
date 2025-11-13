@@ -653,8 +653,20 @@ Enable line numbers for some modes
 
 (use-package evil-surround
   :after evil
-  :config
-  (global-evil-surround-mode 1))
+  :commands global-evil-surround-mode
+  :custom
+  (evil-surround-pairs-alist
+   '((?\( . ("(" . ")"))
+     (?\[ . ("[" . "]"))
+     (?\{ . ("{" . "}"))
+
+     (?\) . ("(" . ")"))
+     (?\] . ("[" . "]"))
+     (?\} . ("{" . "}"))
+
+     (?< . ("<" . ">"))
+     (?> . ("<" . ">"))))
+  :hook (after-init . global-evil-surround-mode))
 
 (use-package evil-matchit
   :after evil

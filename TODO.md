@@ -140,42 +140,6 @@ he enables this feature. It provides completion in modes without LSP support.
             (get-buffer "*dashboard*")))))
 ```
 
-### 4. **Org LaTeX Preview with Tectonic - Potential Issue**
-
-**Problem**: Your "FIXED" note suggests this was problematic. The `-Z` flag
-usage needs verification.
-
-**Current (line 3206-3213)**:
-
-```elisp
-:latex-compiler
-("tectonic -Z shell-escape-cwd=%o --outfmt pdf --outdir %o %f")
-```
-
-**Safer alternative**:
-
-````elisp
-:latex-compiler
-("tectonic -X compile -Z shell-escape --outdir %o %f")
-```### 5. **Smartparens Angle Bracket Configuration** 
-Your configuration correctly removes angle bracket pairing, which is good for org-mode.
-
-**Current (line 2756)**:
-```elisp
-(sp-pair "<" ">" :actions '(:rem))
-````
-
-This is **correct** - keep it as is. The issue is that you then have commented
-code trying to re-enable it for C++:
-
-```elisp
-;; (sp-local-pair 'c++-mode "<" ">"
-;;                :when '(sp-point-after-word-p)
-;;                :unless '(sp-point-before-same-p))
-```
-
-**Recommendation**: If you need C++ template support, uncomment and refine this.
-
 ### 6. **Org Fragtog Hook Issue**
 
 **Problem**: The hook sets a global variable inside a lambda, which doesn't work
@@ -195,23 +159,6 @@ as intended.
 :hook (org-mode . org-fragtog-mode)
 :config
   (setq org-startup-with-latex-preview t)  ;; Set globally once
-```
-
-### 7. **Emacs-Jupyter and EIN Conflict**
-
-You have both `jupyter` (emacs-jupyter) and `ein` configured. These packages can
-conflict.
-
-**Recommendation**: Choose one. Based on modern best practices, stick with
-`jupyter` (emacs-jupyter) and remove EIN:
-
-**Remove these lines** (lines 3381-3424):
-
-```elisp
-(use-package ein
-  :ensure t
-  ...
-)
 ```
 
 ### 8. **Orderless Dispatcher - Missing Function**
@@ -245,60 +192,24 @@ it's loaded in the right order.
   (require 'ox-latex)
 ```
 
-This is **correct** - keep it.
-
-### 10. **Word Wrap - Potential Infinite Loop**
-
-Your word wrap implementation has complex advice that could cause issues.
-
-**Current (lines 2859-2935)**: The implementation looks solid but has a
-"CRITICAL FIX" comment suggesting past issues.
-
-**Recommendation**: Monitor for performance issues. Consider simplifying or
-using built-in `visual-line-mode` directly if problems persist.
-
-## **Summary of Required Changes**
-
-```elisp
-# 1. Fix lexical binding header (first code block, line 11)
-;;; config.el --- Main configuration file -*- lexical-binding: t; -*-
-
-# 2. Enable acm-enable-capf (line 1423)
-acm-enable-capf t  ; Changed from nil
-
-# 3. Fix dashboard for daemon mode (line 611)
-(setq initial-buffer-choice 
-      (lambda ()
-        (if (daemonp)
-            (get-buffer-create "*scratch*")
-          (get-buffer "*dashboard*")))))
-
-# 4. Fix org-fragtog hook (line 3159)
-:hook (org-mode . org-fragtog-mode)
-:config
-  (setq org-startup-with-latex-preview t)
-
-# 5. Remove orderless-kwd-dispatch (line 2613)
-orderless-style-dispatchers (list #'+orderless-consult-dispatch
-                                  #'orderless-affix-dispatch)))
-
-# 6. Remove EIN package (lines 3381-3424) - conflicts with jupyter
-# Delete the entire use-package ein block
-
-# 7. Verify Tectonic flags (line 3210) - Current config is actually correct
-# No change needed, your -Z flag is correct per Tectonic docs
-```
-
-
-- [ ] **Add to early-init.el**
-
-```el
-(setq gc-cons-threshold 100000000)
-(setq package-enable-at-startup nil)
-(defvar file-name-handler-alist-original file-name-handler-alist)
-(setq file-name-handler-alist nil)
-```
-
+# Stuff to add in Emacs.org in the following order
+- [x] Exec From Path Shell 
+- [x] Sudo Edit
+- [x] Optimize Editing Experience
+- [x] UTF-8 Coding System
+- [x] add recentf-exclude and some other stuff to my own recentf setup
+- [ ] Small Configs
+- [ ] Smooth Scrolling 
+- [ ] Functions - *Top Level Header* & *General keybindings*
+- [ ] Maybe the comprehensive escape key behaviour is not necessary if I have replaced the `C-g` keybinding with `[escape]`?
+- [ ] Replace the whole Session Management content with that from minimal-emacs.d
+- [ ] Add outline indent from minimal-emacs.d. Make sure it works with lsp-bridge
+- [ ] Replace the custom remove strip whitespace function with with stripspace from minimal-emacs.d. Make sure this works in lsp-bridge as well
+- [ ] Add vim-tab-bar from minimal-emacs.d as well
+- [ ] Search the web and determine how to prevent evil mode from copying the same section that is pasted upon.
+- [ ] Add easysession from minimal-emacs.d
+- [ ] Test treemacs configuration from minimal-emacs.d
+- [ ] Partially replace snippets configuration with that from minimal-emacs.d
 - [ ] **Important** Re-add my snippets config
 - [ ] Switch to Catppuccin Mocha Theme
 - [ ] **Issue** The extensive escape setup for minibuffer is not working as expected. I need to be able to hide minibuffers that appear at the bottom with escape key like doom emacs 
@@ -307,12 +218,4 @@ orderless-style-dispatchers (list #'+orderless-consult-dispatch
 - [ ] **Later** Add some emacs packages listed in awesome emacs
 - [ ] **Important** Integrate back to minimal-emacs.d and add many of their recommended packages
 
-# Stuff to add in Emacs.org in the following order
-- [ ] Exec From Path Shell 
-- [ ] Sudo Edit
-- [ ] Optimize Editing Experience
-- [ ] UTF-8 Coding System
-- [ ] add recentf-exclude and some other stuff to my own recentf setup
-- [ ] Small Configs
-- [ ] Smooth Scrolling 
-- [ ] Functions - *Top Level Header* & *General keybindings*
+
