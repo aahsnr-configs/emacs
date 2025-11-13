@@ -1,0 +1,11 @@
+var/
+config.el
+log/
+eln-cache/
+elpa/
+straight/
+etc/
+history
+places
+recentf
+tramp

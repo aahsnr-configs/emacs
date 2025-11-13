@@ -1,0 +1,5 @@
+#!/bin/bash
+emacs --batch --eval "(require 'org)" --eval '(org-babel-tangle-file "~/.config/emacs/Emacs.org")'
+killall emacs
+killall emacs
+emacs --daemon
