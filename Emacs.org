@@ -191,18 +191,6 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   :config
   (add-hook 'kill-emacs-hook #'recentf-cleanup -90))
 
-(use-package savehist
-  :straight (:type built-in)
-  :commands (savehist-mode savehist-save)
-  :hook (after-init . savehist-mode)
-  :custom
-  (savehist-autosave-interval 600)
-  (savehist-additional-variables
-   '(kill-ring                        ; clipboard
-     register-alist                   ; macros
-     mark-ring global-mark-ring       ; marks
-     search-ring regexp-search-ring)))
-
 (use-package saveplace
   :straight (:type built-in)
   :commands (save-place-mode save-place-local-mode)
@@ -305,9 +293,10 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 #+end_src
 
 * General Keybindings
+*Test what escape key does here*
 #+begin_src emacs-lisp
 ;; in favor of escap in Editor Behaviour
-;; (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+;;(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 (use-package general
   :after evil
   :config
@@ -361,20 +350,29 @@ Enable line numbers for some modes
 
 ** Theming
 #+begin_src emacs-lisp
-(use-package doom-themes
+(use-package catppuccin-theme
   :custom
-  (doom-themes-enable-bold t)
-  (doom-themes-enable-italic t)
+  (catppuccin-highlight-matches t)
+  (catppuccin-italic-comments t)
+  (catppuccin-dark-line-numbers-background t)
   :config
-  (load-theme 'doom-tokyo-night t)
-  (doom-themes-neotree-config)
-  (doom-themes-visual-bell-config)
-  (doom-themes-org-config)
-
-  ;; Set distinct colors for bold and italic
+  (setq catppuccin-flavor 'mocha)
+  (load-theme 'catppuccin t)
   (custom-set-faces
-   '(bold ((t (:foreground "#7aa2f7" :weight bold))))
-   '(italic ((t (:foreground "#bb9af7" :slant italic))))))
+   '(bold ((t (:foreground "#f5e0dc" :weight bold))))
+   '(italic ((t (:foreground "#f38ba8" :slant italic))))
+   '(sp-show-pair-match-face ((t (:background "#b4befe" :foreground "black" :weight medium))))
+
+   ;; --- Org Mode Header Colors (Mocha Palette) ---
+   '(org-level-1 ((t (:inherit outline-1 :foreground "#f5e0dc"))))
+   '(org-level-2 ((t (:inherit outline-2 :foreground "#cba6f7"))))
+   '(org-level-3 ((t (:inherit outline-3 :foreground "#89b4fa"))))
+   '(org-level-4 ((t (:inherit outline-4 :foreground "#7f849c"))))
+   '(org-level-5 ((t (:inherit outline-5 :foreground "#f38ba8"))))
+   '(org-level-6 ((t (:inherit outline-6 :foreground "#fab387"))))
+   '(org-level-7 ((t (:inherit outline-7 :foreground "#eba0ac"))))
+   '(org-level-8 ((t (:inherit outline-8 :foreground "#f5e0dc"))))
+   ))
 #+end_src
 
 ** Solaire Mode
@@ -440,7 +438,7 @@ Enable line numbers for some modes
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
-  :straight (:type built-in) 
+  :straight (:type built-in)
   :defer t
   :hook (after-init . which-key-mode)
   :custom
@@ -494,7 +492,7 @@ Enable line numbers for some modes
         evil-want-integration t
         evil-want-keybinding nil
         evil-symbol-word-search t
-        
+
         ;; Cursor appearance
         evil-default-cursor t
         evil-normal-state-cursor 'box
@@ -503,27 +501,27 @@ Enable line numbers for some modes
         evil-visual-state-cursor 'hollow
         evil-replace-state-cursor 'hbar
         evil-operator-state-cursor 'hollow
-        
+
         ;; Search and highlighting
         evil-ex-search-vim-style-regexp t
         evil-ex-visual-char-range t
         evil-ex-interactive-search-highlight 'selected-window
-        
+
         ;; Mode line
         evil-mode-line-format nil
-        
+
         ;; Suppress "beginning/end of line" errors in macros
         evil-kbd-macro-suppress-motion-error t
-        
+
         ;; Don't move cursor back when exiting insert mode
         evil-move-cursor-back nil
-        
+
         ;; Fine undo - separate each action
         evil-want-fine-undo t
-        
+
         ;; Don't move cursor beyond EOL
         evil-move-beyond-eol nil
-        
+
         ;; Better search wrapping
         evil-search-wrap t
         evil-magic t
@@ -533,14 +531,14 @@ Enable line numbers for some modes
         evil-insert-skip-empty-lines t
         evil-v$-excludes-newline t
         evil-respect-visual-line-mode t
-        
+
         ;; Split window behavior
         evil-split-window-below t
         evil-vsplit-window-right t
-        
+
         ;; Doom-specific: don't clobber the region on C-u
         evil-want-C-u-delete t
-        
+
         ;; More vim-like behavior
         evil-want-Y-yank-to-eol t
         evil-want-fine-undo t)
@@ -548,24 +546,24 @@ Enable line numbers for some modes
   :config
   (evil-mode 1)
   (evil-select-search-module 'evil-search-module 'evil-search)
-  
+
   ;; Set shift width
   (setq-default evil-shift-width tab-width)
-  
+
   ;; Make evil-mode play nice with custom modes
   (evil-set-initial-state 'special-mode 'motion)
   (evil-set-initial-state 'messages-buffer-mode 'normal)
   (evil-set-initial-state 'dashboard-mode 'normal)
-  
+
   ;; Don't interfere with localleader key
   (define-key evil-motion-state-map "\\" nil)
-  
+
   ;; Doom-style: Make C-g work like <escape>
   (define-key evil-insert-state-map [escape] 'evil-normal-state)
   (define-key evil-visual-state-map [escape] 'evil-exit-visual-state)
   (define-key evil-replace-state-map [escape] 'evil-normal-state)
   (define-key evil-operator-state-map [escape] 'keyboard-quit)
-  
+
   (defun doom/escape (&optional interactive)
     "Run the doom escape sequence.
 1. If any escape hook returns non-nil, stop
@@ -574,32 +572,32 @@ Enable line numbers for some modes
     (cond
      ;; Run escape hooks - they can stop propagation by returning t
      ((run-hook-with-args-until-success 'doom-escape-hook))
-   
+
      ;; Minibuffer is active - quit it
      ((active-minibuffer-window)
       (if (minibufferp)
           (ar/minibuffer-keyboard-quit)
 	(abort-recursive-edit)))
-   
+
      ;; Evil visual state active - exit it
      ((and (fboundp 'evil-visual-state-p)
            (evil-visual-state-p))
       (evil-exit-visual-state))
-   
+
      ;; Not in normal state - force it
      ((and (fboundp 'evil-normal-state-p)
            (not (evil-normal-state-p))
            (not (evil-emacs-state-p)))
       (evil-force-normal-state))
-   
+
      ;; Default fallback
      (t (keyboard-quit))))
 
   (global-set-key [remap keyboard-quit] #'doom/escape)
-  
+
   ;; Ensure ESC also triggers doom/escape
   (global-set-key [escape] #'doom/escape)
-  
+
   ;; Make movement keys work on visual lines
   (define-key evil-motion-state-map "j" 'evil-next-visual-line)
   (define-key evil-motion-state-map "k" 'evil-previous-visual-line)
@@ -787,14 +785,14 @@ Enable line numbers for some modes
 #+begin_src emacs-lisp
 (with-eval-after-load 'evil-ex
   (evil-ex-define-cmd "g[lobal]" #'evil-ex-global)
-  
+
   (defun ar/evil--highlight-global-matches ()
     "Highlight matches for :global command."
     (when-let ((pattern (car evil-ex-global-match)))
       (hi-lock-face-buffer pattern 'hi-yellow)))
-  
+
   (add-hook 'evil-ex-global-hook #'ar/evil--highlight-global-matches)
-  
+
   (evil-ex-define-cmd "al[ign]" #'align-regexp)
   (evil-ex-define-cmd "retab" #'ar/evil-retab))
 
@@ -879,7 +877,7 @@ Enable line numbers for some modes
   (define-key evil-ex-completion-map (kbd "C-a") #'evil-beginning-of-line)
   (define-key evil-ex-completion-map (kbd "C-b") #'evil-backward-char)
   (define-key evil-ex-completion-map (kbd "C-f") #'evil-forward-char)
-  
+
   (define-key evil-ex-search-keymap (kbd "C-a") #'evil-beginning-of-line)
   (define-key evil-ex-search-keymap (kbd "C-b") #'evil-backward-char)
   (define-key evil-ex-search-keymap (kbd "C-f") #'evil-forward-char))
@@ -971,17 +969,16 @@ This section configures *avy*, a powerful package for jumping to visible text. I
          (LaTeX-mode . rainbow-delimiters-mode)
          (prog-mode . rainbow-delimiters-mode))
   :config
-  ;; Custom faces updated for the Tokyonight color palette.
-  :custom-face
-  (rainbow-delimiters-depth-1-face ((t (:foreground "#7aa2f7"))))  ; Blue
-  (rainbow-delimiters-depth-2-face ((t (:foreground "#bb9af7"))))  ; Magenta
-  (rainbow-delimiters-depth-3-face ((t (:foreground "#e0af68"))))  ; Yellow
-  (rainbow-delimiters-depth-4-face ((t (:foreground "#73daca"))))  ; Cyan
-  (rainbow-delimiters-depth-5-face ((t (:foreground "#f7768e"))))  ; Red
-  (rainbow-delimiters-depth-6-face ((t (:foreground "#9ece6a"))))  ; Green
-  (rainbow-delimiters-depth-7-face ((t (:foreground "#ff9e64"))))  ; Orange
-  (rainbow-delimiters-depth-8-face ((t (:foreground "#c0caf5"))))  ; Foreground
-  (rainbow-delimiters-depth-9-face ((t (:foreground "#a9b1d6"))))) ; Sub-Foreground
+  (custom-set-faces
+   '(rainbow-delimiters-depth-1-face ((t (:foreground "#89b4fa"))))  ; Blue
+   '(rainbow-delimiters-depth-2-face ((t (:foreground "#cba6f7"))))  ; Mauve
+   '(rainbow-delimiters-depth-3-face ((t (:foreground "#f9e2af"))))  ; Yellow
+   '(rainbow-delimiters-depth-4-face ((t (:foreground "#89dceb"))))  ; Sky
+   '(rainbow-delimiters-depth-5-face ((t (:foreground "#f38ba8"))))  ; Red
+   '(rainbow-delimiters-depth-6-face ((t (:foreground "#a6e3a1"))))  ; Green
+   '(rainbow-delimiters-depth-7-face ((t (:foreground "#fab387"))))  ; Peach
+   '(rainbow-delimiters-depth-8-face ((t (:foreground "#cdd6f4"))))  ; Text
+   '(rainbow-delimiters-depth-9-face ((t (:foreground "#bac2de")))))) ; Subtext1
 #+end_src
 
 ** Rainbow Mode
@@ -1116,7 +1113,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
     (apply orig-fn args)))
 
 (use-package smartparens
-  :defer t 
+  :defer t
   :hook ((prog-mode . smartparens-mode)
          (text-mode . smartparens-mode)
          (org-mode . smartparens-mode)
@@ -1127,12 +1124,12 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (show-paren-mode -1)
   (show-smartparens-global-mode +1)
   (sp-pair "<" ">" :actions '(:rem))
-  
+
   ;; Re-enable only for C++ templates if needed
   (sp-local-pair 'c++-mode "<" ">"
                  :when '(sp-point-after-word-p)
                  :unless '(sp-point-before-same-p))
-  
+
   ;; Doom's smartparens settings
   (setq sp-show-pair-delay 0.1
         sp-show-pair-from-inside t
@@ -1147,16 +1144,16 @@ This section configures *avy*, a powerful package for jumping to visible text. I
               (when (and (bound-and-true-p smartparens-mode)
                          (not smartparens-mode))
                 (turn-on-smartparens-mode))))
-  
+
   ;; Doom's pair behaviors
   (sp-local-pair '(minibuffer-mode minibuffer-inactive-mode) "'" nil :actions nil)
   (sp-local-pair '(minibuffer-mode minibuffer-inactive-mode) "`" nil :actions nil)
-  
+
   ;; Expand braces intelligently - CORRECTED SYNTAX
   (sp-pair "{" nil :post-handlers '(:add ("||\n[i]" "RET")))
   (sp-pair "(" nil :post-handlers '(:add ("||\n[i]" "RET")))
   (sp-pair "[" nil :post-handlers '(:add ("||\n[i]" "RET")))
-  
+
   ;; Don't do square-bracket space-expansion for lisp modes
   (sp-local-pair '(emacs-lisp-mode lisp-mode clojure-mode racket-mode hy-mode)
                  "(" nil :post-handlers '(:add ("||\n[i]" "RET")))
@@ -1273,7 +1270,7 @@ The original function deletes trailing whitespace of the current line."
         shackle-select-reused-windows nil
         shackle-inhibit-window-quit-on-same-windows nil
         shackle-default-window-parameters '((mode-line-format . nil)))
-  
+
   :config
   ;; Define popup rules matching Doom Emacs patterns
   (setq shackle-rules
@@ -1282,54 +1279,54 @@ The original function deletes trailing whitespace of the current line."
           ("^\\*info" :select t :size 0.4 :align below :popup t)
           ("^\\*Man" :select t :size 0.45 :align below :popup t)
           ("^\\*WoMan" :select t :size 0.45 :align below :popup t)
-          
+
           ;; Compilation and messages
           ("^\\*compilation\\*" :select nil :size 0.3 :align below :popup t)
           ("^\\*Compile-Log\\*" :select nil :size 0.3 :align below :popup t)
           ("^\\*Messages\\*" :select nil :size 0.3 :align below :popup t)
           ("^\\*Warnings\\*" :select nil :size 0.3 :align below :popup t)
           ("^\\*Backtrace\\*" :select t :size 0.4 :align below :popup t)
-          
+
           ;; Shell and terminal
           ("^\\*shell\\*" :select t :size 0.35 :align below :popup t)
           ("^\\*eshell\\*" :select t :size 0.35 :align below :popup t)
           ("^\\*term\\*" :select t :size 0.35 :align below :popup t)
           ("^\\*vterm" :select t :size 0.35 :align below :popup t)
-          
+
           ;; Org mode
           ("^\\*Org Src" :select t :size 0.5 :align right :popup t)
           ("^\\*Org Agenda\\*" :select t :size 0.4 :align below :popup t)
           ("^\\*Agenda Commands\\*" :select t :size 0.4 :align below :popup t)
           ("^CAPTURE-.*\\.org" :regexp t :select t :size 0.4 :align below :popup t)
           ("^\\*Org Select\\*" :select t :size 0.3 :align below :popup t)
-          
+
           ;; Magit (Removed specific Magit mode rules as Magit handles display)
           ("^magit-revision:" :regexp t :select t :size 0.6 :align below :popup t)
           ("^magit:" :regexp t :select t :size 0.7 :align below :popup t)
-          
+
           ;; Development tools
           ("^\\*Flycheck errors\\*" :select t :size 0.3 :align below :popup t)
           ("^\\*lsp-help\\*" :select t :size 0.35 :align below :popup t)
           ("^\\*eldoc" :select nil :size 0.3 :align below :popup t)
           ("^\\*xref\\*" :select t :size 0.3 :align below :popup t)
-          
+
           ;; LSP Bridge
           ("^\\*lsp-bridge" :select nil :size 0.35 :align below :popup t)
-          
+
           ;; Debugger (dape)
           ("^\\*dape-repl" :select nil :size 0.35 :align below :popup t)
           ("^\\*dape-info" :select nil :size 0.35 :align right :popup t)
-          
+
           ;; Grep, occur, deadgrep
           ("^\\*grep\\*" :select t :size 0.4 :align below :popup t)
           ("^\\*Occur\\*" :select t :size 0.4 :align below :popup t)
           ("^\\*deadgrep" :select t :size 0.4 :align below :popup t)
-          
+
           ;; Completion
           ("^\\*Completions\\*" :select nil :size 0.3 :align below :popup t)
           ("^\\*Embark Actions\\*" :select t :size 0.3 :align below :popup t)
           ("^\\*Embark Collect" :select t :size 0.5 :align below :popup t)
-          
+
           ;; Miscellaneous
           ("^\\*Apropos\\*" :select t :size 0.4 :align below :popup t)
           ("^\\*Bookmark List\\*" :select t :size 0.4 :align below :popup t)
@@ -1337,20 +1334,20 @@ The original function deletes trailing whitespace of the current line."
           ("^\\*Calc" :select t :size 0.4 :align below :popup t)
           ("^\\*Colors\\*" :select t :size 0.3 :align below :popup t)
           ("^\\*undo-tree\\*" :select t :size 0.3 :align right :popup t)
-          
+
           ;; PDF Tools and Org Noter
           ("^\\*Outline" :select nil :size 0.3 :align right :popup t)
-          
+
           ;; Jupyter and EIN
           ("^\\*ein:notebooklist" :select t :size 0.5 :align below :popup t)
           ("^\\*ob-async" :select nil :size 0.3 :align below :popup t)
-          
+
           ;; Proced
           (proced-mode :select t :size 0.5 :align below)
-          
+
           ;; Deft
           (deft-mode :select t :same t)))
-  
+
   ;; Enable shackle mode
   (shackle-mode 1))
 #+end_src
@@ -1361,7 +1358,7 @@ The original function deletes trailing whitespace of the current line."
   :bind (("C-`" . popper-toggle)
          ("M-`" . popper-cycle)
          ("C-M-`" . popper-toggle-type))
-  
+
   :init
   (setq popper-reference-buffers
         '("\\*Messages\\*"
@@ -1388,9 +1385,9 @@ The original function deletes trailing whitespace of the current line."
           "^\\*dape-repl"
           "^\\*Embark"
           "^\\*Org Agenda\\*"))
-  
+
   (setq popper-group-function #'popper-group-by-project)
-  
+
   :config
   (popper-mode 1)
   (popper-echo-mode 1)
@@ -1438,13 +1435,13 @@ Returns t if a popup was closed, nil otherwise."
            (popper-popup-p (current-buffer)))
       (popper-close-latest)
       t)
-   
+
      ;; If there are any open popper popups, close the latest one
      ((and (bound-and-true-p popper-mode)
            popper-open-popup-alist)
       (popper-close-latest)
       t)
-   
+
      ;; Close shackle popups by window parameter
      ((seq-find (lambda (win)
                   (window-parameter win 'popup))
@@ -1453,7 +1450,7 @@ Returns t if a popup was closed, nil otherwise."
 				 (window-parameter win 'popup))
                                (window-list)))
       t)
-   
+
      ;; No popup to close
      (t nil)))
 
@@ -1635,8 +1632,8 @@ then it takes a second invocation to abort the minibuffer."
     "Buffer source for file-visiting buffers only.")
 
   (setq consult-buffer-sources
-        '(consult--source-file-visiting-buffer)) 
-  
+        '(consult--source-file-visiting-buffer))
+
   (consult-customize
    consult-ripgrep consult-git-grep consult-grep
    consult-bookmark consult-recent-file
@@ -1825,17 +1822,17 @@ then it takes a second invocation to abort the minibuffer."
      (sequence "PLAN(P)" "ACTIVE(A)" "PAUSED(x)" "|" "ACHIEVED(a)" "DROPPED(D)")))
 
   (org-todo-keyword-faces
-   '(("TODO"      . (:foreground "#f7768e" :weight bold))
-     ("NEXT"      . (:foreground "#ff9e64" :weight bold))
-     ("PROG"      . (:foreground "#7aa2f7" :weight bold))
-     ("WAIT"      . (:foreground "#e0af68" :weight bold))
-     ("DONE"      . (:foreground "#9ece6a" :weight bold))
-     ("CANCEL"    . (:foreground "#565f89" :weight bold))
-     ("PLAN"      . (:foreground "#73daca" :weight bold))
-     ("ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-     ("PAUSED"    . (:foreground "#c0caf5" :weight bold))
-     ("ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
-     ("DROPPED"   . (:foreground "#565f89" :weight bold))))
+   '(("TODO"      . (:foreground "#f38ba8" :weight bold))
+     ("NEXT"      . (:foreground "#fab387" :weight bold))
+     ("PROG"      . (:foreground "#89b4fa" :weight bold))
+     ("WAIT"      . (:foreground "#f9e2af" :weight bold))
+     ("DONE"      . (:foreground "#a6e3a1" :weight bold))
+     ("CANCEL"    . (:foreground "#6c7086" :weight bold))
+     ("PLAN"      . (:foreground "#94e2d5" :weight bold))
+     ("ACTIVE"    . (:foreground "#cba6f7" :weight bold))
+     ("PAUSED"    . (:foreground "#bac2de" :weight bold))
+     ("ACHIEVED"  . (:foreground "#a6e3a1" :weight bold))
+     ("DROPPED"   . (:foreground "#6c7086" :weight bold))))
 
   (org-babel-execution-completed-message nil))
 
@@ -1889,18 +1886,18 @@ then it takes a second invocation to abort the minibuffer."
           ("example" "»" "«")
           ("quote" "❝" "❞"))
 
-        org-modern-todo-faces
-        '(("TODO"      . (:foreground "#f7768e" :weight bold))
-          ("NEXT"      . (:foreground "#ff9e64" :weight bold))
-          ("PROG"      . (:foreground "#7aa2f7" :weight bold))
-          ("WAIT"      . (:foreground "#e0af68" :weight bold))
-          ("DONE"      . (:background "#2f3c22" :foreground "#9ece6a" :weight bold))
-          ("CANCEL"    . (:strike-through t :foreground "#565f89"))
-          ("PLAN"      . (:foreground "#73daca" :weight bold))
-          ("ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-          ("PAUSED"    . (:foreground "#c0caf5" :weight bold))
-          ("ACHIEVED"  . (:background "#364a5c" :foreground "#9ece6a" :weight bold :box t))
-          ("DROPPED"   . (:strike-through t :foreground "#565f89")))
+	org-modern-todo-faces ; <--- ADD THIS LINE
+	'(("TODO"      . (:foreground "#f38ba8" :weight bold))
+          ("NEXT"      . (:foreground "#fab387" :weight bold))
+          ("PROG"      . (:foreground "#89b4fa" :weight bold))
+          ("WAIT"      . (:foreground "#f9e2af" :weight bold))
+          ("DONE"      . (:background "#313244" :foreground "#a6e3a1" :weight bold))
+          ("CANCEL"    . (:strike-through t :foreground "#6c7086"))
+          ("PLAN"      . (:foreground "#94e2d5" :weight bold))
+          ("ACTIVE"    . (:foreground "#cba6f7" :weight bold))
+          ("PAUSED"    . (:foreground "#bac2de" :weight bold))
+          ("ACHIEVED"  . (:background "#313244" :foreground "#a6e3a1" :weight bold :box t))
+          ("DROPPED"   . (:strike-through t :foreground "#6c7086")))
 
         ;; Style tags with a subtle box, inspired by Doom Emacs.
         org-modern-tag-faces
@@ -2042,7 +2039,7 @@ then it takes a second invocation to abort the minibuffer."
   (org-habit-today-glyph
    (string-to-char (nerd-icons-codicon "nf-cod-circle_filled"))))
 #+end_src
-  
+
 ** Org Download for Images
 #+begin_src emacs-lisp
 (use-package org-download
@@ -2200,12 +2197,12 @@ then it takes a second invocation to abort the minibuffer."
     "Quit org-agenda command dispatcher."
     (interactive)
     (throw 'exit nil))
-  
+
   ;; Add hook to bind ESC in agenda dispatcher
   (defun ar/org-agenda-setup-escape ()
     "Setup escape key for org-agenda."
     (local-set-key [escape] 'ar/org-agenda-quit-dispatcher))
-  
+
   ;; This ensures ESC works in the agenda command selection buffer
   (add-hook 'org-agenda-mode-hook
             (lambda ()
@@ -2318,7 +2315,7 @@ then it takes a second invocation to abort the minibuffer."
         lsp-bridge-tex-lsp-server "texlab"
         lsp-bridge-nix-lsp-server "nil")
   (setq lsp-bridge-enable-search-words nil)
-  
+
   (setq acm-enable-doc nil
         acm-enable-jupyter t
         acm-enable-capf nil
@@ -2443,7 +2440,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
    '((jupyter . t)))
 
   ;; Set default header args for jupyter-python blocks
-  (setq org-babel-default-header-args:jupyter-python 
+  (setq org-babel-default-header-args:jupyter-python
         '((:async . "yes")
           (:session . "py")
           (:kernel . "python3")
@@ -2637,22 +2634,22 @@ My org files will:
     (insert "#+OPTIONS: toc:nil\n")
     (insert "#+STARTUP: overview indent\n")
     (insert "# -*- org-src-preserve-indentation: t; -*-\n\n")
-    
+
     (insert "# LaTeX configuration for export\n")
     (insert "#+LATEX_CLASS: article\n")
     (insert "#+LATEX_HEADER: \\usepackage{amsmath}\n")
     (insert "#+LATEX_HEADER: \\usepackage{graphicx}\n\n")
-    
+
     (insert "# Language-specific header arguments\n")
     (insert "# LaTeX: never evaluate, export code for PDF\n")
     (insert "#+PROPERTY: header-args:latex :exports code :eval never\n\n")
-    
+
     (insert "# Python: export results, tangle to python/, evaluate on demand\n")
     (insert "#+PROPERTY: header-args:python :session py :exports results :eval never-export :tangle python/analysis.py\n\n")
-    
+
     (insert "# Jupyter-Python: same as Python but async\n")
     (insert "#+PROPERTY: header-args:jupyter-python :session py :async yes :exports results :eval never-export :tangle python/jupyter.py :kernel python3\n\n")
-    
+
     (insert "# To toggle Python export, use my/org-toggle-python-export\n")
     (insert "# To change tangle file, use my/org-set-python-tangle-file\n\n")
     (message "Inserted scientific project template"))
@@ -2665,18 +2662,18 @@ My org files will:
       (goto-char (point-min))
       (let ((changed 0))
         ;; Toggle Python
-        (when (re-search-forward 
+        (when (re-search-forward
                "^#\\+PROPERTY: header-args:python.*:exports \\(results\\|none\\)" nil t)
           (let ((current (match-string 1)))
-            (replace-match (if (string= current "results") "none" "results") 
+            (replace-match (if (string= current "results") "none" "results")
                           t t nil 1)
             (setq changed (1+ changed))))
         ;; Toggle Jupyter-Python
         (goto-char (point-min))
-        (when (re-search-forward 
+        (when (re-search-forward
                "^#\\+PROPERTY: header-args:jupyter-python.*:exports \\(results\\|none\\)" nil t)
           (let ((current (match-string 1)))
-            (replace-match (if (string= current "results") "none" "results") 
+            (replace-match (if (string= current "results") "none" "results")
                           t t nil 1)
             (setq changed (1+ changed))))
 	;;<
@@ -2692,7 +2689,7 @@ My org files will:
     (interactive)
     (let* ((default-dir (file-name-directory (buffer-file-name)))
            (python-dir (expand-file-name "python/" default-dir))
-           (filename (read-string "Python filename (without .py): " 
+           (filename (read-string "Python filename (without .py): "
                                  (file-name-base (buffer-file-name)))))
       (unless (file-directory-p python-dir)
         (make-directory python-dir t))
@@ -2700,13 +2697,13 @@ My org files will:
         (goto-char (point-min))
         (let ((changed 0))
           ;; Update Python tangle
-          (when (re-search-forward 
+          (when (re-search-forward
                  "^#\\+PROPERTY: header-args:python.*:tangle \\([^ \n]+\\)" nil t)
             (replace-match (concat "python/" filename ".py") t t nil 1)
             (setq changed (1+ changed)))
           ;; Update Jupyter-Python tangle
           (goto-char (point-min))
-          (when (re-search-forward 
+          (when (re-search-forward
                  "^#\\+PROPERTY: header-args:jupyter-python.*:tangle \\([^ \n]+\\)" nil t)
             (replace-match (concat "python/" filename ".py") t t nil 1)
             (setq changed (1+ changed)))
@@ -2714,7 +2711,7 @@ My org files will:
               ;; <
               (progn
                 (org-mode-restart)
-                (message "Updated %d tangle path(s) to python/%s.py. Press C-c C-c on #+PROPERTY lines to refresh." 
+                (message "Updated %d tangle path(s) to python/%s.py. Press C-c C-c on #+PROPERTY lines to refresh."
                         changed filename))
             (message "No Python/Jupyter property lines found"))))))
 
@@ -2732,7 +2729,7 @@ My org files will:
   (defun my/org-insert-src-block (lang)
     "Insert a source block for LANG. Properties are applied automatically."
     (interactive
-     (list (completing-read "Language: " 
+     (list (completing-read "Language: "
                            '("python" "jupyter-python" "latex" "emacs-lisp" "shell")
                            nil t)))
     (insert (format "#+begin_src %s\n\n#+end_src\n" lang))
@@ -2849,7 +2846,7 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
   (evil-define-key 'normal neotree-mode-map "q" 'neotree-hide)
   (evil-define-key 'normal neotree-mode-map (kbd "TAB") 'neotree-select-window))
 #+end_src
- 
+
 ** Project.el
 #+begin_src emacs-lisp
 (use-package project
@@ -2860,7 +2857,7 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
   ;; Projects directory
   (project-vc-extra-root-markers '(".envrc" ".project" "pyproject.toml" "Cargo.toml" ".git"))
   (project-list-file (expand-file-name "projects" no-littering-var-directory))
-  
+
   :config
   ;; Set default projects directory
   (defcustom my/projects-directory (expand-file-name "~/Projects/")
@@ -3061,7 +3058,7 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
 #+end_src
 
 * PDF-Tools
-** Core
+** core
 #+begin_src emacs-lisp
 (use-package org-pdftools
   :hook (org-load . org-pdftools-setup-link))
@@ -3069,21 +3066,15 @@ themed with nerd-icons and integrates with evil-mode for vim-like navigation.
 (use-package pdf-tools
   :magic ("%PDF" . pdf-view-mode)
   :hook (pdf-view-mode . pdf-view-midnight-minor-mode)
-
-  ;; Theme customization to match doom-tokyo-night.
   :custom
-  ;; Use the specific Tokyonight background and foreground colors for the PDF view.
-  (pdf-view-midnight-colors '("#1a1b26" . "#c0caf5"))
-  ;; Enable continuous scrolling for a smoother experience.
+  (pdf-view-midnight-colors '("#1e1e2e" . "#cdd6f4"))
   (pdf-view-continuous t)
 
-  :custom-face
-  ;; Customize other faces to match the Tokyonight aesthetic.
-  (pdf-view-highlight-face ((t (:background "#e0af68" :foreground "#1a1b26")))) ; Yellow
-  (pdf-view-link-face ((t (:foreground "#7aa2f7"))))      ; Blue
-  (pdf-view-active-link-face ((t (:foreground "#bb9af7")))); Magenta
-
   :config
+  (custom-set-faces
+   '(pdf-view-highlight-face ((t (:background "#f9e2af" :foreground "#1e1e2e"))))
+   '(pdf-view-link-face ((t (:foreground "#89b4fa"))))
+   '(pdf-view-active-link-face ((t (:foreground "#cba6f7")))))
   ;; Ensure Org mode integration is set up after Org itself is loaded.
   (with-eval-after-load 'org
     (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
@@ -3150,7 +3141,7 @@ Opens the notes in a split window to the right."
 
   ;; Simplify LaTeX command style for Tectonic compatibility
   (setq LaTeX-command-style '(("" "%(latex)")))
-  
+
   ;; Add compilation and syntax checking commands
   (setq TeX-command-list
         (append TeX-command-list
@@ -3168,7 +3159,7 @@ Opens the notes in a split window to the right."
   (add-hook 'LaTeX-mode-hook #'smartparens-mode)
   (add-hook 'LaTeX-mode-hook #'prettify-symbols-mode)
   (add-hook 'LaTeX-mode-hook #'tex-fold-mode)
-  
+
   ;; Set output directory for Tectonic projects
   (add-hook 'after-change-major-mode-hook
             (lambda ()
@@ -3233,7 +3224,7 @@ Opens the notes in a split window to the right."
    `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
      (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
      (link ,(nerd-icons-mdicon "nf-md-link") . " ")))
-  
+
   ;; Display template
   (citar-display-transform-functions
    '((t . citar-display-transform-emojis)))
@@ -3281,7 +3272,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
   (add-hook 'org-mode-hook #'my/citar-set-local-bibliography)
   (add-hook 'LaTeX-mode-hook #'my/citar-set-local-bibliography)
   (add-hook 'latex-mode-hook #'my/citar-set-local-bibliography)
-  
+
   ;; Update when switching buffers
   (add-hook 'buffer-list-update-hook
             (lambda ()
@@ -3289,11 +3280,11 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
                          (or (derived-mode-p 'org-mode)
                              (derived-mode-p 'LaTeX-mode)))
                 (my/citar-set-local-bibliography))))
-  
+
   ;; Org-mode specific citation functions
   (with-eval-after-load 'org
     (require 'citar)
-    
+
     (defun my/org-insert-citation ()
       "Insert citation using citar in org-mode."
       (interactive)
@@ -3317,7 +3308,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
             (progn
               (message "Found %d bibliography file(s):" (length bib-files))
               (dolist (file bib-files)
-                (message "  %s %s" 
+                (message "  %s %s"
                         (if (file-readable-p file) "✓" "✗")
                         file)))
           (message "No bibliography files found. Using global fallback."))))
@@ -3326,7 +3317,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
     (define-key org-mode-map (kbd "C-c C-b") #'my/org-insert-citation)
     (define-key org-mode-map (kbd "C-c C-o") #'my/org-open-citation-at-point))
 
-  
+
   ;; Keybindings for both modes
   :bind
   (:map org-mode-map
@@ -3339,18 +3330,18 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
 ;; Org-cite integration
 (with-eval-after-load 'oc
   (require 'citar)
-  
+
   ;; Use citar for all org-cite operations
   (setq org-cite-insert-processor 'citar
         org-cite-follow-processor 'citar
         org-cite-activate-processor 'citar)
-  
+
   ;; Ensure org-cite uses project bibliographies
   (defun my/org-cite-list-bibliography-files ()
     "List bibliography files for org-cite."
     (my/citar-bibliography))
-  
-  (advice-add 'org-cite-list-bibliography-files 
+
+  (advice-add 'org-cite-list-bibliography-files
               :override #'my/org-cite-list-bibliography-files))
 
 ;; Citar-Embark integration
@@ -3358,7 +3349,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
   :after (citar embark)
   :config
   (citar-embark-mode)
-  
+
   ;; Add embark actions for citations
   (with-eval-after-load 'embark
     (add-to-list 'embark-keymap-alist '(citar-reference . citar-embark-map))))
@@ -3406,7 +3397,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
 
 #+begin_src emacs-lisp
 (with-eval-after-load 'org
-  (require 'citar) 
+  (require 'citar)
   ;; Insert citation function for org-mode
   (defun my/org-insert-citation ()
     "Insert citation using citar in org-mode."
@@ -3433,7 +3424,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
           (progn
             (message "Found %d bibliography file(s):" (length bib-files))
             (dolist (file bib-files)
-              (message "  %s %s" 
+              (message "  %s %s"
                       (if (file-readable-p file) "âœ“" "âœ—")
                       file)))
         (message "No bibliography files found. Using global fallback."))))
@@ -3540,18 +3531,18 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
 (with-eval-after-load 'org
   ;; CRITICAL: Require ox-latex BEFORE configuring latex settings
   (require 'ox-latex)
-  
+
   ;; Use Tectonic for Org LaTeX exports
   (setq org-latex-compiler "tectonic")
   (setq org-latex-pdf-process '("tectonic -X compile %f"))
-  
+
   ;; FIXED: Configure preview process with Tectonic
   ;; The key changes:
   ;; 1. Use -Z instead of -X (this is for the preview process)
   ;; 2. Remove "compile" subcommand
   ;; 3. Use "convert" instead of "magick"
   (add-to-list 'org-preview-latex-process-alist
-               '(tectonic 
+               '(tectonic
                  :programs ("tectonic" "convert")
                  :description "pdf > png"
                  :message "you need to install the programs: tectonic and imagemagick."
@@ -3561,9 +3552,9 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
                  :latex-compiler
                  ("tectonic -Z shell-escape-cwd=%o --outfmt pdf --outdir %o %f")
                   :image-converter ("magick convert -density %D -trim -antialias %f -quality 100 %O")))
- 
+
   (setq org-preview-latex-default-process 'tectonic)
-  
+
   ;; Custom LaTeX classes for Org export
   (add-to-list 'org-latex-classes
                '("article"
@@ -3571,7 +3562,7 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
                  ("\\section{%s}" . "\\section*{%s}")
                  ("\\subsection{%s}" . "\\subsection*{%s}")
                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")) t)
-  
+
   (add-to-list 'org-latex-classes
                '("beamer"
                  "\\documentclass{beamer}"
@@ -3595,12 +3586,12 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
                          ("sum" "\\sum_{${1:i=1}}^{${2:n}} ${3:x_i}$0" "sum")
                          ("int" "\\int_{${1:a}}^{${2:b}} ${3:f(x)} \\, dx$0" "integral")
                          ("lim" "\\lim_{${1:x \\to \\infty}} ${2:f(x)}$0" "limit")
-                         
+
                          ;; Physics
                          ("pd" "\\frac{\\partial ${1:f}}{\\partial ${2:x}}$0" "partial derivative")
                          ("dd" "\\frac{d ${1:f}}{d ${2:x}}$0" "derivative")
                          ("vv" "\\vec{${1:v}}$0" "vector")
-                         
+
                          ;; Citations and references
                          ("cite" "\\cite{${1:key}}$0" "cite")
                          ("ref" "\\ref{${1:label}}$0" "reference")
@@ -3709,4 +3700,3 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
   "t t" '(toggle-truncate-lines :wk "Toggle Truncate Lines")
   "t f" '(display-fill-column-indicator-mode :wk "Toggle Fill Column Indicator"))
 #+end_src
-
