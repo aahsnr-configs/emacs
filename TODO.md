@@ -205,9 +205,8 @@ it's loaded in the right order.
 - [x] Replace the whole Session Management content with that from minimal-emacs.d
 - [ ] Add outline indent from minimal-emacs.d. Make sure it works with lsp-bridge
 - [x] Replace the custom remove strip whitespace function with with stripspace from minimal-emacs.d. Make sure this works in lsp-bridge as well
-- [ ] Add vim-tab-bar from minimal-emacs.d as well
 - [ ] Search the web and determine how to prevent evil mode from copying the same section that is pasted upon.
-- [ ] Add easysession from minimal-emacs.d
+- [x] Add easysession from minimal-emacs.d
 - [ ] Test treemacs configuration from minimal-emacs.d
 - [ ] Partially replace snippets configuration with that from minimal-emacs.d
 - [ ] **Important** Re-add my snippets config

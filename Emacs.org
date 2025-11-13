@@ -4,7 +4,6 @@
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
 * Core Emacs Configuration
-This section incorporates the sensible defaults and settings from the minimal-emacs.d project. This provides a robust and well-optimized foundation.
 ** Lexical Binding
 #+begin_src emacs-lisp
 ;;; init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
@@ -119,6 +118,81 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 (use-package no-littering)
 #+end_src
 
+** Performance Tuning
+#+begin_src emacs-lisp
+;; Global setting (affects all buffers)
+(setq-default bidi-display-reordering nil)
+
+;; Buffer-local optimizations (requires hooks)
+(defun my/bidi-optimizations ()
+  "Apply bidi optimizations for current buffer."
+  (setq-local bidi-paragraph-direction 'left-to-right)
+  (setq-local bidi-inhibit-bpa t))
+
+;; Apply to appropriate modes
+(add-hook 'org-mode-hook #'my/bidi-optimizations)
+(add-hook 'text-mode-hook #'my/bidi-optimizations)
+(add-hook 'prog-mode-hook #'my/bidi-optimizations)
+#+end_src
+
+** Small Configs
+#+begin_src emacs-lisp
+;; Move the backup fies to user-emacs-directory/.backup
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+
+;; Ask before killing emacs
+(setq confirm-kill-emacs 'y-or-n-p)
+
+;; Automatically kill all active processes when closing Emacs
+(setq confirm-kill-processes nil)
+
+;; Turn Off Cursor Alarms
+(setq ring-bell-function 'ignore)
+
+;; Show Keystrokes in Progress Instantly
+(setq echo-keystrokes 0.1)
+
+;; Don't Lock Files
+(setq-default create-lockfiles nil)
+
+;; Better Compilation
+(setq-default compilation-always-kill t) ; kill compilation process before starting another
+
+(setq-default compilation-ask-about-save nil) ; save all buffers on `compile'
+
+(setq-default compilation-scroll-output t)
+
+;; ad-handle-definition warnings are generated when functions are redefined with `defadvice',
+;; they are not helpful.
+(setq ad-redefinition-action 'accept)
+
+;; Move Custom-Set-Variables to Different File
+(setq custom-file (concat user-emacs-directory "custom-set-variables.el"))
+(load custom-file 'noerror)
+
+;; So Long mitigates slowness due to extremely long lines.
+;; Currently available in Emacs master branch *only*!
+(when (fboundp 'global-so-long-mode)
+  (global-so-long-mode))
+
+;; Disable cursor blinking
+(blink-cursor-mode -1)
+
+;; Add a newline automatically at the end of the file upon save.
+(setq require-final-newline t)
+
+;; Enable `erase-buffer' function
+(put 'erase-buffer 'disabled nil)
+
+;; Default .args, .in, .out files to text-mode
+(add-to-list 'auto-mode-alist '("\\.in\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.out\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.args\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.bb\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.bbclass\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.Rmd\\'" . markdown-mode))
+#+end_src
+
 ** Setup User
 #+begin_src emacs-lisp
 (setq user-full-name "Ahsanur Rahman"
@@ -225,23 +299,30 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 (setq auto-save-timeout 30)
 (setq auto-save-visited-interval 5)
 (auto-save-visited-mode 1)
-#+end_src
 
-** Performance Tuning
-#+begin_src emacs-lisp
-;; Global setting (affects all buffers)
-(setq-default bidi-display-reordering nil)
+(use-package easysession
+  :commands (easysession-switch-to
+             easysession-save-as
+             easysession-save-mode
+             easysession-load-including-geometry)
 
-;; Buffer-local optimizations (requires hooks)
-(defun my/bidi-optimizations ()
-  "Apply bidi optimizations for current buffer."
-  (setq-local bidi-paragraph-direction 'left-to-right)
-  (setq-local bidi-inhibit-bpa t))
+  :custom
+  (easysession-mode-line-misc-info t)  ; Display the session in the modeline
+  (easysession-save-interval (* 10 60))  ; Save every 10 minutes
 
-;; Apply to appropriate modes
-(add-hook 'org-mode-hook #'my/bidi-optimizations)
-(add-hook 'text-mode-hook #'my/bidi-optimizations)
-(add-hook 'prog-mode-hook #'my/bidi-optimizations)
+  :init
+  ;; Key mappings:
+  ;; C-c l for switching sessions
+  ;; and C-c s for saving the current session
+  (global-set-key (kbd "C-c l") 'easysession-switch-to)
+  (global-set-key (kbd "C-c s") 'easysession-save-as)
+
+  ;; The depth 102 and 103 have been added to to `add-hook' to ensure that the
+  ;; session is loaded after all other packages. (Using 103/102 is particularly
+  ;; useful for those using minimal-emacs.d, where some optimizations restore
+  ;; `file-name-handler-alist` at depth 101 during `emacs-startup-hook`.)
+  (add-hook 'emacs-startup-hook #'easysession-load-including-geometry 102)
+  (add-hook 'emacs-startup-hook #'easysession-save-mode 103))
 #+end_src
 
 ** Auto Tangling Files
@@ -254,64 +335,6 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
       (org-babel-tangle))))
 
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
-#+end_src
-
-** Small Configs
-#+begin_src emacs-lisp
-;; Move the backup fies to user-emacs-directory/.backup
-(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
-
-;; Ask before killing emacs
-(setq confirm-kill-emacs 'y-or-n-p)
-
-;; Automatically kill all active processes when closing Emacs
-(setq confirm-kill-processes nil)
-
-;; Turn Off Cursor Alarms
-(setq ring-bell-function 'ignore)
-
-;; Show Keystrokes in Progress Instantly
-(setq echo-keystrokes 0.1)
-
-;; Don't Lock Files
-(setq-default create-lockfiles nil)
-
-;; Better Compilation
-(setq-default compilation-always-kill t) ; kill compilation process before starting another
-
-(setq-default compilation-ask-about-save nil) ; save all buffers on `compile'
-
-(setq-default compilation-scroll-output t)
-
-;; ad-handle-definition warnings are generated when functions are redefined with `defadvice',
-;; they are not helpful.
-(setq ad-redefinition-action 'accept)
-
-;; Move Custom-Set-Variables to Different File
-(setq custom-file (concat user-emacs-directory "custom-set-variables.el"))
-(load custom-file 'noerror)
-
-;; So Long mitigates slowness due to extremely long lines.
-;; Currently available in Emacs master branch *only*!
-(when (fboundp 'global-so-long-mode)
-  (global-so-long-mode))
-
-;; Disable cursor blinking
-(blink-cursor-mode -1)
-
-;; Add a newline automatically at the end of the file upon save.
-(setq require-final-newline t)
-
-;; Enable `erase-buffer' function
-(put 'erase-buffer 'disabled nil)
-
-;; Default .args, .in, .out files to text-mode
-(add-to-list 'auto-mode-alist '("\\.in\\'" . text-mode))
-(add-to-list 'auto-mode-alist '("\\.out\\'" . text-mode))
-(add-to-list 'auto-mode-alist '("\\.args\\'" . text-mode))
-(add-to-list 'auto-mode-alist '("\\.bb\\'" . shell-script-mode))
-(add-to-list 'auto-mode-alist '("\\.bbclass\\'" . shell-script-mode))
-(add-to-list 'auto-mode-alist '("\\.Rmd\\'" . markdown-mode))
 #+end_src
 
 * General Keybindings
