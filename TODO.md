@@ -1,3 +1,17 @@
+---
+---
+---
+[**NOTE**] 
+**Urgency/Importance Scale**:
+  - *High*
+  - *Medium*
+  - *Low*
+           
+
+---
+---
+---
+
 - [ ] Use https://github.com/MatthewZMD/.emacs.d to optimize my emacs configuration
 
 
@@ -205,19 +219,20 @@ it's loaded in the right order.
 - [x] Replace the whole Session Management content with that from minimal-emacs.d
 - [ ] Add outline indent from minimal-emacs.d. Make sure it works with lsp-bridge
 - [x] Replace the custom remove strip whitespace function with with stripspace from minimal-emacs.d. Make sure this works in lsp-bridge as well
-- [ ] Search the web and determine how to prevent evil mode from copying the same section that is pasted upon.
 - [x] Add easysession from minimal-emacs.d
-- [ ] Test treemacs configuration from minimal-emacs.d
-- [ ] Partially replace snippets configuration with that from minimal-emacs.d
-- [ ] **Important** Re-add my snippets config
-- [ ] Switch to Catppuccin Mocha Theme
-- [ ] **Issue** The extensive escape setup for minibuffer is not working as expected. I need to be able to hide minibuffers that appear at the bottom with escape key like doom emacs 
+- [x] Test treemacs configuration from minimal-emacs.d
+- [x] Partially replace snippets configuration with that from minimal-emacs.d
+- [x] **Important** Re-add my snippets config
+- [x] Switch to Catppuccin Mocha Theme
+- [x] **Issue** The extensive escape setup for minibuffer is not working as expected. I need to be able to hide minibuffers that appear at the bottom with escape key like doom emacs 
 - [ ] **Add stuff to early-init.el file**
 - [ ] **Are there alternative tools to the complex functions I wrote?**
 - [ ] **Later** Add some emacs packages listed in awesome emacs
 - [ ] **Important** Integrate back to minimal-emacs.d and add many of their recommended packages
 
 # Issues
-- [ ] **Urgent** There is a lag when cursor highlights the next matching parenthesis
-- [ ] **Urgent** There is still a lag/stutter when lsp-bridge completion opens while I am typing
+- [ ] **High** There is a lag when cursor highlights the next matching parenthesis
+- [ ] **High** There is still a lag/stutter when lsp-bridge completion opens while I am typing
+- [ ] **Medium** When I yank a word/phrase using the `y` key and paste it over another word/phrase using the `p` key, the latter word/phrase gets copied by evil. I am doing this in visual mode and I don't that behaviour. Instead I want the former word/phrase to be still be able to be pasted. 
+- [ ] **Medium** When I yank and paste something in visual mode, I want to visual flash as feedback to confirm that yank and paste have worked using the `y` and `p` keys from evil
 

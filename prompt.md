@@ -96,4 +96,27 @@ needed with clear instructions on how to apply them
 
 For the attached vanilla emacs configuration Emacs.org file, search the web and perform the following tasks and only write out the changes needed:
 - The escape key does not successfully kill minibuffers as intended by the elaborate configuration. Search the web and fix that issue for me
-- 
+-
+
+
+# Improved evil-mode Configuration Prompts
+
+These prompts clarify the desired behavior, focusing on standard `evil-mode` functionality within Emacs/Vim environments.
+
+## Prompt 1: Preventing Kill Ring Clobbering on Visual Paste
+
+**Task:** Configure `evil-mode` to prevent the overwriting behavior in visual state that "clobbers" the kill ring.
+
+**Specific Goal:** When text is pasted over a visual selection using the `p` or `P` key (in visual mode), the overwritten text must **not** be copied into the kill ring (or system clipboard). The original content that was yanked should remain the primary, most recently copied item, allowing for immediate subsequent pastes of the original content.
+
+---
+
+## Prompt 2: Adding Visual Feedback for Yank and Paste
+
+**Task:** Implement visual feedback to confirm successful `evil-mode` operations in the visual state.
+
+**Specific Goal:** Add a momentary, non-intrusive visual flash or highlight as confirmation feedback specifically for:
+*   Yank operations (`y`, `Y`) in visual mode.
+*   Paste operations (`p`, `P`) in visual mode.
+
+The feedback should be quick and visible enough to confirm the action without disrupting the user's workflow.
