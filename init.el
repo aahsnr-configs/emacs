@@ -29,21 +29,6 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
             (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
             (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
 
-(defun update-to-load-path (folder)
-  "Update FOLDER and its subdirectories to `load-path'."
-  (let ((base folder))
-    (unless (member base load-path)
-      (add-to-list 'load-path base))
-    (dolist (f (directory-files base))
-      (let ((name (concat base "/" f)))
-        (when (and (file-directory-p name)
-                   (not (equal f ".."))
-                   (not (equal f ".")))
-          (unless (member base load-path)
-            (add-to-list 'load-path name)))))))
-
-(update-to-load-path (expand-file-name "elisp" user-emacs-directory))
-
 (defconst *sys/win32*
   (eq system-type 'windows-nt)
   "Are we running on a WinTel system?")
