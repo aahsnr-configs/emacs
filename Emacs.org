@@ -2303,22 +2303,28 @@ then it takes a second invocation to abort the minibuffer."
 (unless (file-directory-p my/snippets-directory)
   (make-directory my/snippets-directory t))
 
+(use-package yasnippet-snippets :after yasnippet)
+
 (use-package yasnippet
+  :hook (after-init . yas-global-mode)
+  :custom
+  ;; Use a completing-read prompt for a better UI when multiple snippets match.
+  (yas-prompt-functions '(yas-completing-prompt))
+  ;; Only show important messages, hiding the "just-in-time loading" confirmation.
   :config
-  (setq yas-snippet-dirs
-        `(,(concat (expand-file-name user-emacs-directory) "snippets")
-          ;; yasnippet-snippets-dir
-          ))
-  (setq yas-triggers-in-field t)
-  (yas-global-mode 1))
 
-(use-package doom-snippets
-  :after yasnippet
-  :straight (doom-snippets :type git :host github :repo "doomemacs/snippets" :files ("*.el" "*")))
-#+end_src
+  ;; --- Add Personal Snippets Directory ---
+  (add-to-list 'yas-snippet-dirs my/snippets-directory)
 
-** Consult Integration
-#+begin_src emacs-lisp
+  ;; --- Robust, Save-Based Automatic Snippet Reloading ---
+  (defun ar/yas-reload-snippets-on-save ()
+    "Reload all snippets if a snippet file is being saved."
+    (when (string-prefix-p my/snippets-directory (buffer-file-name))
+      (yas-reload-all)
+      (message "Yasnippet collection reloaded.")))
+
+  (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save))
+
 (use-package consult-yasnippet
   :after (consult yasnippet)
   :config
@@ -2330,6 +2336,7 @@ then it takes a second invocation to abort the minibuffer."
   "s i" '(consult-yasnippet :wk "insert snippet (consult)")
   "s n" '(yas-new-snippet :wk "new snippet")
   "s v" '(yas-visit-snippet-file :wk "visit snippet file"))
+
 #+end_src
 
 ** Markdown Mode
