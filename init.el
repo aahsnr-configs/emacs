@@ -396,12 +396,6 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 
 (setq evil-undo-system 'undo-fu)
 
-;; Don't let evil-collection interfere with certain keys
-(setq evil-collection-key-blacklist
-      (list "gd" "gf" "K" "[" "]" "gz" "<escape>"
-            "SPC" "," ; Reserve for leader keys
-            "C-SPC" "C-,"))
-
 
 (use-package evil
   :init
@@ -483,12 +477,11 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   (define-key evil-motion-state-map "\\" nil)
   
   ;; Doom-style: Make C-g work like <escape>
-  (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
-  (define-key evil-visual-state-map (kbd "C-g") 'evil-exit-visual-state)
-  (define-key evil-replace-state-map (kbd "C-g") 'evil-normal-state)
-  (define-key evil-operator-state-map (kbd "C-g") 'keyboard-quit)
+  (define-key evil-insert-state-map [escape] 'evil-normal-state)
+  (define-key evil-visual-state-map [escape] 'evil-exit-visual-state)
+  (define-key evil-replace-state-map [escape] 'evil-normal-state)
+  (define-key evil-operator-state-map [escape] 'keyboard-quit)
   
-;; Improved doom/escape function
   (defun doom/escape (&optional interactive)
     "Run the doom escape sequence.
 1. If any escape hook returns non-nil, stop
@@ -501,7 +494,7 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
      ;; Minibuffer is active - quit it
      ((active-minibuffer-window)
       (if (minibufferp)
-          (minibuffer-keyboard-quit)
+          (ar/minibuffer-keyboard-quit)
 	(abort-recursive-edit)))
    
      ;; Evil visual state active - exit it
@@ -517,8 +510,11 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
    
      ;; Default fallback
      (t (keyboard-quit))))
-  
+
   (global-set-key [remap keyboard-quit] #'doom/escape)
+  
+  ;; Ensure ESC also triggers doom/escape
+  (global-set-key [escape] #'doom/escape)
   
   ;; Make movement keys work on visual lines
   (define-key evil-motion-state-map "j" 'evil-next-visual-line)
@@ -1039,6 +1035,61 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   :defer t
   :commands (sudo-edit))
 
+(unless *sys/win32*
+  (set-selection-coding-system 'utf-8)
+  (prefer-coding-system 'utf-8)
+  (set-language-environment "UTF-8")
+  (set-default-coding-systems 'utf-8)
+  (set-terminal-coding-system 'utf-8)
+  (set-keyboard-coding-system 'utf-8)
+  (setq locale-coding-system 'utf-8))
+;; Treat clipboard input as UTF-8 string first; compound text next, etc.
+(when (display-graphic-p)
+  (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
+
+;; Remove useless whitespace before saving a file
+(defun delete-trailing-whitespace-except-current-line ()
+  "An alternative to `delete-trailing-whitespace'.
+
+The original function deletes trailing whitespace of the current line."
+  (interactive)
+  (let ((begin (line-beginning-position))
+        (end (line-end-position)))
+    (save-excursion
+      (when (< (point-min) (1- begin))
+        (save-restriction
+          (narrow-to-region (point-min) (1- begin))
+          (delete-trailing-whitespace)
+          (widen)))
+      (when (> (point-max) (+ end 2))
+        (save-restriction
+          (narrow-to-region (+ end 2) (point-max))
+          (delete-trailing-whitespace)
+          (widen))))))
+
+(defun smart-delete-trailing-whitespace ()
+  "Invoke `delete-trailing-whitespace-except-current-line' on selected major modes only."
+  (unless (member major-mode '(diff-mode))
+    (delete-trailing-whitespace-except-current-line)))
+
+(defun toggle-auto-trailing-ws-removal ()
+  "Toggle trailing whitespace removal."
+  (interactive)
+  (if (member #'smart-delete-trailing-whitespace before-save-hook)
+      (progn
+        (remove-hook 'before-save-hook #'smart-delete-trailing-whitespace)
+        (message "Disabled auto remove trailing whitespace."))
+    (add-hook 'before-save-hook #'smart-delete-trailing-whitespace)
+    (message "Enabled auto remove trailing whitespace.")))
+;; Add to hook during startup
+(add-hook 'before-save-hook #'smart-delete-trailing-whitespace)
+
+;; Replace selection on insert
+(delete-selection-mode 1)
+
+;; Map Alt key to Meta
+(setq x-alt-keysym 'meta)
+
 (use-package shackle
   :init
   (setq shackle-default-alignment 'below
@@ -1291,40 +1342,37 @@ Returns t if a popup was closed, nil otherwise."
   ;; Tidy shadowed file names
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
-;; Smart minibuffer escape based on Emacs Redux
+;; Enhanced minibuffer quit function
 (defun ar/minibuffer-keyboard-quit ()
-  "Quit minibuffer intelligently.
-If in minibuffer, use minibuffer-keyboard-quit.
-If minibuffer is active but we're not in it, abort it.
-Otherwise, normal keyboard-quit."
+  "Abort recursive edit.
+In Delete Selection mode, if the mark is active, just deactivate it;
+then it takes a second invocation to abort the minibuffer."
   (interactive)
-  (cond
-   ((active-minibuffer-window)
-    (if (minibufferp)
-        (minibuffer-keyboard-quit)
-      (abort-recursive-edit)))
-   (t
-    (keyboard-quit))))
+  (if (and delete-selection-mode transient-mark-mode mark-active)
+      (setq deactivate-mark t)
+    (when (get-buffer "*Completions*")
+      (delete-windows-on "*Completions*"))
+    (abort-recursive-edit)))
 
-;; Bind ESC in all minibuffer keymaps
-(define-key minibuffer-local-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-ns-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-completion-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-must-match-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-isearch-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
+;; Use [escape] notation, not (kbd "<escape>") for better compatibility
+(define-key minibuffer-local-map [escape] 'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-ns-map [escape] 'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-completion-map [escape] 'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-must-match-map [escape] 'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-isearch-map [escape] 'ar/minibuffer-keyboard-quit)
 
 ;; Vertico integration
 (with-eval-after-load 'vertico
-  (define-key vertico-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit))
+  (define-key vertico-map [escape] 'ar/minibuffer-keyboard-quit))
 
 ;; Query-replace-map for y-or-n prompts
 (with-eval-after-load 'replace
-  (define-key query-replace-map (kbd "<escape>") #'exit))
+  (define-key query-replace-map [escape] 'exit))
 
-;; Evil ex and search maps
+;; Evil ex and search maps - use abort-recursive-edit
 (with-eval-after-load 'evil
-  (define-key evil-ex-completion-map (kbd "<escape>") #'abort-recursive-edit)
-  (define-key evil-ex-search-keymap (kbd "<escape>") #'abort-recursive-edit))
+  (define-key evil-ex-completion-map [escape] 'abort-recursive-edit)
+  (define-key evil-ex-search-keymap [escape] 'abort-recursive-edit))
 
 (use-package marginalia
   :hook (after-init . marginalia-mode))
@@ -1882,6 +1930,24 @@ Otherwise, normal keyboard-quit."
   (add-to-list 'evil-emacs-state-modes 'org-agenda-mode)
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
+
+;; Fix ESC key behavior in org-agenda dispatcher
+(with-eval-after-load 'org-agenda
+  ;; Make ESC quit the agenda dispatcher properly
+  (defun ar/org-agenda-quit-dispatcher ()
+    "Quit org-agenda command dispatcher."
+    (interactive)
+    (throw 'exit nil))
+  
+  ;; Add hook to bind ESC in agenda dispatcher
+  (defun ar/org-agenda-setup-escape ()
+    "Setup escape key for org-agenda."
+    (local-set-key [escape] 'ar/org-agenda-quit-dispatcher))
+  
+  ;; This ensures ESC works in the agenda command selection buffer
+  (add-hook 'org-agenda-mode-hook
+            (lambda ()
+              (local-set-key [escape] 'quit-window))))
 
 (ar/global-leader
   ;; Org-mode specific bindings
@@ -3186,19 +3252,19 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
 
 ;; Also bind ESC directly in special-mode-map as backup
 (with-eval-after-load 'simple
-  (define-key special-mode-map (kbd "<escape>") #'quit-window)
-  (define-key messages-buffer-mode-map (kbd "<escape>") #'quit-window)
+  (define-key special-mode-map [escape] #'quit-window)
+  (define-key messages-buffer-mode-map [escape] #'quit-window)
   (define-key messages-buffer-mode-map (kbd "q") #'quit-window))
 
 ;; Help and compilation modes
 (with-eval-after-load 'help-mode
-  (define-key help-mode-map (kbd "<escape>") #'quit-window))
+  (define-key help-mode-map [escape] #'quit-window))
 
 (with-eval-after-load 'compile
-  (define-key compilation-mode-map (kbd "<escape>") #'quit-window))
+  (define-key compilation-mode-map [escape] #'quit-window))
 
 (with-eval-after-load 'helpful
-  (define-key helpful-mode-map (kbd "<escape>") #'quit-window))
+  (define-key helpful-mode-map [escape] #'quit-window))
 
 (defun ar/kill-other-buffers ()
   "Kill all buffers except the current one."
