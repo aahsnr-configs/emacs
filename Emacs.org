@@ -12,7 +12,7 @@ This section incorporates the sensible defaults and settings from the minimal-em
 
 ** Garbage Collection
 #+begin_src emacs-lisp
-(defvar better-gc-cons-threshold 134217728 ; 128mb
+(defvar better-gc-cons-threshold 154217728 ; 128mb
   "The default value to use for `gc-cons-threshold'.
 
 If you experience freezing, decrease this.  If you experience stuttering, increase this.")
@@ -246,6 +246,61 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'efs/org-babel-tangle-config)))
 #+end_src
 
+** Small Configs
+#+begin_src emacs-lisp
+;; Move the backup fies to user-emacs-directory/.backup
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+
+;; Ask before killing emacs
+(setq confirm-kill-emacs 'y-or-n-p)
+
+;; Automatically kill all active processes when closing Emacs
+(setq confirm-kill-processes nil)
+
+;; Turn Off Cursor Alarms
+(setq ring-bell-function 'ignore)
+
+;; Show Keystrokes in Progress Instantly
+(setq echo-keystrokes 0.1)
+
+;; Don't Lock Files
+(setq-default create-lockfiles nil)
+
+;; Better Compilation
+(setq-default compilation-always-kill t) ; kill compilation process before starting another
+
+(setq-default compilation-ask-about-save nil) ; save all buffers on `compile'
+
+(setq-default compilation-scroll-output t)
+
+;; ad-handle-definition warnings are generated when functions are redefined with `defadvice',
+;; they are not helpful.
+(setq ad-redefinition-action 'accept)
+
+;; Move Custom-Set-Variables to Different File
+(setq custom-file (concat user-emacs-directory "custom-set-variables.el"))
+(load custom-file 'noerror)
+
+;; So Long mitigates slowness due to extremely long lines.
+;; Currently available in Emacs master branch *only*!
+(when (fboundp 'global-so-long-mode)
+  (global-so-long-mode))
+
+;; Add a newline automatically at the end of the file upon save.
+(setq require-final-newline t)
+
+;; Enable `erase-buffer' function
+(put 'erase-buffer 'disabled nil)
+
+;; Default .args, .in, .out files to text-mode
+(add-to-list 'auto-mode-alist '("\\.in\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.out\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.args\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.bb\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.bbclass\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.Rmd\\'" . markdown-mode))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 ;; in favor of escap in Editor Behaviour
@@ -390,32 +445,7 @@ Enable line numbers for some modes
 #+end_src
 
 ** Hide Modeline
-
 #+begin_src emacs-lisp
-(defun ar/hide-modeline-for-special-buffers ()
-  "Hide the modeline in special buffers starting and ending with '*'.
-An exclusion list prevents this for essential buffers like *scratch*
-or compilation buffers where the modeline provides useful info."
-  (let ((buf-name (buffer-name))
-        ;; Add buffer names here to prevent their modelines from being hidden.
-        (exclude-list '("*scratch*"
-                         "*Messages*"
-                         ;;"*compilation*"
-                         ;; "*Agenda Commands*" ; does not hide because it is two words
-                         "*grep*"
-                         "*vterm*"
-                         )))
-    (when (and buf-name
-	       ;;<
-               (> (length buf-name) 2) ; Ensure buffer name is not just "**"
-               (string-prefix-p "*" buf-name)
-               (string-suffix-p "*" buf-name)
-               (not (member buf-name exclude-list)))
-      (setq-local mode-line-format nil))))
-
-;; This hook runs whenever a buffer's major mode is initialized,
-;; applying the rule to all new and existing special buffers.
-(add-hook 'after-change-major-mode-hook #'ar/hide-modeline-for-special-buffers)
 #+end_src
 
 ** Frame Padding
@@ -1085,6 +1115,7 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
     (apply orig-fn args)))
 
 (use-package smartparens
+  :defer t 
   :hook ((prog-mode . smartparens-mode)
          (text-mode . smartparens-mode)
          (org-mode . smartparens-mode)
@@ -1145,6 +1176,56 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
                   minibuffer-inactive-mode
                   debugger-mode))
     (add-to-list 'sp-ignore-modes-list mode))
+  )
+#+end_src
+
+** Exec Path From Shell
+#+begin_src emacs-lisp
+(use-package exec-path-from-shell
+  :defer t
+  :custom
+  (exec-path-from-shell-variables
+   '("PATH" "MANPATH"
+     "OPENAI_API_KEY" "ANTHROPIC_API_KEY"
+     "XAI_API_KEY" "DEEPSEEK_API_KEY"
+     "OPENROUTER_API_KEY" "GEMINI_API_KEY"))
+  :config
+  (when (daemonp)
+    (exec-path-from-shell-initialize)))
+#+end_src
+
+** Sudo Edit
+#+begin_src emacs-lisp
+(use-package sudo-edit
+  :defer t
+  :commands (sudo-edit))
+#+end_src
+
+** Popwin
+#+begin_src emacs-lisp
+(use-package popwin
+  :init
+  (popwin-mode 1)
+  :config
+  (setq popwin:popup-window-height 5)
+  (setq popwin:special-display-config
+        '(
+          ;; 1. *Messages* buffer: Ideal for popwin, keeps the main window focused.
+          ("*Messages*"
+           :position bottom    ;; Display at the bottom of the frame
+           :height 5          ;; Keep it small
+           :noselect t)       ;; Prevents it from stealing focus
+
+          ;; 2. Package Menu: A good example of using popwin for utility buffers.
+          ("*Package-Menu*"
+           :position right     ;; Display on the right side
+           :width 0.3)         ;; Give it 30% of the frame width
+
+            ;; 4. *calc* buffer: Another example for a tool buffer.
+          (" *calc*"
+           :position right
+           :width 0.4)
+          ))
   )
 #+end_src
 
@@ -3227,7 +3308,6 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
 #+end_src
 
 * Miscelleanous
-
 ** Gnuplot Integration
 #+begin_src emacs-lisp
 (use-package gnuplot
@@ -3243,10 +3323,16 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
 
 ** Enhanced Window, Buffer & General Keybindings
 #+begin_src emacs-lisp -n
-(defun kill-other-buffers ()
+(defun ar/kill-other-buffers ()
   "Kill all buffers except the current one."
   (interactive)
   (mapc 'kill-buffer (delq (current-buffer) (buffer-list))))
+
+(defun ar/save-all-buffers ()
+  "Save all file-visiting buffers without prompting."
+  (interactive)
+  (save-some-buffers t))
+
 
 (ar/global-leader
   ;; --- Window Management ---
@@ -3269,8 +3355,9 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
   "b b" '(consult-buffer :wk "Switch Buffer")
   "b i" '(ibuffer :wk "List Buffers (Ibuffer)")
   "b k" '(kill-current-buffer :wk "Kill Current Buffer")
-  "b K" '(kill-other-buffers :wk "Kill Other Buffers")
-  "b s" '(save-buffer :wk "Save Buffer")
+  "b K" '(ar/kill-other-buffers :wk "Kill Other Buffers")
+  "b s" '(ar/save-all-buffers :wk "Save All Buffers")
+  "b S" '(save-buffer :wk "Save Current Buffer")
   "b m" '(bookmark-set :wk "Bookmark Current Buffer")
   "b B" '(consult-bookmark :wk "Bookmarks")
   "b r" '(rename-buffer :wk "Rename Buffer")
