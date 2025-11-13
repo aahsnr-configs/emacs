@@ -369,10 +369,12 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
 
 (use-package which-key
+  :straight (:type built-in) 
+  :defer t
   :hook (after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
-  (which-key-separator " â†’ ")
+  (which-key-separator " → ")
   (which-key-popup-type 'minibuffer))
 
 
@@ -486,19 +488,35 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
   (define-key evil-replace-state-map (kbd "C-g") 'evil-normal-state)
   (define-key evil-operator-state-map (kbd "C-g") 'keyboard-quit)
   
-  ;; Doom-style: Make ESC quit everything
+;; Improved doom/escape function
   (defun doom/escape (&optional interactive)
-    "Run `keyboard-quit'. If in evil, exit to normal mode.
-Runs `doom-escape-hook' before quitting."
+    "Run the doom escape sequence.
+1. If any escape hook returns non-nil, stop
+2. Otherwise handle minibuffer, visual state, or normal quit"
     (interactive "<p>")
-    (when (fboundp 'evil-force-normal-state)
+    (cond
+     ;; Run escape hooks - they can stop propagation by returning t
+     ((run-hook-with-args-until-success 'doom-escape-hook))
+   
+     ;; Minibuffer is active - quit it
+     ((active-minibuffer-window)
+      (if (minibufferp)
+          (minibuffer-keyboard-quit)
+	(abort-recursive-edit)))
+   
+     ;; Evil visual state active - exit it
+     ((and (fboundp 'evil-visual-state-p)
+           (evil-visual-state-p))
+      (evil-exit-visual-state))
+   
+     ;; Not in normal state - force it
+     ((and (fboundp 'evil-normal-state-p)
+           (not (evil-normal-state-p))
+           (not (evil-emacs-state-p)))
       (evil-force-normal-state))
-    
-    ;; NEW: Run the custom escape hook
-    (when (fboundp 'run-hook-wrapped)
-        (run-hook-wrapped 'doom-escape-hook #'ignore))
-        
-    (keyboard-quit))
+   
+     ;; Default fallback
+     (t (keyboard-quit))))
   
   (global-set-key [remap keyboard-quit] #'doom/escape)
   
@@ -921,50 +939,6 @@ Runs `doom-escape-hook' before quitting."
     "j l" '(jinx-languages :wk "Select language")
     "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer")))
 
-;; Enable evil-collection's minibuffer setup
-(setq evil-collection-setup-minibuffer t)
-
-;; Core escape function for minibuffer
-(defun ar/minibuffer-keyboard-quit ()
-  "Abort recursive edit and clean up completion windows."
-  (interactive)
-  (if (and delete-selection-mode transient-mark-mode mark-active)
-      (setq deactivate-mark t)
-    (when (get-buffer "*Completions*")
-      (delete-windows-on "*Completions*"))
-    (abort-recursive-edit)))
-
-;; Escape function for clearing evil search highlights
-(defun my/escape-key ()
-  "Clear evil search highlight and quit."
-  (interactive)
-  (when (bound-and-true-p evil-mode)
-    (evil-ex-nohighlight))
-  (keyboard-quit))
-
-;; Bind escape in normal/visual states
-(general-define-key
- :keymaps '(normal visual global)
- [escape] #'my/escape-key)
-
-;; Bind escape in ALL minibuffer keymaps
-(define-key minibuffer-local-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-ns-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-completion-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-must-match-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-isearch-map [escape] #'ar/minibuffer-keyboard-quit)
-
-;; CRITICAL: Bind escape in vertico-map (this is what was missing!)
-(with-eval-after-load 'vertico
-  (define-key vertico-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit))
-
-;; Also handle evil's own minibuffer maps
-(with-eval-after-load 'evil
-  (when (boundp 'evil-ex-completion-map)
-    (define-key evil-ex-completion-map [escape] #'ar/minibuffer-keyboard-quit))
-  (when (boundp 'evil-ex-search-keymap)
-    (define-key evil-ex-search-keymap [escape] #'ar/minibuffer-keyboard-quit)))
-
 (defun ar/deadgrep-fix-buffer-advice (fun &rest args)
   (let ((buf (apply fun args)))
     (with-current-buffer buf
@@ -1223,13 +1197,34 @@ Runs `doom-escape-hook' before quitting."
 ;; Evil integration: close popups with ESC
 (with-eval-after-load 'evil
   (defun ar/popup-close-on-escape ()
-    "Close popup windows when pressing ESC."
-    (when (bound-and-true-p popper-mode)
-      (when (popper-popup-p (current-buffer))
-        (popper-close-latest)
-        t)))
-  
-  ;; Add to evil escape sequence
+    "Close popup windows when pressing ESC.
+Returns t if a popup was closed, nil otherwise."
+    (cond
+     ;; If current buffer is a popper popup, close it
+     ((and (bound-and-true-p popper-mode)
+           (popper-popup-p (current-buffer)))
+      (popper-close-latest)
+      t)
+   
+     ;; If there are any open popper popups, close the latest one
+     ((and (bound-and-true-p popper-mode)
+           popper-open-popup-alist)
+      (popper-close-latest)
+      t)
+   
+     ;; Close shackle popups by window parameter
+     ((seq-find (lambda (win)
+                  (window-parameter win 'popup))
+		(window-list))
+      (delete-window (seq-find (lambda (win)
+				 (window-parameter win 'popup))
+                               (window-list)))
+      t)
+   
+     ;; No popup to close
+     (t nil)))
+
+  ;; Add to doom-escape-hook
   (add-hook 'doom-escape-hook #'ar/popup-close-on-escape))
 
 ;; Keybindings
@@ -1295,6 +1290,41 @@ Runs `doom-escape-hook' before quitting."
               ("M-DEL" . vertico-directory-delete-word))
   ;; Tidy shadowed file names
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
+
+;; Smart minibuffer escape based on Emacs Redux
+(defun ar/minibuffer-keyboard-quit ()
+  "Quit minibuffer intelligently.
+If in minibuffer, use minibuffer-keyboard-quit.
+If minibuffer is active but we're not in it, abort it.
+Otherwise, normal keyboard-quit."
+  (interactive)
+  (cond
+   ((active-minibuffer-window)
+    (if (minibufferp)
+        (minibuffer-keyboard-quit)
+      (abort-recursive-edit)))
+   (t
+    (keyboard-quit))))
+
+;; Bind ESC in all minibuffer keymaps
+(define-key minibuffer-local-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-ns-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-completion-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-must-match-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-isearch-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit)
+
+;; Vertico integration
+(with-eval-after-load 'vertico
+  (define-key vertico-map (kbd "<escape>") #'ar/minibuffer-keyboard-quit))
+
+;; Query-replace-map for y-or-n prompts
+(with-eval-after-load 'replace
+  (define-key query-replace-map (kbd "<escape>") #'exit))
+
+;; Evil ex and search maps
+(with-eval-after-load 'evil
+  (define-key evil-ex-completion-map (kbd "<escape>") #'abort-recursive-edit)
+  (define-key evil-ex-search-keymap (kbd "<escape>") #'abort-recursive-edit))
 
 (use-package marginalia
   :hook (after-init . marginalia-mode))
@@ -3141,6 +3171,34 @@ Searches in: project-root/, project-root/references/, project-root/bib/"
   ;; This should be in your PATH if installed via home-manager.
   (gnuplot-program "gnuplot")
   (gnuplot-default-term 'pdfcairo))
+
+;; Special buffer quit function for doom-escape-hook
+(defun ar/quit-special-buffer-on-escape ()
+  "Quit special mode buffers. Returns t if handled, nil otherwise."
+  (when (or (derived-mode-p 'special-mode)
+            (derived-mode-p 'messages-buffer-mode)
+            (derived-mode-p 'compilation-mode))
+    (quit-window)
+    t))
+
+;; Add to doom-escape-hook (at end)
+(add-hook 'doom-escape-hook #'ar/quit-special-buffer-on-escape 'append)
+
+;; Also bind ESC directly in special-mode-map as backup
+(with-eval-after-load 'simple
+  (define-key special-mode-map (kbd "<escape>") #'quit-window)
+  (define-key messages-buffer-mode-map (kbd "<escape>") #'quit-window)
+  (define-key messages-buffer-mode-map (kbd "q") #'quit-window))
+
+;; Help and compilation modes
+(with-eval-after-load 'help-mode
+  (define-key help-mode-map (kbd "<escape>") #'quit-window))
+
+(with-eval-after-load 'compile
+  (define-key compilation-mode-map (kbd "<escape>") #'quit-window))
+
+(with-eval-after-load 'helpful
+  (define-key helpful-mode-map (kbd "<escape>") #'quit-window))
 
 (defun ar/kill-other-buffers ()
   "Kill all buffers except the current one."
