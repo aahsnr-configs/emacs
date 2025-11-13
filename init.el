@@ -1043,30 +1043,193 @@ then it takes a second \\[keyboard-quit] to abort the minibuffer."
   :defer t
   :commands (sudo-edit))
 
-(use-package popwin
+(use-package shackle
   :init
-  (popwin-mode 1)
+  (setq shackle-default-alignment 'below
+        shackle-default-size 0.4
+        shackle-select-reused-windows nil
+        shackle-inhibit-window-quit-on-same-windows nil)
+  
   :config
-  (setq popwin:popup-window-height 5)
-  (setq popwin:special-display-config
-        '(
-          ;; 1. *Messages* buffer: Ideal for popwin, keeps the main window focused.
-          ("*Messages*"
-           :position bottom    ;; Display at the bottom of the frame
-           :height 5          ;; Keep it small
-           :noselect t)       ;; Prevents it from stealing focus
+  ;; Define popup rules matching Doom Emacs patterns
+  (setq shackle-rules
+        '(;; Fallback rule for special buffers (those starting with space or *)
+          ("^\\*[Hh]elp" :select t :size 0.35 :align below :popup t)
+          ("^\\*info" :select t :size 0.4 :align below :popup t)
+          ("^\\*Man" :select t :size 0.45 :align below :popup t)
+          ("^\\*WoMan" :select t :size 0.45 :align below :popup t)
+          
+          ;; Compilation and messages
+          ("^\\*compilation\\*" :select nil :size 0.3 :align below :popup t)
+          ("^\\*Compile-Log\\*" :select nil :size 0.3 :align below :popup t)
+          ("^\\*Messages\\*" :select nil :size 0.3 :align below :popup t)
+          ("^\\*Warnings\\*" :select nil :size 0.3 :align below :popup t)
+          ("^\\*Backtrace\\*" :select t :size 0.4 :align below :popup t)
+          
+          ;; Shell and terminal
+          ("^\\*shell\\*" :select t :size 0.35 :align below :popup t)
+          ("^\\*eshell\\*" :select t :size 0.35 :align below :popup t)
+          ("^\\*term\\*" :select t :size 0.35 :align below :popup t)
+          ("^\\*vterm" :select t :size 0.35 :align below :popup t)
+          
+          ;; Org mode
+          ("^\\*Org Src" :select t :size 0.5 :align right :popup t)
+          ("^\\*Org Agenda\\*" :select t :size 0.4 :align below :popup t)
+          ("^CAPTURE-.*\\.org" :regexp t :select t :size 0.4 :align below :popup t)
+          ("^\\*Org Select\\*" :select t :size 0.3 :align below :popup t)
+          
+          ;; Magit
+          (magit-status-mode :select t :size 0.7 :align below :inhibit-window-quit t)
+          (magit-log-mode :select t :size 0.7 :align below)
+          (magit-diff-mode :select t :size 0.7 :align below)
+          ("^magit-revision:" :regexp t :select t :size 0.6 :align below :popup t)
+          ("^magit:" :regexp t :select t :size 0.7 :align below :popup t)
+          
+          ;; Development tools
+          ("^\\*Flycheck errors\\*" :select t :size 0.3 :align below :popup t)
+          ("^\\*lsp-help\\*" :select t :size 0.35 :align below :popup t)
+          ("^\\*eldoc" :select nil :size 0.3 :align below :popup t)
+          ("^\\*xref\\*" :select t :size 0.3 :align below :popup t)
+          
+          ;; LSP Bridge
+          ("^\\*lsp-bridge" :select nil :size 0.35 :align below :popup t)
+          
+          ;; Debugger (dape)
+          ("^\\*dape-repl" :select nil :size 0.35 :align below :popup t)
+          ("^\\*dape-info" :select nil :size 0.35 :align right :popup t)
+          
+          ;; Grep, occur, deadgrep
+          ("^\\*grep\\*" :select t :size 0.4 :align below :popup t)
+          ("^\\*Occur\\*" :select t :size 0.4 :align below :popup t)
+          ("^\\*deadgrep" :select t :size 0.4 :align below :popup t)
+          
+          ;; Completion
+          ("^\\*Completions\\*" :select nil :size 0.3 :align below :popup t)
+          ("^\\*Embark Actions\\*" :select t :size 0.3 :align below :popup t)
+          ("^\\*Embark Collect" :select t :size 0.5 :align below :popup t)
+          
+          ;; Miscellaneous
+          ("^\\*Apropos\\*" :select t :size 0.4 :align below :popup t)
+          ("^\\*Bookmark List\\*" :select t :size 0.4 :align below :popup t)
+          ("^\\*Calculator\\*" :select t :size 0.4 :align below :popup t)
+          ("^\\*Calc" :select t :size 0.4 :align below :popup t)
+          ("^\\*Colors\\*" :select t :size 0.3 :align below :popup t)
+          ("^\\*undo-tree\\*" :select t :size 0.3 :align right :popup t)
+          
+          ;; PDF Tools and Org Noter
+          ("^\\*Outline" :select nil :size 0.3 :align right :popup t)
+          
+          ;; Jupyter and EIN
+          ("^\\*ein:notebooklist" :select t :size 0.5 :align below :popup t)
+          ("^\\*ob-async" :select nil :size 0.3 :align below :popup t)
+          
+          ;; Proced
+          (proced-mode :select t :size 0.5 :align below)
+          
+          ;; Deft
+          (deft-mode :select t :same t)))
+  
+  ;; Enable shackle mode
+  (shackle-mode 1))
 
-          ;; 2. Package Menu: A good example of using popwin for utility buffers.
-          ("*Package-Menu*"
-           :position right     ;; Display on the right side
-           :width 0.3)         ;; Give it 30% of the frame width
+(use-package popper
+  :bind (("C-`" . popper-toggle)
+         ("M-`" . popper-cycle)
+         ("C-M-`" . popper-toggle-type))
+  
+  :init
+  (setq popper-reference-buffers
+        '("\\*Messages\\*"
+          "\\*Warnings\\*"
+          "\\*Backtrace\\*"
+          "Output\\*$"
+          "\\*Async Shell Command\\*"
+          "^\\*eshell.*\\*$" eshell-mode
+          "^\\*shell.*\\*$" shell-mode
+          "^\\*term.*\\*$" term-mode
+          "^\\*vterm.*\\*$" vterm-mode
+          help-mode
+          helpful-mode
+          compilation-mode
+          "^\\*Completions\\*"
+          "^\\*Occur\\*"
+          "^\\*grep\\*"
+          "^\\*deadgrep"
+          "^\\*Flycheck errors\\*"
+          "^\\*eldoc"
+          "^\\*xref\\*"
+          "^\\*lsp-help\\*"
+          "^\\*lsp-bridge"
+          "^\\*dape-repl"
+          "^\\*Embark"))
+  
+  (setq popper-group-function #'popper-group-by-project)
+  
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1)
+  (setq popper-display-control t)
+  (setq popper-display-function nil))
 
-            ;; 4. *calc* buffer: Another example for a tool buffer.
-          (" *calc*"
-           :position right
-           :width 0.4)
-          ))
-  )
+(defun ar/popup-close-all ()
+  "Close all popup windows."
+  (interactive)
+  (dolist (window (window-list))
+    (when (window-parameter window 'popup)
+      (delete-window window)))
+  ;; Also close popper popups
+  (when (bound-and-true-p popper-mode)
+    (popper-close-all)))
+
+(defun ar/popup-raise ()
+  "Raise (show) the last popup window."
+  (interactive)
+  (if (bound-and-true-p popper-mode)
+      (popper-toggle)
+    (message "No popup system active")))
+
+(defun ar/popup-toggle-messages ()
+  "Toggle the *Messages* buffer as a popup."
+  (interactive)
+  (let ((buf (get-buffer "*Messages*")))
+    (if buf
+        (if (get-buffer-window buf)
+            (delete-window (get-buffer-window buf))
+          (display-buffer buf))
+      (message "No *Messages* buffer"))))
+
+;; Evil integration: close popups with ESC
+(with-eval-after-load 'evil
+  (defun ar/popup-close-on-escape ()
+    "Close popup windows when pressing ESC."
+    (when (bound-and-true-p popper-mode)
+      (when (popper-popup-p (current-buffer))
+        (popper-close-latest)
+        t)))
+  
+  ;; Add to evil escape sequence
+  (add-hook 'doom-escape-hook #'ar/popup-close-on-escape))
+
+;; Hide modeline in popups (optional, like Doom)
+(defun ar/popup-hide-modeline ()
+  "Hide mode line in popup windows."
+  (when (and (window-parameter nil 'popup)
+             (not (eq (selected-window) (minibuffer-window))))
+    (setq mode-line-format nil)))
+
+;; Optional: Enable modeline hiding
+(add-hook 'window-configuration-change-hook #'ar/popup-hide-modeline)
+
+;; Keybindings
+(ar/global-leader
+  "w p" '(:ignore t :wk "popup")
+  "w p t" '(popper-toggle :wk "Toggle Latest Popup")
+  "w p c" '(popper-cycle :wk "Cycle Popups")
+  "w p T" '(popper-toggle-type :wk "Toggle Popup Type")
+  "w p k" '(popper-kill-latest-popup :wk "Kill Latest Popup")
+  "w p K" '(ar/popup-close-all :wk "Close All Popups")
+  "w p r" '(ar/popup-raise :wk "Raise Last Popup")
+  "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages"))
 
 (use-package orderless
   :config
