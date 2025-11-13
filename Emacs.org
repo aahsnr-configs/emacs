@@ -167,7 +167,8 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 (use-package autorevert
   :straight (:type built-in)
   :commands (auto-revert-mode global-auto-revert-mode)
-  :hook (after-init . global-auto-revert-mode)
+  :hook
+  (after-init . global-auto-revert-mode)
   :custom
   (auto-revert-interval 3)
   (auto-revert-remote-files nil)
@@ -178,33 +179,51 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 (use-package recentf
   :straight (:type built-in)
   :commands (recentf-mode recentf-cleanup)
-  :hook (after-init . recentf-mode)
+  :hook
+  (after-init . recentf-mode)
+
   :custom
   (recentf-auto-cleanup (if (daemonp) 300 'never))
   (recentf-exclude
-   (list "^/\\(?:ssh\\|su\\|sudo\\)?:" ; From minimal-emacs.d
-          "\\.?cache" ".cask" "url" "COMMIT_EDITMSG\\'" "bookmarks"
-          "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
-          "\\.?ido\\.last$" "\\.revive$" "/G?TAGS$" "/.elfeed/"
-          "^/tmp/" "^/var/folders/.+$" "^/ssh:" "/persp-confs/"))
+   (list "\\.tar$" "\\.tbz2$" "\\.tbz$" "\\.tgz$" "\\.bz2$"
+         "\\.bz$" "\\.gz$" "\\.gzip$" "\\.xz$" "\\.zip$"
+         "\\.7z$" "\\.rar$"
+         "COMMIT_EDITMSG\\'"
+         "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
+         "-autoloads\\.el$" "autoload\\.el$"))
 
   :config
   (add-hook 'kill-emacs-hook #'recentf-cleanup -90))
 
+(use-package savehist
+  :ensure nil  ; Built-in package
+  :init
+  (savehist-mode 1)
+  :custom
+  (savehist-file (locate-user-emacs-file "savehist"))
+  (savehist-autosave-interval 300)
+  (savehist-additional-variables
+   '(kill-ring
+     search-ring
+     regexp-search-ring
+     compile-command
+     extended-command-history))
+  (history-length 1000)
+  (history-delete-duplicates t))
+
 (use-package saveplace
   :straight (:type built-in)
   :commands (save-place-mode save-place-local-mode)
-  :hook (after-init . save-place-mode)
+  :hook
+  (after-init . save-place-mode)
   :custom
   (save-place-limit 400))
 
-;; Enable `auto-save-mode' to prevent data loss. Use `recover-file' or
-;; `recover-session' to restore unsaved changes.
+;;; Activating autosave
 (setq auto-save-default t)
-
 (setq auto-save-interval 300)
 (setq auto-save-timeout 30)
-(setq auto-save-visited-interval 5)   ; Save after 5 seconds if inactivity
+(setq auto-save-visited-interval 5)
 (auto-save-visited-mode 1)
 #+end_src
 
@@ -276,6 +295,9 @@ If you experience freezing, decrease this.  If you experience stuttering, increa
 ;; Currently available in Emacs master branch *only*!
 (when (fboundp 'global-so-long-mode)
   (global-so-long-mode))
+
+;; Disable cursor blinking
+(blink-cursor-mode -1)
 
 ;; Add a newline automatically at the end of the file upon save.
 (setq require-final-newline t)
@@ -361,18 +383,7 @@ Enable line numbers for some modes
   (custom-set-faces
    '(bold ((t (:foreground "#f5e0dc" :weight bold))))
    '(italic ((t (:foreground "#f38ba8" :slant italic))))
-   '(sp-show-pair-match-face ((t (:background "#b4befe" :foreground "black" :weight medium))))
-
-   ;; --- Org Mode Header Colors (Mocha Palette) ---
-   '(org-level-1 ((t (:inherit outline-1 :foreground "#f5e0dc"))))
-   '(org-level-2 ((t (:inherit outline-2 :foreground "#cba6f7"))))
-   '(org-level-3 ((t (:inherit outline-3 :foreground "#89b4fa"))))
-   '(org-level-4 ((t (:inherit outline-4 :foreground "#7f849c"))))
-   '(org-level-5 ((t (:inherit outline-5 :foreground "#f38ba8"))))
-   '(org-level-6 ((t (:inherit outline-6 :foreground "#fab387"))))
-   '(org-level-7 ((t (:inherit outline-7 :foreground "#eba0ac"))))
-   '(org-level-8 ((t (:inherit outline-8 :foreground "#f5e0dc"))))
-   ))
+   '(sp-show-pair-match-face ((t (:background "#b4befe" :foreground "black" :weight medium))))))
 #+end_src
 
 ** Solaire Mode
@@ -1258,6 +1269,24 @@ The original function deletes trailing whitespace of the current line."
 
 ;; Map Alt key to Meta
 (setq x-alt-keysym 'meta)
+#+end_src
+
+** Smooth Scrolling
+
+#+begin_src emacs-lisp
+;; Vertical Scroll
+(setq scroll-step 1)
+(setq scroll-margin 1)
+(setq scroll-conservatively 101)
+(setq scroll-up-aggressively 0.01)
+(setq scroll-down-aggressively 0.01)
+(setq auto-window-vscroll nil)
+(setq fast-but-imprecise-scrolling nil)
+(setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
+(setq mouse-wheel-progressive-speed nil)
+;; Horizontal Scroll
+(setq hscroll-step 1)
+(setq hscroll-margin 1)
 #+end_src
 
 * Popup Management System

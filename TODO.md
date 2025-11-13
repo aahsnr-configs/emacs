@@ -198,13 +198,13 @@ it's loaded in the right order.
 - [x] Optimize Editing Experience
 - [x] UTF-8 Coding System
 - [x] add recentf-exclude and some other stuff to my own recentf setup
-- [ ] Small Configs
-- [ ] Smooth Scrolling 
+- [x] Small Configs
+- [x] Smooth Scrolling 
 - [ ] Functions - *Top Level Header* & *General keybindings*
 - [ ] Maybe the comprehensive escape key behaviour is not necessary if I have replaced the `C-g` keybinding with `[escape]`?
-- [ ] Replace the whole Session Management content with that from minimal-emacs.d
+- [x] Replace the whole Session Management content with that from minimal-emacs.d
 - [ ] Add outline indent from minimal-emacs.d. Make sure it works with lsp-bridge
-- [ ] Replace the custom remove strip whitespace function with with stripspace from minimal-emacs.d. Make sure this works in lsp-bridge as well
+- [x] Replace the custom remove strip whitespace function with with stripspace from minimal-emacs.d. Make sure this works in lsp-bridge as well
 - [ ] Add vim-tab-bar from minimal-emacs.d as well
 - [ ] Search the web and determine how to prevent evil mode from copying the same section that is pasted upon.
 - [ ] Add easysession from minimal-emacs.d
