@@ -9,7 +9,7 @@
 ;;; init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
 #+end_src
 
-** Garbage Collection
+** Garbage Collection (GCMH Strategy)
 #+begin_src emacs-lisp
 ;; CRITICAL: Restore GC after startup with optimized values
 (defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
@@ -32,12 +32,6 @@ Lower this if you experience freezing, raise if stuttering.")
                      (float-time (time-subtract after-init-time before-init-time))
                      gcs-done))
           100) ;; Run late to ensure accurate timing
-
-;; GC when idle to prevent interruptions during active editing
-(run-with-idle-timer 5 t #'garbage-collect)
-
-;; GC when losing focus (Emacs is in background)
-(add-hook 'focus-out-hook #'garbage-collect)
 #+end_src
 
 ** Smart Garbage Collection Hooks
@@ -122,7 +116,7 @@ Lower this if you experience freezing, raise if stuttering.")
   (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
         use-package-expand-minimally t
         use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
-        use-package-always-defer t
+        ;;use-package-always-defer t
         use-package-enable-imenu-support t))
 
 (eval-when-compile
@@ -184,11 +178,36 @@ Lower this if you experience freezing, raise if stuttering.")
       redisplay-skip-fontification-on-input t)  ;; Skip during rapid input
 
 ;; ====================
+;; REDISPLAY OPTIMIZATIONS
+;; ====================
+(setq redisplay-skip-fontification-on-input t)  ; Doom's setting
+(setq jit-lock-defer-time 0)
+(setq jit-lock-stealth-time 0.5)
+
+;; ====================
 ;; CURSOR OPTIMIZATION
 ;; ====================
 (setq-default cursor-in-non-selected-windows nil)  ;; Don't show cursor in other windows
 (setq highlight-nonselected-windows nil)
 (setq blink-cursor-mode nil)
+
+;; ====================
+;; FRAME RESIZE
+;; ====================
+(setq frame-resize-pixelwise t)
+(setq window-resize-pixelwise nil)
+
+;; ====================
+;; COMPILATION OPTIMIZATIONS
+;; ====================
+(setq byte-compile-warnings '(not obsolete))
+(setq native-comp-async-report-warnings-errors 'silent)
+
+;; ====================
+;; IDLE OPTIMIZATIONS
+;; ====================
+;; Don't ping things that look like domain names during idle
+(setq ffap-machine-p-known 'reject)
 
 ;; ====================
 ;; FONT RENDERING
@@ -412,8 +431,8 @@ This setup defines a robust function to find and set the best available font fro
 
 ;; Set fonts on startup and for new frames in daemon mode
 (if (daemonp)
-    (add-hook 'after-make-frame-functions 
-              (lambda (frame) 
+    (add-hook 'after-make-frame-functions
+              (lambda (frame)
                 (with-selected-frame frame (ar/set-fonts))))
   (ar/set-fonts))
 
@@ -436,7 +455,6 @@ This setup defines a robust function to find and set the best available font fro
 (dolist (mode '(org-mode-hook text-mode-hook))
   (add-hook mode (lambda () (display-line-numbers-mode -1))))
 #+end_src
-
 
 ** Theming
 #+begin_src emacs-lisp
@@ -465,11 +483,32 @@ This setup defines a robust function to find and set the best available font fro
 
 ** Nerd Icons
 #+begin_src emacs-lisp
+;; (use-package nerd-icons
+;;   :defer 0.5
+;;   :custom
+;;   (nerd-icons-font-family "Symbols Nerd Font Mono")
+;;   (nerd-icons-color-icons t))
+
 (use-package nerd-icons
-  :defer 0.5
+  :demand t  ; Force immediate load
   :custom
-  (nerd-icons-font-family "Symbols Nerd Font")
-  (nerd-icons-color-icons t))
+  (nerd-icons-font-family "Symbols Nerd Font Mono")
+  (nerd-icons-color-icons t)
+  :config
+  (setq inhibit-compacting-font-caches t)
+  ;; Pre-cache all icon families at startup
+  (dolist (family '(nerd-icons-codicon
+                    nerd-icons-faicon
+                    nerd-icons-flicon
+                    nerd-icons-mdicon
+                    nerd-icons-octicon
+                    nerd-icons-pomicon
+                    nerd-icons-powerline
+                    nerd-icons-sucicon
+                    nerd-icons-wicon
+                    nerd-icons-devicon))
+    ;; Call each function once to cache glyphs
+    (ignore-errors (funcall family "nf-md-home"))))
 #+end_src
 
 ** Modeline
@@ -531,14 +570,10 @@ This setup defines a robust function to find and set the best available font fro
   (which-key-popup-type 'minibuffer))
 #+end_src
 
-** Hide Modeline
-#+begin_src emacs-lisp
-#+end_src
-
 ** Frame Padding
 #+begin_src emacs-lisp
-(setq-default internal-border-width 5)
-(add-to-list 'default-frame-alist '(internal-border-width . 5))
+(setq-default internal-border-width 10)
+(add-to-list 'default-frame-alist '(internal-border-width . 10))
 #+end_src
 
 * Evil
@@ -980,6 +1015,23 @@ This setup defines a robust function to find and set the best available font fro
   (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
 #+end_src
 
+* Minibuffer Performance
+#+begin_src emacs-lisp
+;; Doom's minibuffer GC strategy
+(defun doom-defer-garbage-collection-h ()
+  "Defer GC during minibuffer activity."
+  (setq gc-cons-threshold most-positive-fixnum))
+
+(defun doom-restore-garbage-collection-h ()
+  "Restore GC after minibuffer closes."
+  ;; Defer slightly so commands benefit
+  (run-at-time 1 nil
+               (lambda ()
+                 (setq gc-cons-threshold (* 16 1024 1024)))))
+
+(add-hook 'minibuffer-setup-hook #'doom-defer-garbage-collection-h)
+(add-hook 'minibuffer-exit-hook #'doom-restore-garbage-collection-h)
+#+end_src
 * Editor Behaviour
 ** Avy for Fast Navigation
 This section configures *avy*, a powerful package for jumping to visible text. It allows for rapid, character-based navigation within the visible buffer, integrating smoothly with evil-mode as a motion provider.
@@ -1354,44 +1406,61 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
 (use-package orderless
+  :demand t
   :config
-
-  (defun +orderless--consult-suffix ()
-    "Regexp which matches the end of string with Consult tofu support."
-    (if (boundp 'consult--tofu-regexp)
-        (concat consult--tofu-regexp "*\\'")
-      "\\'"))
-
+  ;; Doom's custom dispatcher for advanced filtering
   (defun +orderless-consult-dispatch (word _index _total)
+    "Orderless dispatcher for consult async commands."
     (cond
-     ;; Ensure that $ works with Consult commands, which add disambiguation suffixes
+     ;; Ensure $ works with Consult tofu suffixes
      ((string-suffix-p "$" word)
-      `(orderless-regexp . ,(concat (substring word 0 -1) (+orderless--consult-suffix))))
+      `(orderless-regexp . ,(concat (substring word 0 -1)
+                                    (if (fboundp 'consult--tofu-regexp)
+                                        (consult--tofu-regexp)
+                                      "\\'"))))
      ;; File extensions
      ((and (or minibuffer-completing-file-name
                (derived-mode-p 'eshell-mode))
-           (string-match-p "\\`\\.." word))
-      `(orderless-regexp . ,(concat "\\." (substring word 1) (+orderless--consult-suffix))))))
+           (string-match-p "\\`\\.[^/]+\\'" word))
+      `(orderless-regexp . ,(concat "\\." (substring word 1)
+                                    (if (fboundp 'consult--tofu-regexp)
+                                        (consult--tofu-regexp)
+                                      "\\'"))))
+     ;; Ignore wildcards
+     ((string-prefix-p "!" word)
+      `(orderless-without-literal . ,(substring word 1)))))
 
-  ;; Define orderless style with initialism by default
+  ;; Doom's style with initialism by default
   (orderless-define-completion-style +orderless-with-initialism
-    (orderless-matching-styles '(orderless-initialism orderless-literal orderless-regexp)))
+    (orderless-matching-styles '(orderless-initialism
+                                  orderless-literal
+                                  orderless-regexp)))
 
   (setq completion-styles '(orderless basic)
         completion-category-defaults nil
-        completion-category-overrides '((file (styles partial-completion)) ;; partial-completion is tried first
-                                         (command (styles +orderless-with-initialism))
-                                        (variable (styles +orderless-with-initialism))
-                                        (symbol (styles +orderless-with-initialism)))
-        orderless-component-separator #'orderless-escapable-split-on-space ;; allow escaping space with backslash!
-        orderless-style-dispatchers (list #'+orderless-consult-dispatch
-                                          #'orderless-kwd-dispatch
-                                          #'orderless-affix-dispatch)))
+        completion-category-overrides
+        '((file (styles partial-completion))
+          ;; Enable initialism for commands/variables
+          (command (styles +orderless-with-initialism))
+          (variable (styles +orderless-with-initialism))
+          (symbol (styles +orderless-with-initialism)))
+
+        ;; CRITICAL: Doom's escapable split
+        orderless-component-separator #'orderless-escapable-split-on-space
+
+        ;; Doom's style dispatchers
+        orderless-style-dispatchers
+        (list #'+orderless-consult-dispatch
+              #'orderless-affix-dispatch))
+
+  ;; Performance: Don't highlight all matches in long candidate lists
+  (setq orderless-highlight-matches-in-minibuffer nil))
 #+end_src
 
 ** Vertico: The Vertical Completion UI
 #+begin_src emacs-lisp
 (use-package vertico
+  :demand t
   :hook (after-init . vertico-mode)
   :custom
   (vertico-resize nil)
@@ -1453,20 +1522,33 @@ then it takes a second invocation to abort the minibuffer."
 ** Marginalia
 #+begin_src emacs-lisp
 (use-package marginalia
-  :hook (after-init . marginalia-mode))
+  :defer 0.1
+  :config
+  (marginalia-mode)
+  (setq marginalia-max-relative-age 0  ;; Always show absolute time
+        marginalia-align 'right))
+;; (use-package marginalia
+;;   :hook (after-init . marginalia-mode))
 #+end_src
 
 ** Nerd Icons Completion
 #+begin_src emacs-lisp
 (use-package nerd-icons-completion
+  :demand t
+  :after (nerd-icons marginalia)
   :config
-  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
-  (nerd-icons-completion-mode))
+  (nerd-icons-completion-mode)
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
+;; (use-package nerd-icons-completion
+;;   :config
+;;   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
+;;   (nerd-icons-completion-mode))
 #+end_src
 
 ** Consult
 #+begin_src emacs-lisp
 (use-package consult
+  :defer 0.1
   :bind
   ([remap switch-to-buffer] . consult-buffer)
   ([remap switch-to-buffer-other-window] . consult-buffer-other-window)
@@ -1522,6 +1604,7 @@ then it takes a second invocation to abort the minibuffer."
    :preview-key "C-SPC"))
 
 (use-package consult-dir
+  :defer t
   :bind (("C-x C-d" . consult-dir)
          :map vertico-map
          ("C-x C-d" . consult-dir)
@@ -1531,23 +1614,41 @@ then it takes a second invocation to abort the minibuffer."
 ** Embark
 #+begin_src emacs-lisp
 (use-package embark
+  :defer 0.5
   :bind
-  (("C-." . embark-act)         ;; pick some comfortable binding
-   ("C-;" . embark-dwim)        ;; good alternative: M-.
-   ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+  (("C-." . embark-act)
+   ("C-;" . embark-dwim)
+   ("C-h B" . embark-bindings))
 
   :init
   (setq prefix-help-command #'embark-prefix-help-command)
+
   :config
-  (define-key embark-collect-mode-map (kbd "e") #'embark-export)
-  ;; Embark collect buffers display is now handled by shackle rules
-  ;; See the shackle configuration in "Popup Management System" section
-  )
+  (setq embark-indicators
+        '(embark-minimal-indicator
+          embark-highlight-indicator
+          embark-isearch-highlight-indicator))
+
+  (define-key embark-collect-mode-map (kbd "e") #'embark-export))
+;; (use-package embark
+;;   :bind
+;;   (("C-." . embark-act)         ;; pick some comfortable binding
+;;    ("C-;" . embark-dwim)        ;; good alternative: M-.
+;;    ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+
+;;   :init
+;;   (setq prefix-help-command #'embark-prefix-help-command)
+;;   :config
+;;   (define-key embark-collect-mode-map (kbd "e") #'embark-export)
+;;   ;; Embark collect buffers display is now handled by shackle rules
+;;   ;; See the shackle configuration in "Popup Management System" section
+;;   )
 #+end_src
 
 ** Embark Consult
 #+begin_src emacs-lisp
 (use-package embark-consult
+  :defer t
   :after (embark consult)
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
@@ -1678,15 +1779,15 @@ then it takes a second invocation to abort the minibuffer."
   (org-highlight-latex-and-related nil)  ;; MAJOR performance killer
 
   ;; Startup optimization
-  (org-startup-folded 'overview)  ;; CHANGED: Fastest startup
+  (org-startup-folded 'showeverything)  ;; CHANGED: Fastest startup
   ;;(org-startup-indented nil)  ;; CHANGED: org-indent-mode is slow
   (org-startup-with-inline-images nil)  ;; CHANGED: Load images on demand
   (org-startup-with-latex-preview nil)  ;; CHANGED: Preview on demand
   (org-indent-mode -1)
 
   ;; Display settings
-  (org-hide-leading-stars nil)  ;; CHANGED: Faster without hiding
-  (org-hide-emphasis-markers nil)  ;; CHANGED: Show for performance
+  (org-hide-leading-stars nil)  ;;  Faster with nil
+  (org-hide-emphasis-markers nil)  ;; Faster with nil
   (org-pretty-entities nil)  ;; CHANGED: Disable for speed
   (org-cycle-separator-lines 2)
 
@@ -2127,8 +2228,7 @@ then it takes a second invocation to abort the minibuffer."
 ** Envrc
 #+begin_src emacs-lisp
 (use-package envrc
-  :config
-  (envrc-global-mode))
+  :hook (after-init . envrc-global-mode))
 #+end_src
 
 ** Snippets
@@ -2201,6 +2301,7 @@ then it takes a second invocation to abort the minibuffer."
 #+end_src
 
 ** LSP Bridge
+
 #+begin_src emacs-lisp
 (use-package lsp-bridge
   :straight '(lsp-bridge :type git :host github :repo "manateelazycat/lsp-bridge"
@@ -2211,34 +2312,31 @@ then it takes a second invocation to abort the minibuffer."
   (setq lsp-bridge-python-multi-lsp-server "basedpyright_ruff"
         lsp-bridge-tex-lsp-server "texlab"
         lsp-bridge-nix-lsp-server "nil")
-  (setq lsp-bridge-enable-search-words nil)
 
   (setq acm-enable-doc nil
         acm-enable-jupyter t
         acm-enable-capf nil
         acm-enable-doc-markdown-render 'async
-        acm-enable-icon t
-        acm-candidate-match-function 'orderless-literal
-        acm-backend-search-file-words-enable-fuzzy-match t)
+        acm-enable-icon nil
+        acm-candidate-match-function 'regexp-quote
+	acm-backend-lsp-frontend-filter-p nil ;filtering happens in the backend
+	acm-backend-lsp-match-mode "prefix"
+	acm-enable-search-file-words nil
+        acm-backend-search-file-words-enable-fuzzy-match nil)
 
   (setq lsp-bridge-enable-hover-diagnostic t
+	lsp-bridge-enable-log nil
+	lsp-bridge-diagnostic-fetch-idle 1.0
         lsp-bridge-enable-auto-format-code t
-        lsp-bridge-enable-with-tramp t
+        lsp-bridge-enable-with-tramp nil
         lsp-bridge-enable-inlay-hint t
         lsp-bridge-signature-show-function 'lsp-bridge-signature-show-with-frame
         lsp-bridge-enable-org-babel t
+	lsp-bridge-enable-search-words nil
         lsp-bridge-org-babel-lang-list nil)
 
   (setq lsp-bridge-semantic-tokens t)
   (setq-default lsp-bridge-semantic-tokens-ignore-modifier-limit-types ["variable"]))
-
-;; Enable search words only in specific modes
-(defun my/lsp-bridge-enable-search-words-for-mode ()
-  "Enable search words for current buffer based on major mode."
-  (setq-local lsp-bridge-enable-search-words
-              (memq major-mode '(text-mode markdown-mode))))
-
-(add-hook 'lsp-bridge-mode-hook #'my/lsp-bridge-enable-search-words-for-mode)
 #+end_src
 
 ** Robust Debugger UI
@@ -2330,6 +2428,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
 ** Emacs-Jupyter
 #+begin_src emacs-lisp
 (use-package jupyter
+  :defer t
   :after org
   :config
   (org-babel-do-load-languages
@@ -3884,6 +3983,60 @@ Returns t if a popup was closed, nil otherwise."
   "w p K" '(ar/popup-close-all :wk "Close All Popups")
   "w p r" '(ar/popup-raise :wk "Raise Last Popup")
   "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages"))
+#+end_src
+
+** Child-Frame/Posframe Optimization
+#+begin_src emacs-lisp
+;; Set optimal default frame parameters for child frames
+(setq default-frame-alist
+      (append default-frame-alist
+              '((alpha-background . 100)  ; Full opacity for child frames
+                (undecorated . t)         ; No window decorations
+                (no-accept-focus . nil)   ; Can receive focus
+                (no-focus-on-map . nil)   ; Can be focused when mapped
+                (min-width  . 0)
+                (min-height . 0)
+                (border-width . 0)
+                (internal-border-width . 5)  ; You already have this
+                (vertical-scroll-bars . nil)
+                (horizontal-scroll-bars . nil)
+                (left-fringe . 0)
+                (right-fringe . 0)
+                (menu-bar-lines . 0)
+                (tool-bar-lines . 0)
+                (line-spacing . 0)
+                (unsplittable . t)
+                (no-other-frame . t)
+                (undecorated-round . t)   ; Rounded corners on supported systems
+                (cursor-type . nil))))    ; No cursor in child frames
+
+;; Posframe-specific optimization (if using posframe)
+(with-eval-after-load 'posframe
+  (setq posframe-mouse-banish nil)  ; Don't move mouse
+
+  ;; Doom's posframe parameters
+  (setq posframe-arghandler
+        (lambda (buffer-or-name key value)
+          (let ((base-args
+                 (list :internal-border-width 5
+                       :internal-border-color (face-background 'solaire-default-face nil t)
+                       :background-color (face-background 'default nil t)
+                       :foreground-color (face-foreground 'default nil t)
+                       :lines-truncate t
+                       :accept-focus nil
+                       :no-accept-focus t)))
+            (or (plist-get base-args key) value)))))
+
+;; LSP-Bridge ACM specific frame parameters
+(with-eval-after-load 'lsp-bridge
+  ;; These parameters make the completion popup much faster
+  (setq acm-frame-background-dark-color (face-background 'default nil t))
+  (setq acm-frame-background-light-color (face-background 'default nil t))
+
+  ;; Optimize frame creation
+  (advice-add 'acm-frame-create :before
+              (lambda (&rest _)
+                (setq x-gtk-resize-child-frames 'resize-mode))))
 #+end_src
 
 * Miscelleanous
