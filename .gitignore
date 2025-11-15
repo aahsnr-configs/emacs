@@ -1,4 +1,5 @@
 var/
+.cache/
 config.el
 log/
 eln-cache/

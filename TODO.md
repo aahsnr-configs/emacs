@@ -206,14 +206,16 @@ it's loaded in the right order.
   (require 'ox-latex)
 ```
 
+# Fixes in order 
+- [ ] Apply **display-buffer-alist-fix.md** first
+- [ ] Then apply **treemacs-fix.md** next
+
 # Add to Emacs 
 - [x] Exec From Path Shell 
 - [x] Sudo Edit
 - [x] Optimize Editing Experience
 - [x] UTF-8 Coding System
-- [x] add recentf-exclude and some other stuff to my own recentf setup
 - [x] Small Configs
-- [x] Smooth Scrolling 
 - [ ] Functions - *Top Level Header* & *General keybindings*
 - [ ] Maybe the comprehensive escape key behaviour is not necessary if I have replaced the `C-g` keybinding with `[escape]`?
 - [x] Replace the whole Session Management content with that from minimal-emacs.d
@@ -224,15 +226,15 @@ it's loaded in the right order.
 - [x] Partially replace snippets configuration with that from minimal-emacs.d
 - [x] **Important** Re-add my snippets config
 - [x] Switch to Catppuccin Mocha Theme
-- [x] **Issue** The extensive escape setup for minibuffer is not working as expected. I need to be able to hide minibuffers that appear at the bottom with escape key like doom emacs 
-- [ ] **Add stuff to early-init.el file**
-- [ ] **Are there alternative tools to the complex functions I wrote?**
-- [ ] **Later** Add some emacs packages listed in awesome emacs
-- [ ] **Important** Integrate back to minimal-emacs.d and add many of their recommended packages
+- [ ] **Medium** Add some emacs packages listed in awesome emacs
+- [ ] **Medium** Later modify jinx config to accomodate :defer t better
+- [ ] **High** Integrate back to minimal-emacs.d and add many of their recommended packages
 
 # Issues
 - [ ] **High** There is a lag when cursor highlights the next matching parenthesis
 - [ ] **High** There is still a lag/stutter when lsp-bridge completion opens while I am typing
+
+[NOTE]: __Query for the folowing tasks after applying the above fixes__
 - [ ] **Medium** When I yank a word/phrase using the `y` key and paste it over another word/phrase using the `p` key, the latter word/phrase gets copied by evil. I am doing this in visual mode and I don't that behaviour. Instead I want the former word/phrase to be still be able to be pasted. 
 - [ ] **Medium** When I yank and paste something in visual mode, I want to visual flash as feedback to confirm that yank and paste have worked using the `y` and `p` keys from evil
 
