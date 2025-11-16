@@ -1654,6 +1654,78 @@ then it takes a second invocation to abort the minibuffer."
   (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
+** Corfu
+#+begin_src emacs-lisp
+(use-package corfu
+  :hook (after-init . global-corfu-mode)
+  :config
+  (corfu-history-mode)
+  (corfu-popupinfo-mode) ; don't set delay or
+  :bind
+  (:map corfu-map
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous)
+        ("C-c h" . corfu-info-documentation))
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-resize nil)
+  (corfu-auto-delay 0.13)
+  (corfu-preselect 'prompt)
+  (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
+  (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
+  (corfu-on-exact-match nil))
+
+(orderless-define-completion-style orderless-literal-only
+  (orderless-style-dispatchers nil)
+  (orderless-matching-styles '(orderless-literal)))
+#+end_src
+
+** Nerd Icons Corfu
+#+begin_src emacs-lisp
+(use-package nerd-icons-corfu
+  :after (corfu nerd-icons)
+  :config (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** Cape
+#+begin_src emacs-lisp
+(use-package cape
+  :commands (cape-file cape-elisp-block cape-keyword)
+  :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
+  :autoload (cape-wrap-silent cape-wrap-purify)
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;; (add-to-list 'completion-at-point-functions #'cape-abbrev)
+
+  ;; Make these capfs composable.
+  (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
+  (advice-add 'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add 'comint-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
+#+end_src
+
+** Dabbrev
+#+begin_src emacs-lisp
+(use-package dabbrev
+  :ensure nil
+  :bind (("M-/" . dabbrev-completion)
+         ("C-M-/" . dabbrev-expand))
+  :config
+  (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
+  (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
+#+end_src
+
+
 ** Wgrep: Writable Grep
 #+begin_src emacs-lisp
 (use-package wgrep
@@ -2300,73 +2372,117 @@ then it takes a second invocation to abort the minibuffer."
    "M-<right>" 'markdown-demote))
 #+end_src
 
-** LSP Bridge
-
+** LSP Mode
 #+begin_src emacs-lisp
-(use-package lsp-bridge
-  :straight '(lsp-bridge :type git :host github :repo "manateelazycat/lsp-bridge"
-            :files (:defaults "*.el" "*.py" "acm" "core" "langserver" "multiserver" "resources")
-            :build (:not compile))
-  :config
-  (global-lsp-bridge-mode)
-  (setq lsp-bridge-python-multi-lsp-server "basedpyright_ruff"
-        lsp-bridge-tex-lsp-server "texlab"
-        lsp-bridge-nix-lsp-server "nil")
+(use-package lsp-mode
+  :defer t
+  :commands (lsp lsp-deferred)
+  :hook (prog-mode . lsp-deferred)
+  :init
+  (setq lsp-keymap-prefix "C-c l")
+  :custom
+  ;; --- UI & Functionality Enhancements ---
+  (lsp-semantic-tokens-enable t)
+  (lsp-headerline-breadcrumb-enable t)
+  (lsp-lens-enable t)
+  (lsp-modeline-diagnostics-enable t)
 
-  (setq acm-enable-doc nil
-        acm-enable-jupyter t
-        acm-enable-capf nil
-        acm-enable-doc-markdown-render 'async
-        acm-enable-icon nil
-        acm-candidate-match-function 'regexp-quote
-	acm-backend-lsp-frontend-filter-p nil ;filtering happens in the backend
-	acm-backend-lsp-match-mode "prefix"
-	acm-enable-search-file-words nil
-        acm-backend-search-file-words-enable-fuzzy-match nil)
+  ;; --- Diagnostics & Completion Integration ---
+  (lsp-diagnostics-provider :flycheck)
+  (lsp-completion-provider :none)
 
-  (setq lsp-bridge-enable-hover-diagnostic t
-	lsp-bridge-enable-log nil
-	lsp-bridge-diagnostic-fetch-idle 1.0
-        lsp-bridge-enable-auto-format-code t
-        lsp-bridge-enable-with-tramp nil
-        lsp-bridge-enable-inlay-hint t
-        lsp-bridge-signature-show-function 'lsp-bridge-signature-show-with-frame
-        lsp-bridge-enable-org-babel t
-	lsp-bridge-enable-search-words nil
-        lsp-bridge-org-babel-lang-list nil)
+  ;; --- Performance & Behavior ---
+  (lsp-eldoc-render-all nil)
+  (lsp-idle-delay 0.2)
+  (lsp-log-io nil)
+  (lsp-signature-render-documentation nil))
 
-  (setq lsp-bridge-semantic-tokens t)
-  (setq-default lsp-bridge-semantic-tokens-ignore-modifier-limit-types ["variable"]))
+(use-package lsp-ui
+  :defer t
+  :after lsp-mode
+  :commands lsp-ui-mode
+  :hook (lsp-mode . lsp-ui-mode)
+  :custom
+  (lsp-ui-doc-position 'at-point)
+  (lsp-ui-doc-show-with-mouse nil)
+  (lsp-ui-sideline-show-diagnostics t)
+  (lsp-ui-sideline-show-hover t)
+  (lsp-ui-sideline-show-code-actions t)
+  (lsp-ui-sideline-delay 0.2)
+  :custom-face
+  (lsp-ui-doc-background ((t (:background "#1e2030"))))
+  (lsp-ui-doc-header ((t (:foreground "#7aa2f7" :weight bold))))
+  (lsp-ui-sideline-background ((t (:background "#1e2030")))))
+#+end_src
+
+** Consult Integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'consult
+  (setq xref-show-definitions-function #'consult-xref-show-definitions)
+  (setq xref-show-references-function #'consult-xref-show-references))
+
+(use-package consult-lsp
+  :after (consult lsp-mode))
+
+(use-package consult-flycheck
+  :after (consult flycheck))
 #+end_src
 
 ** Robust Debugger UI
 We use *dape* for debugging. The UI for debugger windows is cleanly managed by the enhanced *shackle* configuration in my *Editor Behaviour* section.
 #+begin_src emacs-lisp
-(use-package dape
+(use-package dap-mode
   :defer t
-  :commands (dape dape-debug-recent)
-  :hook
-  ;; Use GUD's tooltip mode for mouse-hover variable inspection.
-  (dape-session-mode-hook . gud-tooltip-mode)
   :config
   ;; Set the breakpoint file location to be inside the var directory.
-  (setq dape-breakpoint-file (expand-file-name "dape-breakpoints" no-littering-var-directory))
-  ;; Persist breakpoints across Emacs sessions.
-  (add-hook 'kill-emacs-hook #'dape-breakpoint-save)
-  (add-hook 'after-init-hook #'dape-breakpoint-load))
+  (setq dap-breakpoints-file (expand-file-name "dap-breakpoints.json" no-littering-var-directory))
 
-(ar/global-leader
- ;; Debugging Keybindings (DAPE)
- "d" '(:ignore t :wk "debug (dape)")
- "d b" '(dape-toggle-breakpoint-at-point :wk "breakpoint")
- "d c" '(dape-continue :wk "continue")
- "d n" '(dape-next :wk "next")
- "d i" '(dape-step-in :wk "step in")
- "d o" '(dape-step-out :wk "step out")
- "d q" '(dape-disconnect :wk "quit")
- "d r" '(dape-debug-recent :wk "debug recent")
- "d e" '(dape :wk "debug new")
- "d B" '(ar/dape-debug-org-src-block :wk "debug org block"))
+  ;; --- Built-in UI Integration ---
+  ;; Enable the automatic UI layout management.
+  (dap-ui-mode 1)
+  ;; Enable the floating controls for a richer debugging UI.
+  (dap-ui-controls-mode 1)
+
+  ;; Use GUD's tooltip mode for mouse-hover variable inspection in the UI buffers.
+  (add-hook 'dap-ui-locals-mode-hook 'gud-tooltip-mode)
+  (add-hook 'dap-ui-expressions-mode-hook 'gud-tooltip-mode)
+
+  (ar/global-leader
+   ;; Debugging Keybindings (DAP)
+   "d" '(:ignore t :wk "debug (dap)")
+   "d d" '(dap-debug :wk "Debug new")
+   "d r" '(dap-debug-recent :wk "Debug recent")
+   "d c" '(dap-continue :wk "Continue")
+   "d q" '(dap-disconnect :wk "Quit")
+   "d b" '(dap-toggle-breakpoint :wk "Breakpoint")
+   "d n" '(dap-next :wk "Next")
+   "d i" '(dap-step-in :wk "Step In")
+   "d o" '(dap-step-out :wk "Step Out")
+   "d u" '(:ignore t :wk "UI")
+   "d u o" '(dap-ui-open :wk "Open UI")
+   "d u c" '(dap-ui-close :wk "Close UI")
+   "d u t" '(dap-ui-toggle :wk "Toggle UI")))
+#+end_src
+
+** Flycheck
+#+begin_src emacs-lisp
+(use-package flycheck
+  :defer t
+  :hook (prog-mode . flycheck-mode)
+  :custom
+  (flycheck-check-syntax-automatically '(save mode-enabled))
+  (flycheck-idle-change-delay 0.2)
+  :custom-face
+  (flycheck-error   ((t (:underline (:style wave :color "#f7768e") :inherit nil))))
+  (flycheck-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))
+  (flycheck-info    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
+
+(use-package sideline-flycheck
+  :defer t
+  :hook (flycheck-mode . sideline-mode)
+  :init
+  (setq sideline-flycheck-display-mode 'point)
+  (setq sideline-backends-right '(sideline-flycheck)))
 #+end_src
 
 ** Formatting
