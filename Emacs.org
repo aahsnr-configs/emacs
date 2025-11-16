@@ -1735,6 +1735,55 @@ then it takes a second invocation to abort the minibuffer."
 #+end_src
 
 * Org Mode
+** Auto Tangle
+#+begin_src emacs-lisp
+(defvar ar/org-tangle-on-save-modes '(org-mode)
+  "Major modes in which to enable auto-tangling on save.")
+
+(defvar ar/org-tangle-silent t
+  "If non-nil, suppress tangle messages.")
+
+(defun ar/org-babel-tangle-on-save ()
+  "Tangle current org file if it has #+auto_tangle: t property.
+Only tangles if the file has been modified and saved."
+  (when (and (member major-mode ar/org-tangle-on-save-modes)
+             (buffer-file-name))
+    ;; Check for #+auto_tangle: t in buffer
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+auto_tangle: *t" nil t)
+        ;; Tangle with error handling
+        (let ((inhibit-message ar/org-tangle-silent)
+              (message-log-max (unless ar/org-tangle-silent message-log-max)))
+          (condition-case err
+              (progn
+                (org-babel-tangle)
+                (unless ar/org-tangle-silent
+                  (message "Tangled %s" (buffer-file-name))))
+            (error
+             (message "Tangle error in %s: %s"
+                      (buffer-file-name)
+                      (error-message-string err)))))))))
+
+;; Add to after-save-hook
+(add-hook 'after-save-hook #'ar/org-babel-tangle-on-save)
+
+;; Optional: Tangle before exiting Emacs
+(defun ar/org-babel-tangle-all-on-exit ()
+  "Tangle all org files with #+auto_tangle: t before exiting."
+  (when (y-or-n-p "Tangle all modified org files before exit? ")
+    (save-some-buffers t)
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (and (eq major-mode 'org-mode)
+                   (buffer-file-name)
+                   (buffer-modified-p))
+          (ar/org-babel-tangle-on-save))))))
+
+;; Uncomment to enable exit tangling
+(add-hook 'kill-emacs-query-functions #'ar/org-babel-tangle-all-on-exit)
+#+end_src
+
 ** Dynamic Directory Structure
 #+begin_src emacs-lisp
 ;; Define base directory
@@ -3880,6 +3929,38 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   "l p p" '(org-latex-preview :wk "Toggle Preview")
   "l p e" '(org-latex-export-to-pdf :wk "Export to PDF")
   "l p f" '(org-fragtog-mode :wk "Toggle Fragtog"))
+#+end_src
+
+* Python Development Environment
+#+begin_src emacs-lisp
+(use-package lsp-pyright
+  :after lsp-mode
+  :custom
+  ;; Use basedpyright instead of pyright
+  (lsp-pyright-langserver-command "basedpyright-langserver")
+
+  ;; Type checking - use "all" for basedpyright's strictest mode
+  (lsp-pyright-type-checking-mode "standard")  ;; Change to "all" for maximum strictness
+
+  ;; Diagnostic mode - "workspace" analyzes all files
+  (lsp-pyright-diagnostic-mode "workspace")
+
+  ;; Enable basedpyright-specific inlay hints
+  (lsp-pyright-basedpyright-inlay-hints-variable-types t)
+  (lsp-pyright-basedpyright-inlay-hints-function-return-types t)
+  (lsp-pyright-basedpyright-inlay-hints-call-argument-names t)
+  (lsp-pyright-basedpyright-inlay-hints-generic-types nil)
+
+  ;; Auto-import settings
+  (lsp-pyright-auto-import-completions t)
+  (lsp-pyright-auto-search-paths t)
+
+  ;; Python executable detection
+  (lsp-pyright-python-executable-cmd "python3")
+
+  :hook (python-ts-mode . (lambda ()
+                            (require 'lsp-pyright)
+                            (lsp-deferred))))
 #+end_src
 
 * Popup Management System
