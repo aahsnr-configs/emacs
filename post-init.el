@@ -231,6 +231,21 @@
   (interactive)
   (occur "(interactive \"<"))
 
+(defun my/org-babel-tangle-on-save ()
+  "Tangle the current org file if #+auto_tangle: t is set."
+  (when (and (eq major-mode 'org-mode)
+             (buffer-file-name))
+    (save-excursion
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+auto_tangle: *t" nil t)
+        (let ((inhibit-message t))
+          (condition-case err
+              (org-babel-tangle)
+            (error
+             (message "Tangle error: %s" (error-message-string err)))))))))
+
+(add-hook 'after-save-hook #'my/org-babel-tangle-on-save)
+
 (use-package autorevert
   :straight (:type built-in)
   :commands (auto-revert-mode global-auto-revert-mode)
@@ -1890,6 +1905,7 @@ Only tangles if the file has been modified and saved."
                 '(("python" . python-ts)
                   ("bash" . bash-ts)
                   ("sh" . bash-ts)
+                  ("jupyter-python" . python-ts)
                   ("latex" . latex-ts)
                   ("typescript" . typescript-ts)))))
 
@@ -3838,20 +3854,6 @@ Extended and deferred require python3.")
             (popwin:display-buffer buf)
           (display-buffer buf))
       (message "No *Messages* buffer"))))
-
-;; Keybindings
-(ar/global-leader
-  "w p" '(:ignore t :wk "popup")
-  "w p t" '(popper-toggle :wk "Toggle Latest Popup")
-  "w p c" '(popper-cycle :wk "Cycle Popups")
-  "w p T" '(popper-toggle-type :wk "Toggle Popup Type")
-  "w p k" '(popper-kill-latest-popup :wk "Kill Latest Popup")
-  "w p K" '(ar/popup-close-all :wk "Close All Popups")
-  "w p r" '(ar/popup-raise :wk "Raise Last Popup")
-  "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages")
-  "w p 0" '(popwin:close-popup-window :wk "Close Popwin Popup")
-  "w p SPC" '(popwin:select-popup-window :wk "Select Popup Window")
-  "w p s" '(popwin:stick-popup-window :wk "Stick Popup Window"))
 
 (use-package org-pdftools
   :defer t
