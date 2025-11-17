@@ -18,7 +18,6 @@
   (pdf-info-epdfinfo-program "/usr/bin/epdfinfo")
 
   :config
-  (pdf-tools-install :no-query :skip-dependencies)
   (custom-set-faces
    '(pdf-view-highlight-face ((t (:background "#f9e2af" :foreground "#1e1e2e"))))
    '(pdf-view-link-face ((t (:foreground "#89b4fa"))))
