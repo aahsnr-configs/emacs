@@ -1,5 +1,4 @@
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
-;;(declare (special minimal-emacs-use-userr-directory))
 
 (defconst *sys/win32*
   (eq system-type 'windows-nt)
@@ -1583,33 +1582,11 @@ Each function should return non-nil to prevent further processing.")
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 
-;; (use-package corfu
-;;   :hook (elpaca-after-init . global-corfu-mode)
-;;   :config
-;;   (corfu-history-mode)
-;;   (corfu-popupinfo-mode) ; don't set delay or
-;;   :bind
-;;   (:map corfu-map
-;;         ("TAB" . corfu-next)
-;;         ([tab] . corfu-next)
-;;         ("S-TAB" . corfu-previous)
-;;         ([backtab] . corfu-previous)
-;;         ("C-c h" . corfu-info-documentation))
-;;   :custom
-;;   (corfu-cycle t)
-;;   (corfu-auto t)
-;;   (corfu-auto-resize nil)
-;;   (corfu-auto-delay 0.13)
-;;   (corfu-preselect 'prompt)
-;;   (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
-;;   (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
-;;   (corfu-on-exact-match nil))
-
-;; (orderless-define-completion-style orderless-literal-only
-;;   (orderless-style-dispatchers nil)
-;;   (orderless-matching-styles '(orderless-literal)))
-
 (use-package corfu
+  :hook (after-init . global-corfu-mode)
+  :config
+  (corfu-history-mode)
+  (corfu-popupinfo-mode) ; don't set delay or
   :bind
   (:map corfu-map
         ("TAB" . corfu-next)
@@ -1617,19 +1594,19 @@ Each function should return non-nil to prevent further processing.")
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
         ("M-h" . corfu-info-documentation))
-  :config
-  (corfu-history-mode)
-  (corfu-popupinfo-mode)
   :custom
-  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-  (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-  (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
-  (corfu-preview-current nil)    ;; Disable current candidate preview
-  (corfu-preselect 'prompt)      ;; Preselect the prompt
-  (corfu-on-exact-match 'insert) ;; Configure handling of exact matches
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-resize nil)
+  (corfu-auto-delay 0.13)
+  (corfu-preselect 'prompt)
+  (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
+  (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
+  (corfu-on-exact-match nil))
 
-  :init
-  (global-corfu-mode))
+;; (orderless-define-completion-style orderless-literal-only
+;;   (orderless-style-dispatchers nil)
+;;   (orderless-matching-styles '(orderless-literal)))
 
 (use-package nerd-icons-corfu
   :after (corfu nerd-icons)
@@ -2363,12 +2340,27 @@ Only tangles if the file has been modified and saved."
   (flycheck-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))
   (flycheck-info    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
 
-(use-package sideline-flycheck
+(use-package sideline
   :defer t
   :hook (flycheck-mode . sideline-mode)
   :init
-  (setq sideline-flycheck-display-mode 'point)
   (setq sideline-backends-right '(sideline-flycheck)))
+
+(use-package sideline-flycheck
+  :defer t
+  :hook (flycheck-mode . sideline-flycheck-setup))
+
+;; (use-package sideline
+;;   :defer t
+;;   :hook (flycheck-mode . sideline-mode)
+;;   :init
+;;   (setq sideline-backends-right '(sideline-flycheck)))
+;;
+;; (use-package sideline-flycheck
+;;   :defer t
+;;   :hook (flycheck-mode . sideline-flycheck-setup)
+;;   :init
+;;   (setq sideline-flycheck-display-mode 'point))
 
 (use-package apheleia
   :defer t
@@ -3938,10 +3930,6 @@ Extended and deferred require python3.")
           (display-buffer buf))
       (message "No *Messages* buffer"))))
 
-(use-package org-pdftools
-  :defer t
-  :hook (org-load . org-pdftools-setup-link))
-
 (use-package pdf-tools
   :defer t
   :magic ("%PDF" . pdf-view-mode)
@@ -3949,9 +3937,6 @@ Extended and deferred require python3.")
   :custom
   (pdf-view-midnight-colors '("#1e1e2e" . "#cdd6f4"))
   (pdf-view-continuous t)
-  ;; Point to system-installed epdfinfo
-  (pdf-info-epdfinfo-program "/usr/bin/epdfinfo")
-
   :config
   (custom-set-faces
    '(pdf-view-highlight-face ((t (:background "#f9e2af" :foreground "#1e1e2e"))))

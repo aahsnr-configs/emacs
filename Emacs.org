@@ -7,7 +7,6 @@
 ** Lexical Binding
 #+begin_src emacs-lisp
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
-;;(declare (special minimal-emacs-use-userr-directory))
 #+end_src
 
 ** Define Constants
@@ -1770,33 +1769,11 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 
 ** Corfu
 #+begin_src emacs-lisp
-;; (use-package corfu
-;;   :hook (elpaca-after-init . global-corfu-mode)
-;;   :config
-;;   (corfu-history-mode)
-;;   (corfu-popupinfo-mode) ; don't set delay or
-;;   :bind
-;;   (:map corfu-map
-;;         ("TAB" . corfu-next)
-;;         ([tab] . corfu-next)
-;;         ("S-TAB" . corfu-previous)
-;;         ([backtab] . corfu-previous)
-;;         ("C-c h" . corfu-info-documentation))
-;;   :custom
-;;   (corfu-cycle t)
-;;   (corfu-auto t)
-;;   (corfu-auto-resize nil)
-;;   (corfu-auto-delay 0.13)
-;;   (corfu-preselect 'prompt)
-;;   (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
-;;   (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
-;;   (corfu-on-exact-match nil))
-
-;; (orderless-define-completion-style orderless-literal-only
-;;   (orderless-style-dispatchers nil)
-;;   (orderless-matching-styles '(orderless-literal)))
-
 (use-package corfu
+  :hook (after-init . global-corfu-mode)
+  :config
+  (corfu-history-mode)
+  (corfu-popupinfo-mode) ; don't set delay or
   :bind
   (:map corfu-map
         ("TAB" . corfu-next)
@@ -1804,19 +1781,14 @@ This section configures *avy*, a powerful package for jumping to visible text. I
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
         ("M-h" . corfu-info-documentation))
-  :config
-  (corfu-history-mode)
-  (corfu-popupinfo-mode)
   :custom
-  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-  (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-  (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
-  (corfu-preview-current nil)    ;; Disable current candidate preview
-  (corfu-preselect 'prompt)      ;; Preselect the prompt
-  (corfu-on-exact-match 'insert) ;; Configure handling of exact matches
-
-  :init
-  (global-corfu-mode))
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-resize nil)
+  (corfu-preselect 'prompt)
+  (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
+  (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
+  (corfu-on-exact-match nil))
 #+end_src
 
 ** Nerd Icons Corfu
@@ -2631,12 +2603,27 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   (flycheck-warning ((t (:underline (:style wave :color "#e0af68") :inherit nil))))
   (flycheck-info    ((t (:underline (:style wave :color "#73daca") :inherit nil)))))
 
-(use-package sideline-flycheck
+(use-package sideline
   :defer t
   :hook (flycheck-mode . sideline-mode)
   :init
-  (setq sideline-flycheck-display-mode 'point)
   (setq sideline-backends-right '(sideline-flycheck)))
+
+(use-package sideline-flycheck
+  :defer t
+  :hook (flycheck-mode . sideline-flycheck-setup))
+
+;; (use-package sideline
+;;   :defer t
+;;   :hook (flycheck-mode . sideline-mode)
+;;   :init
+;;   (setq sideline-backends-right '(sideline-flycheck)))
+;;
+;; (use-package sideline-flycheck
+;;   :defer t
+;;   :hook (flycheck-mode . sideline-flycheck-setup)
+;;   :init
+;;   (setq sideline-flycheck-display-mode 'point))
 #+end_src
 
 ** Formatting
@@ -4383,10 +4370,6 @@ My org files will:
 * Miscelleanous
 ** PDF Tools
 #+begin_src emacs-lisp
-(use-package org-pdftools
-  :defer t
-  :hook (org-load . org-pdftools-setup-link))
-
 (use-package pdf-tools
   :defer t
   :magic ("%PDF" . pdf-view-mode)
@@ -4394,9 +4377,6 @@ My org files will:
   :custom
   (pdf-view-midnight-colors '("#1e1e2e" . "#cdd6f4"))
   (pdf-view-continuous t)
-  ;; Point to system-installed epdfinfo
-  (pdf-info-epdfinfo-program "/usr/bin/epdfinfo")
-
   :config
   (custom-set-faces
    '(pdf-view-highlight-face ((t (:background "#f9e2af" :foreground "#1e1e2e"))))
