@@ -1,4 +1,6 @@
 var/
+custom.el
+.backup
 .cache/
 config.el
 log/
