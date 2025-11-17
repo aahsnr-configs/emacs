@@ -1,4 +1,4 @@
-;; Straight bootstrap
+;;; pre-init.el --- DESCRIPTION -*- no-byte-compile: t; lexical-binding: t; -*-
 (defvar bootstrap-version)
 (let ((bootstrap-file
        (expand-file-name
@@ -20,7 +20,6 @@
 
 (eval-and-compile
   (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
-	use-package-always-ensure t
         use-package-expand-minimally t
         use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
         ;;use-package-always-defer t
@@ -29,3 +28,5 @@
 (eval-when-compile
   (require 'use-package)
   (require 'bind-key))
+
+(use-package no-littering :demand t)  ;; Must load immediately

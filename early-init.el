@@ -47,7 +47,7 @@ This variable holds a list of Emacs UI features that can be enabled:
 After Emacs finishes loading, `gc-cons-threshold' is restored to the value
 stored in `minimal-emacs-gc-cons-threshold'.")
 
-(defvar minimal-emacs-gc-cons-threshold (* 32 1024 1024)
+(defvar minimal-emacs-gc-cons-threshold (* 100 1024 1024)
   "Value to which `gc-cons-threshold' is set after Emacs startup.
 Ignored if `minimal-emacs-optimize-startup-gc' is nil.")
 

@@ -1,16 +1,27 @@
-#+TITLE: Emacs Configuration
-#+AUTHOR: Ahsanur Rahman
-#+STARTUP: overview
-#+PROPERTY: header-args:emacs-lisp :tangle ./post-init.el :mkdirp yes
-
-* Core Emacs Configuration
-** Lexical Binding
-#+begin_src emacs-lisp
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
-#+end_src
 
-** Define Constants
-#+begin_src emacs-lisp
+;; CRITICAL: Restore GC after startup with optimized values
+(defvar better-gc-cons-threshold (* 100 1024 1024)  ;; 128MB (increased from default 800KB)
+  "Optimal GC threshold for modern LSP-heavy workflows.
+Lower this if you experience freezing, raise if stuttering.")
+
+(defvar better-gc-cons-percentage 0.1
+  "GC percentage of heap to trigger collection.")
+
+;; Restore GC settings after startup
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold better-gc-cons-threshold
+                  gc-cons-percentage better-gc-cons-percentage)
+            (setq file-name-handler-alist file-name-handler-alist-original)
+            (makunbound 'file-name-handler-alist-original)
+
+            ;; Report startup time
+            (message "Emacs loaded in %.2fs with %d GCs"
+                     (float-time (time-subtract after-init-time before-init-time))
+                     gcs-done))
+          100) ;; Run late to ensure accurate timing
+
 (defconst *sys/win32*
   (eq system-type 'windows-nt)
   "Are we running on a WinTel system?")
@@ -45,11 +56,7 @@
 (defconst eaf-env-p
   (and (display-graphic-p) python-p pip-p)
   "Do we have EAF environment setup?")
-#+end_src
 
-** Performance Tuning
-
-#+begin_src emacs-lisp
 ;; ====================
 ;; PGTK/Wayland Mitigations
 ;; ====================
@@ -130,12 +137,9 @@
 ;; FONT RENDERING
 ;; ====================
 (setq inhibit-compacting-font-caches t)  ;; Don't compact font cache
-#+end_src
 
-** Small Configs
-#+begin_src emacs-lisp
 ;; Move backup files to dedicated directory
-(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-var-emacs-directory))))
 
 ;; Confirmation settings
 (setq confirm-kill-processes nil)  ;; Auto-kill processes on exit
@@ -178,16 +182,10 @@
 
 ;; Alt key mapping
 (setq x-alt-keysym 'meta)
-#+end_src
 
-** Setup User
-#+begin_src emacs-lisp
 (setq user-full-name "Ahsanur Rahman"
       user-mail-address "ahsanur041@proton.me")
-#+end_src
 
-** Bindings
-#+begin_src emacs-lisp
 ;; Unbind unneeded keys
 (global-set-key (kbd "C-z") nil)
 (global-set-key (kbd "M-z") nil)
@@ -205,10 +203,7 @@
 (global-set-key (kbd "M-p") #'backward-paragraph)
 ;; Revert buffer
 (global-set-key (kbd "<f5>") #'revert-buffer-quick)
-#+end_src
 
-** Custom Functions
-#+begin_src emacs-lisp
 (defun ar/reload-config ()
   "Reload the Emacs configuration."
   (interactive)
@@ -256,10 +251,7 @@
   "Find functions with broken interactive forms."
   (interactive)
   (occur "(interactive \"<"))
-#+end_src
 
-** Session Management
-#+begin_src emacs-lisp
 (use-package autorevert
   :straight (:type built-in)
   :hook (after-init . global-auto-revert-mode)
@@ -286,10 +278,6 @@
          "-autoloads\\.el$" "autoload\\.el$"
          "/tmp/" "/ssh:" "/sudo:" "recentf")))
 
-#+end_src
-
-* General Keybindings
-#+begin_src emacs-lisp
 (use-package general
   :after evil
   :config
@@ -303,12 +291,7 @@
     "SPC" '(execute-extended-command :wk "M-x")
     "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
     "q r" '(ar/reload-config :wk "Reload Config")))
-#+end_src
 
-* UI & Theming
-** Fonts
-This setup defines a robust function to find and set the best available font from a priority list. It prevents errors if a font is not installed and warns the user.
-#+begin_src emacs-lisp
 (defun ar/set-fonts ()
   "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
   (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
@@ -331,10 +314,7 @@ This setup defines a robust function to find and set the best available font fro
 ;; Font settings
 (setq font-lock-maximum-decoration t
       inhibit-compacting-font-caches t)
-#+end_src
 
-** Selective Line Numbers
-#+begin_src emacs-lisp
 ;; Only enable line numbers in prog-mode and conf-mode
 ;; CRITICAL: Never enable in org-mode or text-mode (huge performance hit)
 (dolist (mode '(prog-mode-hook conf-mode-hook))
@@ -343,10 +323,7 @@ This setup defines a robust function to find and set the best available font fro
 ;; Explicitly disable in text modes
 (dolist (mode '(org-mode-hook text-mode-hook))
   (add-hook mode (lambda () (display-line-numbers-mode -1))))
-#+end_src
 
-** Theming
-#+begin_src emacs-lisp
 (use-package catppuccin-theme
   :demand t
   :custom
@@ -363,18 +340,12 @@ This setup defines a robust function to find and set the best available font fro
    ;; ADD: Explicit line-number faces to prevent nil values
    '(line-number ((t (:inherit default :foreground "#6c7086"))))
    '(line-number-current-line ((t (:inherit default :foreground "#cdd6f4" :weight bold))))))
-#+end_src
 
-** Solaire Mode
-#+begin_src emacs-lisp
 (use-package solaire-mode
   :demand t
   :config
   (solaire-global-mode))
-#+end_src
 
-** Nerd Icons
-#+begin_src emacs-lisp
 ;; (use-package nerd-icons
 ;;   :defer 0.5
 ;;   :custom
@@ -401,10 +372,7 @@ This setup defines a robust function to find and set the best available font fro
                     nerd-icons-devicon))
     ;; Call each function once to cache glyphs
     (ignore-errors (funcall family "nf-md-home"))))
-#+end_src
 
-** Modeline
-#+begin_src emacs-lisp
 (use-package doom-modeline
   :defer 0.1
   :hook (after-init . doom-modeline-mode)
@@ -419,10 +387,7 @@ This setup defines a robust function to find and set the best available font fro
         doom-modeline-percent-position t
         doom-modeline-github-timer nil
         doom-modeline-gnus-timer nil))
-#+end_src
 
-** Dashboard
-#+begin_src emacs-lisp
 (use-package dashboard
   :init
   (setq dashboard-banner-logo-title "Welcome to Emacs!")
@@ -448,10 +413,7 @@ This setup defines a robust function to find and set the best available font fro
   (dashboard-setup-startup-hook)
   ;; If you are using emacsclient, you'll want to see the dashboard when you create a new frame.
   (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
-#+end_src
 
-** Which Key
-#+begin_src emacs-lisp
 (use-package which-key
   :straight (:type built-in)
   :defer 0.5
@@ -460,17 +422,10 @@ This setup defines a robust function to find and set the best available font fro
   (which-key-idle-delay 0.1)
   (which-key-separator " → ")
   (which-key-popup-type 'minibuffer))
-#+end_src
 
-** Frame Padding
-#+begin_src emacs-lisp
 (setq-default internal-border-width 5)
 (add-to-list 'default-frame-alist '(internal-border-width . 5))
-#+end_src
 
-* Evil
-** Undo System
-#+begin_src emacs-lisp
 (use-package undo-fu
   :commands (undo-fu-only-undo
              undo-fu-only-redo
@@ -482,11 +437,7 @@ This setup defines a robust function to find and set the best available font fro
   (global-set-key (kbd "C-S-z") 'undo-fu-only-redo))
 
 (use-package undo-fu-session :commands undo-fu-session-global-mode)
-#+end_src
 
-** Core Evil
-=what do the comments mean=
-#+begin_src emacs-lisp
 (setq evil-undo-system 'undo-fu)
 
 (use-package evil
@@ -574,10 +525,7 @@ This setup defines a robust function to find and set the best available font fro
   (define-key evil-motion-state-map "k" 'evil-previous-visual-line)
   (define-key evil-motion-state-map "gj" 'evil-next-line)
   (define-key evil-motion-state-map "gk" 'evil-previous-line))
-#+end_src
 
-** Evil Collection
-#+begin_src emacs-lisp
 (use-package evil-collection
   :after evil
   :init
@@ -585,10 +533,7 @@ This setup defines a robust function to find and set the best available font fro
         evil-collection-want-unimpaired-p nil)
   :config
   (evil-collection-init))
-#+end_src
 
-** Evil Extensions
-#+begin_src emacs-lisp
 (use-package evil-nerd-commenter :after evil)
 (use-package evil-numbers :after evil)
 (use-package evil-args :after evil)
@@ -666,10 +611,7 @@ This setup defines a robust function to find and set the best available font fro
  :states 'motion
  "gx" 'evil-exchange
  "gX" 'evil-exchange-cancel)
-#+end_src
 
-** Evil Comment Continuation (o/O Keys)
-#+begin_src emacs-lisp
 (defcustom ar/evil-want-o/O-to-continue-comments t
   "If non-nil, o/O keys will continue comment lines."
   :type 'boolean
@@ -721,10 +663,7 @@ This setup defines a robust function to find and set the best available font fro
 
 (define-key evil-normal-state-map "o" #'ar/evil-insert-newline-below)
 (define-key evil-normal-state-map "O" #'ar/evil-insert-newline-above)
-#+end_src
 
-** Visual Search
-#+begin_src emacs-lisp
 (defun ar/evil--visual-search (direction)
   "Search for the visual selection in DIRECTION."
   (let* ((beg (region-beginning))
@@ -750,10 +689,7 @@ This setup defines a robust function to find and set the best available font fro
 
 (define-key evil-visual-state-map "*" #'ar/evil-visual-search-forward)
 (define-key evil-visual-state-map "#" #'ar/evil-visual-search-backward)
-#+end_src
 
-** Evil Ex Commands
-#+begin_src emacs-lisp
 (with-eval-after-load 'evil-ex
   (evil-ex-define-cmd "g[lobal]" #'evil-ex-global)
 
@@ -779,10 +715,7 @@ This setup defines a robust function to find and set the best available font fro
   (if indent-tabs-mode
       (tabify beg end)
     (untabify beg end)))
-#+end_src
 
-** Evil Window Movement Enhancements
-#+begin_src emacs-lisp
 (defcustom ar/evil-want-move-window-to-wrap-around nil
   "If non-nil, window movement commands wrap around."
   :type 'boolean
@@ -819,10 +752,7 @@ This setup defines a robust function to find and set the best available font fro
            (not (ignore-errors (windmove-down))))
       (evil-window-top-left)
     (windmove-down)))
-#+end_src
 
-** Evil Preprocessor Navigation
-#+begin_src emacs-lisp
 (defcustom ar/evil-preprocessor-regexp "^\\s-*#[a-zA-Z0-9_]"
   "Regexp for preprocessor directives (C/C++)."
   :type 'regexp
@@ -840,10 +770,7 @@ This setup defines a robust function to find and set the best available font fro
 
 (define-key evil-normal-state-map "]#" #'ar/evil-next-preproc-directive)
 (define-key evil-normal-state-map "[#" #'ar/evil-previous-preproc-directive)
-#+end_src
 
-** Minibuffer Evil Integration
-#+begin_src emacs-lisp
 (with-eval-after-load 'evil
   (define-key evil-ex-completion-map (kbd "C-a") #'evil-beginning-of-line)
   (define-key evil-ex-completion-map (kbd "C-b") #'evil-backward-char)
@@ -852,23 +779,14 @@ This setup defines a robust function to find and set the best available font fro
   (define-key evil-ex-search-keymap (kbd "C-a") #'evil-beginning-of-line)
   (define-key evil-ex-search-keymap (kbd "C-b") #'evil-backward-char)
   (define-key evil-ex-search-keymap (kbd "C-f") #'evil-forward-char))
-#+end_src
 
-** Smartparens Disable in Evil Replace Mode
-#+begin_src emacs-lisp
 (with-eval-after-load 'smartparens
   (add-hook 'evil-replace-state-entry-hook #'turn-off-smartparens-mode)
   (add-hook 'evil-replace-state-exit-hook #'turn-on-smartparens-mode))
-#+end_src
 
-** Keybindings
-#+begin_src emacs-lisp
 (with-eval-after-load 'evil-maps
   (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
-#+end_src
 
-* Unified Escape Key System
-#+begin_src emacs-lisp
 ;; ==========================
 ;; UNIFIED ESCAPE KEY SYSTEM
 ;; ==========================
@@ -1171,13 +1089,7 @@ Each function should return non-nil to prevent further processing.")
 ;; =================================
 ;; END OF UNIFIED ESCAPE KEY SYSTEM
 ;; =================================
-#+end_src
 
-* Editor Behaviour
-** Avy for Fast Navigation
-This section configures *avy*, a powerful package for jumping to visible text. It allows for rapid, character-based navigation within the visible buffer, integrating smoothly with evil-mode as a motion provider.
-
-#+begin_src emacs-lisp
 (use-package avy
   :custom
   (avy-case-fold-search nil)       ; Case-sensitive for precision
@@ -1237,10 +1149,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
     "j e" '(ace-link-eww :wk "Jump to Link (EWW)")))
 
 (use-package ace-link :defer t)
-#+end_src
 
-** Rainbow Delimiters
-#+begin_src emacs-lisp
 (use-package rainbow-delimiters
   :defer t
   :hook ((text-mode . rainbow-delimiters-mode)
@@ -1258,18 +1167,12 @@ This section configures *avy*, a powerful package for jumping to visible text. I
    '(rainbow-delimiters-depth-7-face ((t (:foreground "#fab387"))))  ; Peach
    '(rainbow-delimiters-depth-8-face ((t (:foreground "#cdd6f4"))))  ; Text
    '(rainbow-delimiters-depth-9-face ((t (:foreground "#bac2de")))))) ; Subtext1
-#+end_src
 
-** Rainbow Mode
-#+begin_src emacs-lisp
 (use-package rainbow-mode
   :defer t
   :hook ((prog-mode . rainbow-mode)
          (org-mode . rainbow-mode)))
-#+end_src
 
-** Buffer Terminator
-#+begin_src emacs-lisp
 (use-package buffer-terminator
   :defer t
   :custom
@@ -1280,11 +1183,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 
   :config
   (buffer-terminator-mode 1))
-#+end_src
 
-** Helpful
-*helpful* is an alternative to the built-in Emacs help that provides much more contextual information.
-#+begin_src emacs-lisp
 (use-package helpful
   :defer t
   :commands (helpful-callable
@@ -1301,20 +1200,14 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   ([remap describe-variable] . helpful-variable)
   :custom
   (helpful-max-buffers 7))
-#+end_src
 
-** Wgrep: Writable Grep
-#+begin_src emacs-lisp
 (use-package wgrep
   :defer t
   :commands (wgrep-change-to-wgrep-mode)
   :config
   ;; evil-collection provides bindings like :wq to save and :q! to abort.
   (setq wgrep-auto-save-buffer t))
-#+end_src
 
-** Indent Bars
-#+begin_src emacs-lisp
 (use-package indent-bars
   :custom
   (indent-bars-treesit-support t)
@@ -1328,13 +1221,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (indent-bars-width-frac 0.25)
   (indent-bars-pad-frac 0.2)
   :hook ((prog-mode yaml-mode) . indent-bars-mode))
-#+end_src
 
-#+RESULTS:
-| indent-bars-mode |
-
-** Jinx
-#+begin_src emacs-lisp
 (use-package jinx
   :defer t
   :custom
@@ -1373,10 +1260,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
     "j a" '(jinx-add-word-to-personal-dictionary :wk "Add to dictionary")
     "j l" '(jinx-languages :wk "Select language")
     "j t" '(jinx-toggle-checking :wk "Toggle checking in buffer")))
-#+end_src
 
-** Deadgrep
-#+begin_src emacs-lisp
 (defun ar/deadgrep-fix-buffer-advice (fun &rest args)
   (let ((buf (apply fun args)))
     (with-current-buffer buf
@@ -1387,10 +1271,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   :defer t
   :config
   (advice-add #'deadgrep--buffer :around #'ar/deadgrep-fix-buffer-advice))
-#+end_src
 
-** Smartparens
-#+begin_src emacs-lisp
 ;; Doom's comment continuation advice
 (defun ar/newline-indent-and-continue-comments-a (orig-fn &rest args)
   "Continue comments when pressing RET with smartparens."
@@ -1463,10 +1344,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
                   debugger-mode))
     (add-to-list 'sp-ignore-modes-list mode))
   )
-#+end_src
 
-** Exec Path From Shell
-#+begin_src emacs-lisp
 (use-package exec-path-from-shell
   :defer t
   :custom
@@ -1478,17 +1356,11 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   :config
   (when (daemonp)
     (exec-path-from-shell-initialize)))
-#+end_src
 
-** Sudo Edit
-#+begin_src emacs-lisp
 (use-package sudo-edit
   :defer t
   :commands (sudo-edit))
-#+end_src
 
-** UTF-8 Coding System
-#+begin_src emacs-lisp
 (unless *sys/win32*
   (set-selection-coding-system 'utf-8)
   (prefer-coding-system 'utf-8)
@@ -1500,10 +1372,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ;; Treat clipboard input as UTF-8 string first; compound text next, etc.
 (when (display-graphic-p)
   (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
-#+end_src
 
-** Whitespace Management
-#+begin_src emacs-lisp
 ;; Smart trailing whitespace removal that preserves current line
 (defun delete-trailing-whitespace-except-current-line ()
   "Delete trailing whitespace except on current line."
@@ -1529,40 +1398,27 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 
 ;; Add to save hook
 (add-hook 'before-save-hook #'smart-delete-trailing-whitespace)
-#+end_src
 
-** Symbol Highlighting
-#+begin_src emacs-lisp
 (use-package symbol-overlay
   :defer t
   :hook (prog-mode . symbol-overlay-mode)
   :bind (("M-i" . symbol-overlay-put)
          ("M-n" . symbol-overlay-jump-next)
          ("M-p" . symbol-overlay-jump-prev)))
-#+end_src
 
-* Completion Framework
-** Basic Completion
-#+begin_src emacs-lisp
 (use-package emacs
   :straight (:type built-in)
   :custom
   (completion-cycle-threshold 3)
   (text-mode-ispell-word-completion nil)
   (read-extended-command-predicate #'command-completion-default-include-p))
-#+end_src
 
-** Orderless for Advanced Filtering
-#+begin_src emacs-lisp
 (use-package orderless
   :custom
   (completion-styles '(orderless basic))
   (completion-category-overrides '((file (styles partial-completion))))
   (completion-pcm-leading-wildcard t)) ;; Emacs 31: partial-completion behaves like substring
-#+end_src
 
-** Vertico: The Vertical Completion UI
-#+begin_src emacs-lisp
 (use-package vertico
   :demand t
   :hook (after-init . vertico-mode)
@@ -1570,11 +1426,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (vertico-resize nil)
   (vertico-cycle t)
   (vertico-count 10))
-#+end_src
 
-** Vertico Directory
-*vertico-directory* simplifies directory navigation.
-#+begin_src emacs-lisp
 (use-package vertico-directory
   :straight (:type built-in)
   :after vertico
@@ -1585,10 +1437,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
               ("M-DEL" . vertico-directory-delete-word))
   ;; Tidy shadowed file names
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
-#+end_src
 
-** Marginalia
-#+begin_src emacs-lisp
 (use-package marginalia
   :defer 0.1
   :config
@@ -1597,10 +1446,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
         marginalia-align 'right))
 ;; (use-package marginalia
 ;;   :hook (after-init . marginalia-mode))
-#+end_src
 
-** Nerd Icons Completion
-#+begin_src emacs-lisp
 (use-package nerd-icons-completion
   :demand t
   :after (nerd-icons marginalia)
@@ -1611,10 +1457,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ;;   :config
 ;;   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
 ;;   (nerd-icons-completion-mode))
-#+end_src
 
-** Consult
-#+begin_src emacs-lisp
 (use-package consult
   :defer 0.1
   :bind
@@ -1677,10 +1520,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
          :map vertico-map
          ("C-x C-d" . consult-dir)
          ("C-x C-j" . consult-dir-jump-file)))
-#+end_src
 
-** Embark
-#+begin_src emacs-lisp
 (use-package embark
   :defer 0.5
   :bind
@@ -1711,19 +1551,13 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ;;   ;; Embark collect buffers display is now handled by shackle rules
 ;;   ;; See the shackle configuration in "Popup Management System" section
 ;;   )
-#+end_src
 
-** Embark Consult
-#+begin_src emacs-lisp
 (use-package embark-consult
   :defer t
   :after (embark consult)
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
-#+end_src
 
-** Corfu
-#+begin_src emacs-lisp
 ;; (use-package corfu
 ;;   :hook (after-init . global-corfu-mode)
 ;;   :config
@@ -1771,17 +1605,11 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 
   :init
   (global-corfu-mode))
-#+end_src
 
-** Nerd Icons Corfu
-#+begin_src emacs-lisp
 (use-package nerd-icons-corfu
   :after (corfu nerd-icons)
   :config (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
-#+end_src
 
-** Cape
-#+begin_src emacs-lisp
 (use-package cape
   :init
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
@@ -1796,10 +1624,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   ;; (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   ;; (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
-#+end_src
 
-** Dabbrev
-#+begin_src emacs-lisp
 (use-package dabbrev
   :straight (:type built-in)
   :bind (("M-/" . dabbrev-completion)
@@ -1809,19 +1634,12 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
   (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
   (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
-#+end_src
 
-** Wgrep: Writable Grep
-#+begin_src emacs-lisp
 (use-package wgrep
   :defer t
   :config
   (setq wgrep-auto-save-buffer t))
-#+end_src
 
-* Org Mode
-** Auto Tangle
-#+begin_src emacs-lisp
 (defvar ar/org-tangle-on-save-modes '(org-mode)
   "Major modes in which to enable auto-tangling on save.")
 
@@ -1867,10 +1685,7 @@ Only tangles if the file has been modified and saved."
 
 ;; Uncomment to enable exit tangling
 (add-hook 'kill-emacs-query-functions #'ar/org-babel-tangle-all-on-exit)
-#+end_src
 
-** Dynamic Directory Structure
-#+begin_src emacs-lisp
 ;; Define base directory
 (defvar my/org-directory (expand-file-name "~/org/")
   "Base directory for all org files.")
@@ -1924,10 +1739,7 @@ Only tangles if the file has been modified and saved."
          (goto-char (point-min))
          (re-search-forward "^#\\+filetags:.*:project:" nil t)))
      files)))
-#+end_src
 
-** Better Font Faces
-#+begin_src emacs-lisp
 (defun ar/org-font-setup ()
   ;; Replace list hyphen with dot
   (font-lock-add-keywords 'org-mode
@@ -1944,11 +1756,7 @@ Only tangles if the file has been modified and saved."
                   (org-level-7 . 1.02)
                   (org-level-8 . 1)))
     (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
-#+end_src
 
-** Core Configuration
-=Disable Optimizations if needed=
-#+begin_src emacs-lisp
 (use-package org
   :straight (:type built-in)
   :mode ("\\.org\\'" . org-mode)
@@ -2074,10 +1882,7 @@ Only tangles if the file has been modified and saved."
                   ("sh" . bash-ts)
                   ("latex" . latex-ts)
                   ("typescript" . typescript-ts)))))
-#+end_src
 
-** Babel & Structure Templates
-#+begin_src emacs-lisp
 (with-eval-after-load 'org
   ;; Load languages for Org Babel
   (org-babel-do-load-languages
@@ -2099,10 +1904,7 @@ Only tangles if the file has been modified and saved."
   (add-to-list 'org-structure-template-alist '("py" . "src python"))
   (add-to-list 'org-structure-template-alist '("jpy" . "src jupyter-python"))
   (add-to-list 'org-structure-template-alist '("tex" . "src latex")))
-#+end_src
 
-** Org Modern
-#+begin_src emacs-lisp
 (use-package org-modern
   :hook (org-mode . org-modern-mode)
   :config
@@ -2142,10 +1944,7 @@ Only tangles if the file has been modified and saved."
     (if (y-or-n-p "File is large. Enable org-modern anyway? ")
         (org-modern-mode 'toggle)
       (message "Use M-x org-modern-mode to enable manually"))))
-#+end_src
 
-** Performance Monitoring
-#+begin_src emacs-lisp
 ;; Add command to check org performance
 (defun ar/org-performance-report ()
   "Show performance-related settings for current org buffer."
@@ -2158,10 +1957,7 @@ Only tangles if the file has been modified and saved."
                (if org-src-fontify-natively "ON" "OFF")
                (if org-element-use-cache "ON" "OFF"))
     (message "Not in org-mode")))
-#+end_src
 
-** Org Roam: The Knowledge Graph
-#+begin_src emacs-lisp
 (use-package org-roam
   :defer t
   :after org
@@ -2216,11 +2012,7 @@ Only tangles if the file has been modified and saved."
 (use-package consult-org-roam
   :after (consult org-roam)
   :init (consult-org-roam-mode 1))
-#+end_src
 
-** Capture: The Gateway to Org
-*Use dynamic directory*
-#+begin_src emacs-lisp
 (use-package org-capture
   :straight (:type built-in)
   :after org
@@ -2270,10 +2062,7 @@ Only tangles if the file has been modified and saved."
      ("g" "Goal" entry
       (file+headline ,(expand-file-name "goals.org" my/org-directory) "Goals")
       "* GOAL %? :goal:\nDEADLINE: %(org-read-date nil nil \"+1y\")\n:PROPERTIES:\n:CREATED: %U\n:TYPE:\n:END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
-#+end_src
 
-** Org Habit
-#+begin_src emacs-lisp
 (use-package org-habit
   :straight (:type built-in)
   :defer t
@@ -2287,10 +2076,7 @@ Only tangles if the file has been modified and saved."
    (string-to-char (nerd-icons-codicon "nf-cod-check")))
   (org-habit-today-glyph
    (string-to-char (nerd-icons-codicon "nf-cod-circle_filled"))))
-#+end_src
 
-** Org Download
-#+begin_src emacs-lisp
 (use-package org-download
   :defer t
   :after org
@@ -2308,10 +2094,7 @@ Only tangles if the file has been modified and saved."
     "i" '(:ignore t :wk "insert")
     "i s" '(org-download-screenshot :wk "Screenshot")
     "i y" '(org-download-yank :wk "Yank Image from Clipboard")))
-#+end_src
 
-** Deft
-#+begin_src emacs-lisp
 (use-package deft
   :commands deft
   :after org-roam
@@ -2375,10 +2158,7 @@ Only tangles if the file has been modified and saved."
 (with-eval-after-load 'deft
   (advice-add #'deft-parse-summary :around #'my/deft-parse-summary-around)
   (advice-add #'deft-parse-title :around #'my/deft-parse-title-around))
-#+end_src
 
-** Evil Integration
-#+begin_src emacs-lisp
 (use-package evil-org
   :hook (org-mode . evil-org-mode)
   :config
@@ -2388,10 +2168,7 @@ Only tangles if the file has been modified and saved."
   (add-to-list 'evil-emacs-state-modes 'org-agenda-mode)
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
-#+end_src
 
-** Keybindings
-#+begin_src emacs-lisp
 (ar/global-leader
   ;; Org-mode specific bindings
   "o" '(:ignore t :wk "org")
@@ -2412,17 +2189,10 @@ Only tangles if the file has been modified and saved."
   "o n" '(:ignore t :which-key "org noter")
   "o n n" '(ar/org-noter-find-or-create-notes :wk "Open/Create PDF Notes")
   "o n i" '(org-noter-insert-note :wk "Insert Note"))
-#+end_src
 
-* Development Tools
-** Envrc
-#+begin_src emacs-lisp
 (use-package envrc
   :hook (after-init . envrc-global-mode))
-#+end_src
 
-** Snippets
-#+begin_src emacs-lisp
 ;; This is the directory where you will store your personal snippets.
 (defvar my/snippets-directory (expand-file-name "snippets" minimal-user-emacs-directory)
   "Directory for personal yasnippet snippets.")
@@ -2465,10 +2235,6 @@ Only tangles if the file has been modified and saved."
   "s n" '(yas-new-snippet :wk "new snippet")
   "s v" '(yas-visit-snippet-file :wk "visit snippet file"))
 
-#+end_src
-
-** Markdown Mode
-#+begin_src emacs-lisp
 (use-package markdown-mode
   :mode "\\.md\\'"
   :config
@@ -2488,10 +2254,7 @@ Only tangles if the file has been modified and saved."
    :keymaps 'markdown-mode-map
    "M-<left>" 'markdown-promote
    "M-<right>" 'markdown-demote))
-#+end_src
 
-** LSP Mode
-#+begin_src emacs-lisp
 (use-package lsp-mode
   :defer t
   :hook (prog-mode . lsp-deferred)
@@ -2521,10 +2284,7 @@ Only tangles if the file has been modified and saved."
   (lsp-ui-doc-background ((t (:background "#1e2030"))))
   (lsp-ui-doc-header ((t (:foreground "#7aa2f7" :weight bold))))
   (lsp-ui-sideline-background ((t (:background "#1e2030")))))
-#+end_src
 
-** Consult Integration
-#+begin_src emacs-lisp
 (with-eval-after-load 'consult
   (setq xref-show-definitions-function #'consult-xref-show-definitions)
   (setq xref-show-references-function #'consult-xref-show-references))
@@ -2534,11 +2294,7 @@ Only tangles if the file has been modified and saved."
 
 (use-package consult-flycheck
   :after (consult flycheck))
-#+end_src
 
-** Robust Debugger UI
-We use *dape* for debugging. The UI for debugger windows is cleanly managed by the enhanced *shackle* configuration in my *Editor Behaviour* section.
-#+begin_src emacs-lisp
 (use-package dap-mode
   :defer t
   :config
@@ -2570,10 +2326,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
    "d u o" '(dap-ui-open :wk "Open UI")
    "d u c" '(dap-ui-close :wk "Close UI")
    "d u t" '(dap-ui-toggle :wk "Toggle UI")))
-#+end_src
 
-** Flycheck
-#+begin_src emacs-lisp
 (use-package flycheck
   :defer t
   :hook (prog-mode . flycheck-mode)
@@ -2591,18 +2344,12 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   :init
   (setq sideline-flycheck-display-mode 'point)
   (setq sideline-backends-right '(sideline-flycheck)))
-#+end_src
 
-** Formatting
-#+begin_src emacs-lisp
 (use-package apheleia
   :defer t
   :config
   (apheleia-global-mode +1))
-#+end_src
 
-** Tree-sitter for syntax highlighting
-#+begin_src emacs-lisp
 (with-eval-after-load 'tresit
   (setq treesit-font-lock-level 4)
   (setq major-mode-remap-alist
@@ -2646,11 +2393,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
             (lambda ()
               (interactive)
               (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
-#+end_src
 
-* Jupyter Notebooks
-** Emacs-Jupyter
-#+begin_src emacs-lisp
 (use-package jupyter
   :defer t
   :after org
@@ -2682,10 +2425,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   :after org
   :config
   (setq ob-async-no-async-languages-alist '("python" "jupyter-python")))
-#+end_src
 
-** Dynamic Tangling for Jupyter-Python Blocks
-#+begin_src emacs-lisp
 ;; Function to dynamically set tangle target for current block
 (defun my/jupyter-set-tangle-file ()
   "Dynamically set tangle file for current jupyter-python block."
@@ -2740,10 +2480,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   "o j" '(:ignore t :wk "jupyter tangle")
   "o j t" '(my/jupyter-set-tangle-file :wk "Set tangle file (subtree)")
   "o j T" '(my/jupyter-setup-project-tangle :wk "Setup file-level tangle"))
-#+end_src
 
-** EIN
-#+begin_src emacs-lisp
 (use-package ein
   :commands (ein:run ein:login ein:notebooklist-open ein:ipynb-mode)
   :config
@@ -2776,10 +2513,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
 
 ;; Auto-open .ipynb files with ein
 (add-to-list 'auto-mode-alist '("\\.ipynb\\'" . ein:ipynb-mode))
-#+end_src
 
-** ANSI Colors
-#+begin_src emacs-lisp
 (defun my/babel-ansi ()
   "Apply ANSI color codes to the result of an Org Babel block."
   (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
@@ -2797,10 +2531,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   (if org-babel-ansi-colors-mode
       (add-hook 'org-babel-after-execute-hook #'my/babel-ansi)
     (remove-hook 'org-babel-after-execute-hook #'my/babel-ansi)))
-#+end_src
 
-** Output post-processing
-#+begin_src emacs-lisp
 (defun my/jupyter-org-scalar (value)
   (cond
    ((stringp value) value)
@@ -2819,16 +2550,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
 
 (defun my/org-strip-results (data)
   (replace-regexp-in-string ":\\(RESULTS\\|END\\):\n" "" data))
-#+end_src
 
-** Property-Based Header Arguments for Projects
-My org files will:
-1. Write scientific documents in LaTeX blocks (exported to PDF)
-2. Perform analysis in Python/Jupyter blocks (tangled to =.py= files)
-3. Optionally include or exclude Python output in PDF exports
-4. Automatically apply language-specific header args via =#+PROPERTY=
-
-#+begin_src emacs-lisp
 (with-eval-after-load 'org
   ;; Project structure helper
   (defun my/org-setup-project-structure ()
@@ -2965,11 +2687,7 @@ My org files will:
     "o p f" '(my/org-set-python-tangle-file :wk "Set tangle file")
     "o p e" '(my/org-set-subtree-export :wk "Set subtree export")
     "o i s" '(my/org-insert-src-block :wk "Insert source block")))
-#+end_src
 
-* Workflow Management
-** Perspective Mode (Workspaces)
-#+begin_src emacs-lisp
 (use-package persp-mode
   :defer t
   :init
@@ -3017,10 +2735,7 @@ My org files will:
       :mode '(prog-mode)
       :hooks '(after-switch-to-buffer-functions)
       :switch 'window)))
-#+end_src
 
-** Treemacs: Project Explorer
-#+begin_src emacs-lisp
 (defvar +treemacs-git-mode 'simple
   "Type of git integration for treemacs.
 Options: 'simple (default), 'extended, or 'deferred.
@@ -3095,10 +2810,7 @@ Extended and deferred require python3.")
   :after (treemacs persp-mode)
   :config
   (treemacs-set-scope-type 'Perspectives))
-#+end_src
 
-** Dired: File Manager
-#+begin_src emacs-lisp
 (use-package fd-dired
   :defer t
   :config
@@ -3178,10 +2890,7 @@ Extended and deferred require python3.")
   (define-key dired-mode-map (kbd "y") 'dired-ranger-copy)
   (define-key dired-mode-map (kbd "p") 'dired-ranger-paste)
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
-#+end_src
 
-** Projectile: Enhanced Project Management
-#+begin_src emacs-lisp
 ;; Projects directory
 (defcustom my/projects-directory (expand-file-name "~/Projects/")
   "Base directory for all projects."
@@ -3291,10 +3000,7 @@ Extended and deferred require python3.")
           (message "Bibliography setup complete: %s" bib-file)
           bib-file)
       (message "Not in a project"))))
-#+end_src
 
-** Persp-Mode + Projectile Integration
-#+begin_src emacs-lisp
 (use-package proj-persp-extras
   :vc (:url "https://github.com/brandonwillard/proj-persp-extras"
        :branch "master")
@@ -3321,20 +3027,14 @@ Extended and deferred require python3.")
     (apply orig-fun args))
 
   (advice-add 'projectile-switch-project :around #'my/proj-persp-switch-project-advice))
-#+end_src
 
-** Bookmarks Enhancement
-#+begin_src emacs-lisp
 (use-package bookmark
   :straight (:type built-in)
   :defer t
   :custom
   (bookmark-default-file (expand-file-name "bookmarks" user-emacs-directory))
   (bookmark-save-flag 1))
-#+end_src
 
-** Workspace & Project Utilities
-#+begin_src emacs-lisp
 (defun ar/kill-other-buffers ()
   "Kill all buffers except the current one."
   (interactive)
@@ -3365,10 +3065,7 @@ Extended and deferred require python3.")
           (treemacs-projectile)
         (treemacs))
       (treemacs-find-file))))
-#+end_src
 
-** Keybindings
-#+begin_src emacs-lisp
 (ar/global-leader
  ;; File operations
  "f" '(:ignore t :wk "file")
@@ -3438,11 +3135,7 @@ Extended and deferred require python3.")
  "TAB A" '(persp-set-buffer :wk "move buffer to workspace")
  "TAB i" '(persp-import-buffers :wk "import buffers")
  "TAB 0" '((lambda () (interactive) (persp-switch "main")) :wk "switch to main"))
-#+end_src
 
-* Version Control
-** Magit: The Core Git Client
-#+begin_src emacs-lisp
 (use-package magit
   :defer t
   :init
@@ -3466,31 +3159,18 @@ Extended and deferred require python3.")
 
   ;; Bind "q" in the status buffer to our custom quitting function.
   (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows))
-#+end_src
 
-** Forge: Git Forge Integration
-#+begin_src emacs-lisp
 (use-package forge :defer t :after magit)
-#+end_src
 
-** Magit Todos
-*magit-todos* displays TODO items from your project files in the status buffer.
-#+begin_src emacs-lisp
 (use-package magit-todos
   :hook (magit-mode . magit-todos-mode))
-#+end_src
 
-** Git Timemachine
-#+begin_src emacs-lisp
 (use-package git-timemachine
   :after magit
   :config
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-j") 'git-timemachine-show-previous-revision)
   (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
-#+end_src
 
-** Git Gutter: Live Diff Highlighting
-#+begin_src emacs-lisp
 (use-package git-gutter
   :defer t
   :hook (prog-mode . git-gutter-mode)
@@ -3504,10 +3184,7 @@ Extended and deferred require python3.")
   (with-eval-after-load 'evil
     (define-key evil-normal-state-map (kbd "]g") 'git-gutter:next-hunk)
     (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk)))
-#+end_src
 
-** Keybindings
-#+begin_src emacs-lisp
 (ar/global-leader
  "g" '(:ignore t :wk "git")
  "g s" '(magit-status :wk "status")
@@ -3525,20 +3202,7 @@ Extended and deferred require python3.")
  "g n" '(git-gutter:next-hunk :wk "next hunk")
  "g N" '(git-gutter:previous-hunk :wk "previous hunk")
  "g S" '(git-gutter:stage-hunk :wk "stage hunk"))
-#+end_src
 
-* LaTeX Writing Environment
-This section configures a complete LaTeX writing system with:
-- AUCTeX + Tectonic for compilation
-- Citar + org-cite for bibliography management
-- CDLaTeX + LAAS for fast LaTeX input
-- PDF viewing and synchronization
-- Project-aware bibliography detection
-
-** Core AUCTeX Backend
-AUCTeX provides the fundamental LaTeX editing environment. We configure it to use Tectonic as the compilation engine.
-
-#+begin_src emacs-lisp
 (use-package tex
   :ensure auctex
   :defer t
@@ -3613,20 +3277,11 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
   (define-key LaTeX-mode-map (kbd "C-c C-v") #'TeX-view)
   (define-key LaTeX-mode-map (kbd "C-c C-k")
               (lambda () (interactive) (TeX-command "ChkTeX" 'TeX-master-file))))
-#+end_src
 
-** Evil Integration for LaTeX
-#+begin_src emacs-lisp
 (use-package evil-tex
   :after (tex evil)
   :hook (LaTeX-mode . evil-tex-mode))
-#+end_src
 
-** Bibliography Management
-*** Project-Aware Bibliography System
-This configuration implements intelligent bibliography detection that automatically finds .bib files in your project hierarchy.
-
-#+begin_src emacs-lisp
 (defun my/find-project-bibliographies ()
   "Find all .bib files in project (root, references/, bib/, bibliography/)."
   (when (and (fboundp 'projectile-project-p)
@@ -3643,13 +3298,6 @@ This configuration implements intelligent bibliography detection that automatica
               (push file bib-files))))
         (delete-dups (nreverse bib-files))))))
 
-
-#+end_src
-
-*** Citar: Modern Citation Management
-Citar provides a completion-based interface for managing bibliographies, notes, and citations.
-
-#+begin_src emacs-lisp
 (use-package citar
   :defer t
   :after oc
@@ -3713,10 +3361,7 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
 (with-eval-after-load 'latex
   (define-key LaTeX-mode-map (kbd "C-c b") #'citar-insert-citation)
   (define-key LaTeX-mode-map (kbd "C-c o") #'citar-open))
-#+end_src
 
-*** Citar Extensions
-#+begin_src emacs-lisp
 ;; === Embark Integration ===
 (use-package citar-embark
   :after (citar embark)
@@ -3731,12 +3376,7 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
   :config
   (citar-org-roam-mode 1)
   (setq citar-org-roam-subdir "literature"))
-#+end_src
 
-*** Org-Cite Integration
-Org-cite is the native citation system in Org mode 9.5+. We configure it to use citar as its processor.
-
-#+begin_src emacs-lisp
 (with-eval-after-load 'oc
   (require 'citar)
 
@@ -3778,10 +3418,7 @@ Org-cite is the native citation system in Org mode 9.5+. We configure it to use 
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c b") #'my/org-insert-citation)
   (define-key org-mode-map (kbd "C-c o") #'citar-open))
-#+end_src
 
-*** Bibliography Utilities
-#+begin_src emacs-lisp
 (defun my/setup-project-bibliography ()
   "Setup bibliography infrastructure for current project."
   (interactive)
@@ -3799,12 +3436,7 @@ Org-cite is the native citation system in Org mode 9.5+. We configure it to use 
         (message "Bibliography setup complete: %s" bib-file)
         bib-file)
     (message "Not in a project")))
-#+end_src
 
-*** RefTeX for Cross-References
-RefTeX provides powerful cross-referencing capabilities. We use it only for references, not citations (citar handles those).
-
-#+begin_src emacs-lisp
 (use-package reftex
   :straight (:type built-in)
   :after tex
@@ -3812,13 +3444,7 @@ RefTeX provides powerful cross-referencing capabilities. We use it only for refe
   :custom
   (reftex-plug-into-AUCTeX t)
   (reftex-default-bibliography nil))  ; Let citar handle citations
-#+end_src
 
-** Fast LaTeX Input
-*** CDLaTeX: Core Input System
-CDLaTeX provides fast insertion of environments and math constructs with minimal keystrokes.
-
-#+begin_src emacs-lisp
 (use-package cdlatex
   :defer t
   :hook ((LaTeX-mode . cdlatex-mode)
@@ -3839,12 +3465,7 @@ CDLaTeX provides fast insertion of environments and math constructs with minimal
   :config
   ;; Ensure CDLaTeX tab works correctly
   (define-key cdlatex-mode-map (kbd "TAB") #'cdlatex-tab))
-#+end_src
 
-*** LAAS: Auto-Activating Snippets
-LAAS provides intelligent, context-aware snippet expansion as you type.
-
-#+begin_src emacs-lisp
 (use-package laas
   :defer t
   :hook ((LaTeX-mode . laas-mode)
@@ -3883,10 +3504,7 @@ LAAS provides intelligent, context-aware snippet expansion as you type.
     "~~" (lambda () (interactive) (laas-wrap-previous-object "tilde"))
     "^^" (lambda () (interactive) (laas-wrap-previous-object "hat"))
     "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
-#+end_src
 
-*** YaSnippet LaTeX Snippets
-#+begin_src emacs-lisp
 (with-eval-after-load 'yasnippet
   (yas-define-snippets 'latex-mode
     '(;; === Environments ===
@@ -3924,10 +3542,7 @@ LAAS provides intelligent, context-aware snippet expansion as you type.
       ("sec" "\\section{${1:title}}\n\\label{sec:${2:label}}\n$0" "section")
       ("sub" "\\subsection{${1:title}}\n\\label{sub:${2:label}}\n$0" "subsection")
       ("ssub" "\\subsubsection{${1:title}}\n\\label{ssub:${2:label}}\n$0" "subsubsection"))))
-#+end_src
 
-** Prettification & Visual Enhancements
-#+begin_src emacs-lisp
 ;; === Prettify Symbols ===
 (defun my/latex-prettify-symbols-setup ()
   "Enable prettify-symbols-mode with LaTeX ligatures."
@@ -3961,13 +3576,7 @@ LAAS provides intelligent, context-aware snippet expansion as you type.
           ("\\exists" . "∃")  ("\\neg" . "¬"))))
 
 (add-hook 'LaTeX-mode-hook #'my/latex-prettify-symbols-setup)
-#+end_src
 
-** Org Mode LaTeX Integration
-*** LaTeX Export Configuration
-Configure Org mode to use Tectonic for LaTeX exports and previews.
-
-#+begin_src emacs-lisp
 (with-eval-after-load 'org
   (require 'ox-latex)
 
@@ -4011,10 +3620,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
                  "\\documentclass{beamer}"
                  ("\\section{%s}" . "\\section*{%s}")
                  ("\\subsection{%s}" . "\\subsection*{%s}")) t))
-#+end_src
 
-*** Org-Fragtog & Org-Appear
-#+begin_src emacs-lisp
 ;; === Toggle LaTeX fragment previews automatically ===
 (use-package org-fragtog
   :defer t
@@ -4028,10 +3634,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   (org-appear-autolinks t)
   (org-appear-autosubmarkers t)
   (org-appear-autoentities t))
-#+end_src
 
-** Global Keybindings
-#+begin_src emacs-lisp
 (ar/global-leader
   ;; === LaTeX Compilation ===
   "l" '(:ignore t :wk "latex")
@@ -4054,11 +3657,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   "l p p" '(org-latex-preview :wk "Toggle Preview")
   "l p e" '(org-latex-export-to-pdf :wk "Export to PDF")
   "l p f" '(org-fragtog-mode :wk "Toggle Fragtog"))
-#+end_src
 
-* Python Development Environment
-** LSP Pyright
-#+begin_src emacs-lisp
 (use-package lsp-pyright
   :after lsp-mode
   :custom
@@ -4068,11 +3667,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   :hook (python-ts-mode . (lambda ()
                             (require 'lsp-pyright)
                             (lsp-deferred))))
-#+end_src
 
-* Popup Management System
-** Popwin: Display Rules
-#+begin_src emacs-lisp
 (use-package popwin
   :init
   (setq popwin:popup-window-height 0.35
@@ -4161,10 +3756,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
 
           ;; === Proced ===
           (proced-mode :height 0.5 :position bottom :noselect nil))))
-#+end_src
 
-** Popper: Quick Popup Access
-#+begin_src emacs-lisp
 (use-package popper
   :bind (("C-`" . popper-toggle)
          ("M-`" . popper-cycle)
@@ -4206,10 +3798,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   :config
   (popper-mode 1)
   (popper-echo-mode 1))
-#+end_src
 
-** Popup Utilities and Keybindings
-#+begin_src emacs-lisp
 (defun ar/popup-close-all ()
   "Close all popup windows."
   (interactive)
@@ -4253,11 +3842,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   "w p 0" '(popwin:close-popup-window :wk "Close Popwin Popup")
   "w p SPC" '(popwin:select-popup-window :wk "Select Popup Window")
   "w p s" '(popwin:stick-popup-window :wk "Stick Popup Window"))
-#+end_src
 
-* Miscelleanous
-** Gnuplot Integration
-#+begin_src emacs-lisp
 (use-package gnuplot
   :defer t
   :mode (("\\.gp\\'" . gnuplot-mode)
@@ -4267,10 +3852,7 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   ;; This should be in your PATH if installed via home-manager.
   (gnuplot-program "gnuplot")
   (gnuplot-default-term 'pdfcairo))
-#+end_src
 
-** Enhanced Window, Buffer & General Keybindings
-#+begin_src emacs-lisp -n
 (ar/global-leader
   ;; --- Window Management ---
   "w" '(:ignore t :wk "windows")
@@ -4301,4 +3883,3 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
   "t n" '(display-line-numbers-mode :wk "Toggle Line Numbers")
   "t t" '(toggle-truncate-lines :wk "Toggle Truncate Lines")
   "t f" '(display-fill-column-indicator-mode :wk "Toggle Fill Column Indicator"))
-#+end_src
