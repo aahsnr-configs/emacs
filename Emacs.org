@@ -415,11 +415,11 @@ Lower this if you experience freezing, raise if stuttering.")
     :prefix "SPC"
     :global-prefix "C-SPC")
 
-(ar/global-leader
-  ;; Core
-  "SPC" '(execute-extended-command :wk "M-x")
-  "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
-  "q r" '(ar/reload-config :wk "Reload Config")))
+  (ar/global-leader
+    ;; Core
+    "SPC" '(execute-extended-command :wk "M-x")
+    "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
+    "q r" '(ar/reload-config :wk "Reload Config")))
 #+end_src
 
 * UI & Theming
@@ -1677,7 +1677,7 @@ then it takes a second invocation to abort the minibuffer."
         ([tab] . corfu-next)
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
-        ("C-c h" . corfu-info-documentation))
+        ("M-h" . corfu-info-documentation))
   :config
   (corfu-history-mode)
   (corfu-popupinfo-mode)
@@ -1824,16 +1824,19 @@ Only tangles if the file has been modified and saved."
 (defvar my/org-noter-directory (my/org-subdir "noter/"))
 (defvar my/org-archive-directory (my/org-subdir "archive/"))
 
-;; Improved project finder using directory-files-recursively
+;; Improved project finder using projectile (with guard)
 (defun my/find-org-projects ()
   "Return list of org files tagged as projects."
-  (let* ((default-directory my/org-directory)
-         (files (directory-files-recursively
-                 my/org-directory
-                 "\\.org$"
-                 nil
-                 (lambda (dir)
-                   (not (string-match-p "/\\(\\.git\\|archive\\|backups\\)/" dir))))))
+  (let* ((files (if (and (fboundp 'projectile-project-p)
+                         (projectile-project-p))
+                    (mapcar (lambda (f) (expand-file-name f (projectile-project-root)))
+                            (projectile-current-project-files))
+                  (directory-files-recursively
+                   my/org-directory
+                   "\\.org$"
+                   nil
+                   (lambda (dir)
+                     (not (string-match-p "/\\(\\.git\\|archive\\|backups\\)/" dir)))))))
     (seq-filter
      (lambda (file)
        (with-temp-buffer
@@ -2976,7 +2979,6 @@ Extended and deferred require python3.")
         treemacs-position 'left
         treemacs-no-delete-other-windows t
         treemacs-show-hidden-files t
-        treemacs-follow-after-init t
         treemacs-expand-after-init t
         treemacs-space-between-root-nodes t
         treemacs-silent-refresh t
@@ -2985,24 +2987,23 @@ Extended and deferred require python3.")
         treemacs-file-follow-delay 0.2)
 
   :config
-  ;; Don't follow cursor by default (toggle with SPC t f)
   (treemacs-follow-mode -1)
   (treemacs-filewatch-mode t)
   (treemacs-fringe-indicator-mode 'always)
 
   ;; Auto-add current project when opening treemacs
-  (defun my/treemacs-project-setup ()
-    "Automatically add current project to treemacs."
-    (when-let* ((project (project-current))
-                (root (project-root project)))
-      (unless (treemacs-is-path root :in-workspace)
-        (treemacs-do-add-project-to-workspace
-         root
-         (file-name-nondirectory (directory-file-name root))))))
+  (defun my/treemacs-projectile-setup ()
+    "Automatically add current projectile project to treemacs."
+    (when (and (projectile-project-p)
+               (projectile-project-root))
+      (let ((root (projectile-project-root)))
+        (unless (treemacs-is-path root :in-workspace)
+          (treemacs-do-add-project-to-workspace
+           root
+           (projectile-project-name))))))
 
-  (add-hook 'treemacs-mode-hook #'my/treemacs-project-setup)
+  (add-hook 'treemacs-mode-hook #'my/treemacs-projectile-setup)
 
-  ;; Git integration with fallback
   (when +treemacs-git-mode
     (when (and (memq +treemacs-git-mode '(deferred extended))
                (not treemacs-python-executable)
@@ -3021,6 +3022,10 @@ Extended and deferred require python3.")
   :after (treemacs evil)
   :config
   (evil-define-key 'normal treemacs-mode-map (kbd "TAB") 'treemacs-TAB-action))
+
+(use-package treemacs-projectile
+  :after (treemacs projectile)
+  :commands (treemacs-projectile))
 
 (use-package treemacs-magit
   :after (treemacs magit))
@@ -3114,105 +3119,147 @@ Extended and deferred require python3.")
   (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
 #+end_src
 
-** Project.el: Enhanced Project Management
+** Projectile: Enhanced Project Management
 #+begin_src emacs-lisp
-(use-package project
+;; Projects directory
+(defcustom my/projects-directory (expand-file-name "~/Projects/")
+  "Base directory for all projects."
+  :type 'directory
+  :group 'project)
+
+(unless (file-directory-p my/projects-directory)
+  (make-directory my/projects-directory t))
+
+(use-package projectile
   :defer t
-  :ensure nil
+  :init
+  (setq projectile-project-search-path (list my/projects-directory)
+        projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" no-littering-var-directory)
+        projectile-cache-file (expand-file-name "projectile.cache" no-littering-var-directory))
+
   :custom
-  (project-vc-extra-root-markers '(".envrc" ".project" "pyproject.toml" "Cargo.toml" ".git" "flake.nix"))
-  (project-list-file (expand-file-name "projects" no-littering-var-directory))
+  ;; === Performance Settings ===
+  (projectile-enable-caching t)
+  (projectile-indexing-method 'alien)  ; Use external tools (faster)
+  (projectile-sort-order 'recentf)
+  (projectile-file-exists-remote-cache-expire nil)
+
+  ;; === Project Detection ===
+  (projectile-project-root-files '(".projectile" "flake.nix" ".envrc"))
+  (projectile-project-root-files-bottom-up '(".git" ".hg" ".svn" ".bzr" "_darcs"))
+  (projectile-require-project-root t)
+
+  ;; === Completion System ===
+  (projectile-completion-system 'default)  ; Works with vertico/consult
+
+  ;; === Behavior ===
+  (projectile-auto-discover t)
+  (projectile-switch-project-action 'projectile-dired)
+  (projectile-per-project-compilation-buffer t)
 
   :config
-  ;; Projects directory
-  (defcustom my/projects-directory (expand-file-name "~/Projects/")
-    "Base directory for all projects."
-    :type 'directory
-    :group 'project)
+  (projectile-mode +1)
 
+  ;; === Projects Directory Setup ===
   (unless (file-directory-p my/projects-directory)
     (make-directory my/projects-directory t))
 
-  ;; Auto-discover projects
-  (defun my/project-discover-projects ()
-    "Discover all projects in ~/Projects directory."
+  ;; === Auto-discover Projects ===
+  (defun my/projectile-discover-projects ()
+    "Discover all projects in search path."
     (interactive)
-    (let ((subdirs (directory-files my/projects-directory t "^[^.]")))
-      (dolist (dir subdirs)
-        (when (and (file-directory-p dir)
-                   (or (file-exists-p (expand-file-name ".git" dir))
-                       (file-exists-p (expand-file-name ".project" dir))
-                       (file-exists-p (expand-file-name "flake.nix" dir))))
-          (project-remember-project (project-current nil dir))))))
+    (projectile-discover-projects-in-search-path))
 
-  (add-hook 'after-init-hook #'my/project-discover-projects)
+  (add-hook 'after-init-hook #'my/projectile-discover-projects)
 
-  ;; Helper functions
-  (defun my/project-bibliography-files ()
+  ;; === Helper Functions ===
+  (defun my/projectile-bibliography-files ()
     "Get bibliography files for current project."
-    (when-let* ((project (project-current))
-                (root (project-root project)))
+    (when-let ((root (projectile-project-root)))
       (let ((bib-files '()))
+        ;; Search in project root
         (dolist (file (directory-files root t "\\.bib\\'"))
           (push file bib-files))
-        (let ((ref-dir (expand-file-name "references/" root)))
-          (when (file-directory-p ref-dir)
-            (dolist (file (directory-files ref-dir t "\\.bib\\'"))
-              (push file bib-files))))
-        (let ((bib-dir (expand-file-name "bib/" root)))
-          (when (file-directory-p bib-dir)
-            (dolist (file (directory-files bib-dir t "\\.bib\\'"))
-              (push file bib-files))))
-        (nreverse bib-files))))
+        ;; Search in common bibliography directories
+        (dolist (subdir '("references/" "bib/" "bibliography/"))
+          (let ((dir (expand-file-name subdir root)))
+            (when (file-directory-p dir)
+              (dolist (file (directory-files dir t "\\.bib\\'"))
+                (push file bib-files)))))
+        (delete-dups (nreverse bib-files)))))
 
-  (defun my/project-find-file-by-extension (ext)
+  (defun my/projectile-find-file-by-extension (ext)
     "Find files with extension EXT in current project."
-    (when-let* ((project (project-current))
-                (files (project-files project))
-                (filtered (seq-filter (lambda (f) (string-suffix-p ext f)) files)))
-      (find-file (completing-read (format "Select %s file: " ext) filtered))))
+    (when (projectile-project-p)
+      (let* ((files (projectile-current-project-files))
+             (filtered (seq-filter (lambda (f) (string-suffix-p ext f)) files)))
+        (find-file (expand-file-name
+                   (completing-read (format "Select %s file: " ext) filtered)
+                   (projectile-project-root))))))
 
-  (defun my/project-find-bib-file ()
+  (defun my/projectile-find-bib-file ()
     "Open a .bib file in current project."
     (interactive)
-    (if-let ((bib-files (my/project-bibliography-files)))
+    (if-let ((bib-files (my/projectile-bibliography-files)))
         (find-file (completing-read "Select bibliography: " bib-files))
       (message "No .bib files found in project")))
 
-  (defun my/project-find-tex-file ()
+  (defun my/projectile-find-tex-file ()
     "Open a .tex file in current project."
     (interactive)
-    (my/project-find-file-by-extension ".tex"))
+    (my/projectile-find-file-by-extension ".tex"))
 
-  (defun my/project-find-py-file ()
+  (defun my/projectile-find-py-file ()
     "Open a .py file in current project."
     (interactive)
-    (my/project-find-file-by-extension ".py"))
+    (my/projectile-find-file-by-extension ".py"))
 
-  ;; Enhanced project switching to prefer ~/Projects
-  (defun my/project-switch-project ()
-    "Switch to a project, preferring those in ~/Projects."
+  (defun my/setup-project-bibliography ()
+    "Setup bibliography infrastructure for current project."
     (interactive)
-    (let* ((all-projects (project-known-project-roots))
-           (projects-dir-projects
-            (seq-filter (lambda (p) (string-prefix-p my/projects-directory p))
-                       all-projects))
-           (other-projects
-            (seq-filter (lambda (p) (not (string-prefix-p my/projects-directory p)))
-                       all-projects))
-           (sorted-projects (append projects-dir-projects other-projects)))
-      (project-switch-project (completing-read "Switch to project: " sorted-projects))))
+    (if-let ((root (and (projectile-project-p) (projectile-project-root))))
+        (let* ((bib-dir (expand-file-name "references/" root))
+               (bib-file (expand-file-name "references.bib" bib-dir)))
+          (unless (file-directory-p bib-dir)
+            (make-directory bib-dir t))
+          (unless (file-exists-p bib-file)
+            (with-temp-file bib-file
+              (insert "% Bibliography for "
+                      (projectile-project-name) "\n")
+              (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n")))
+          (message "Bibliography setup complete: %s" bib-file)
+          bib-file)
+      (message "Not in a project"))))
+#+end_src
 
-  ;; Open treemacs when switching projects
-  (defun my/project-switch-with-treemacs (orig-fun &rest args)
-    "Open treemacs after switching projects."
-    (let ((result (apply orig-fun args)))
-      (when (and (fboundp 'treemacs)
-                 (project-current))
-        (treemacs-display-current-project-exclusively))
-      result))
+** Persp-Mode + Projectile Integration
+#+begin_src emacs-lisp
+(use-package proj-persp-extras
+  :vc (:url "https://github.com/brandonwillard/proj-persp-extras"
+       :branch "master")
+  :after (persp-mode projectile)
+  :config
+  ;; Enable automatic project-perspective correspondence
+  (proj-persp-tracking-mode +1)
 
-  (advice-add 'project-switch-project :around #'my/project-switch-with-treemacs))
+  ;; Configure perspective naming
+  (setq proj-persp-extras-project-name-function
+        (lambda ()
+          (when (projectile-project-p)
+            (file-name-as-directory (expand-file-name (projectile-project-root))))))
+
+  ;; Auto-switch to project's perspective when switching projects
+  (defun my/proj-persp-switch-project-advice (orig-fun &rest args)
+    "Switch to project's perspective before switching projects."
+    (when (and (projectile-project-p)
+               (bound-and-true-p persp-mode))
+      (let* ((project-root (projectile-project-root))
+             (persp-name (file-name-as-directory (expand-file-name project-root))))
+        (unless (member persp-name (persp-names))
+          (persp-switch persp-name))))
+    (apply orig-fun args))
+
+  (advice-add 'projectile-switch-project :around #'my/proj-persp-switch-project-advice))
 #+end_src
 
 ** Bookmarks Enhancement
@@ -3253,7 +3300,9 @@ Extended and deferred require python3.")
   (if (treemacs-is-treemacs-window-selected?)
       (delete-window)
     (progn
-      (treemacs)
+      (if (projectile-project-p)
+          (treemacs-projectile)
+        (treemacs))
       (treemacs-find-file))))
 #+end_src
 
@@ -3292,22 +3341,26 @@ Extended and deferred require python3.")
 
  ;; Project operations
  "p" '(:ignore t :wk "project")
- "p p" '(my/project-switch-project :wk "switch project")
- "p f" '(project-find-file :wk "find file")
- "p F" '(project-find-regexp :wk "find regexp")
- "p d" '(project-find-dir :wk "find directory")
- "p D" '(project-dired :wk "dired root")
- "p b" '(project-switch-to-buffer :wk "switch buffer")
- "p k" '(project-kill-buffers :wk "kill buffers")
- "p c" '(project-compile :wk "compile")
- "p e" '(project-eshell :wk "eshell")
- "p s" '(project-find-regexp :wk "search (grep)")
- "p r" '(consult-ripgrep :wk "ripgrep")
- "p +" '(my/project-discover-projects :wk "discover projects")
- "p t" '(treemacs-display-current-project-exclusively :wk "treemacs project")
- "p B" '(my/project-find-bib-file :wk "find .bib")
- "p T" '(my/project-find-tex-file :wk "find .tex")
- "p y" '(my/project-find-py-file :wk "find .py")
+ "p p" '(projectile-switch-project :wk "switch project")
+ "p f" '(projectile-find-file :wk "find file")
+ "p F" '(projectile-find-file-in-known-projects :wk "find in all projects")
+ "p d" '(projectile-find-dir :wk "find directory")
+ "p D" '(projectile-dired :wk "dired root")
+ "p b" '(projectile-switch-to-buffer :wk "switch buffer")
+ "p k" '(projectile-kill-buffers :wk "kill buffers")
+ "p c" '(projectile-compile-project :wk "compile")
+ "p e" '(projectile-run-eshell :wk "eshell")
+ "p s" '(projectile-grep :wk "grep")
+ "p r" '(projectile-ripgrep :wk "ripgrep")
+ "p R" '(projectile-replace :wk "replace")
+ "p i" '(projectile-invalidate-cache :wk "invalidate cache")
+ "p +" '(my/projectile-discover-projects :wk "discover projects")
+ "p t" '(treemacs-projectile :wk "treemacs project")
+ "p B" '(my/projectile-find-bib-file :wk "find .bib")
+ "p T" '(my/projectile-find-tex-file :wk "find .tex")
+ "p y" '(my/projectile-find-py-file :wk "find .py")
+ "p !" '(projectile-run-async-shell-command-in-root :wk "async shell cmd")
+ "p &" '(projectile-run-command-in-root :wk "shell cmd")
 
  ;; Workspace (Perspective) operations
  "TAB" '(:ignore t :wk "workspace")
@@ -3513,21 +3566,23 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
 This configuration implements intelligent bibliography detection that automatically finds .bib files in your project hierarchy.
 
 #+begin_src emacs-lisp
-;; === Helper: Find project bibliographies ===
 (defun my/find-project-bibliographies ()
   "Find all .bib files in project (root, references/, bib/, bibliography/)."
-  (when-let* ((project (project-current))
-              (root (project-root project)))
-    (let ((bib-files '())
-          (search-dirs (list root
-                            (expand-file-name "references/" root)
-                            (expand-file-name "bib/" root)
-                            (expand-file-name "bibliography/" root))))
-      (dolist (dir search-dirs)
-        (when (file-directory-p dir)
-          (dolist (file (directory-files dir t "\\.bib\\'"))
-            (push file bib-files))))
-      (delete-dups (nreverse bib-files)))))
+  (when (and (fboundp 'projectile-project-p)
+             (projectile-project-p))
+    (when-let ((root (projectile-project-root)))
+      (let ((bib-files '())
+            (search-dirs (list root
+                              (expand-file-name "references/" root)
+                              (expand-file-name "bib/" root)
+                              (expand-file-name "bibliography/" root))))
+        (dolist (dir search-dirs)
+          (when (file-directory-p dir)
+            (dolist (file (directory-files dir t "\\.bib\\'"))
+              (push file bib-files))))
+        (delete-dups (nreverse bib-files))))))
+
+
 #+end_src
 
 *** Citar: Modern Citation Management
@@ -3550,7 +3605,7 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
      (link ,(nerd-icons-mdicon "nf-md-link") . " ")))
 
   :config
-  ;; === Dynamic Bibliography Function ===
+  ;; === Dynamic Bibliography Function with Projectile Guard ===
   (defun my/citar-bibliography ()
     "Return project bibliography or global fallback."
     (or (my/find-project-bibliographies) citar-bibliography))
@@ -3558,7 +3613,7 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
   ;; Override citar's bibliography detection
   (advice-add 'citar--bibliography-files :override #'my/citar-bibliography)
 
-  ;; === Set Buffer-Local Bibliography ===
+  ;; === Set Buffer-Local Bibliography with Projectile Guard ===
   (defun my/citar-set-local-bibliography ()
     "Set buffer-local bibliography for current buffer."
     (when (and (buffer-file-name)
@@ -3569,15 +3624,29 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
       (when (derived-mode-p 'org-mode)
         (setq-local org-cite-global-bibliography (my/citar-bibliography)))))
 
-  ;; Apply to hooks
-  (add-hook 'org-mode-hook #'my/citar-set-local-bibliography)
-  (add-hook 'LaTeX-mode-hook #'my/citar-set-local-bibliography)
-  (add-hook 'buffer-list-update-hook
-            (lambda ()
-              (when (and (buffer-file-name)
-                         (or (derived-mode-p 'org-mode)
-                             (derived-mode-p 'LaTeX-mode)))
-                (my/citar-set-local-bibliography)))))
+  ;; Apply to hooks - DEFERRED until after projectile is available
+  ;; This prevents errors during startup before projectile is loaded
+  (if (fboundp 'projectile-project-p)
+      ;; Projectile already loaded, add hooks immediately
+      (progn
+        (add-hook 'org-mode-hook #'my/citar-set-local-bibliography)
+        (add-hook 'LaTeX-mode-hook #'my/citar-set-local-bibliography)
+        (add-hook 'buffer-list-update-hook
+                  (lambda ()
+                    (when (and (buffer-file-name)
+                               (or (derived-mode-p 'org-mode)
+                                   (derived-mode-p 'LaTeX-mode)))
+                      (my/citar-set-local-bibliography)))))
+    ;; Projectile not loaded yet, defer hooks
+    (with-eval-after-load 'projectile
+      (add-hook 'org-mode-hook #'my/citar-set-local-bibliography)
+      (add-hook 'LaTeX-mode-hook #'my/citar-set-local-bibliography)
+      (add-hook 'buffer-list-update-hook
+                (lambda ()
+                  (when (and (buffer-file-name)
+                             (or (derived-mode-p 'org-mode)
+                                 (derived-mode-p 'LaTeX-mode)))
+                    (my/citar-set-local-bibliography)))))))
 
 ;; Citar keybindings (set after modes are loaded)
 (with-eval-after-load 'latex
