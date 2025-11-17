@@ -1,18 +1,18 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+STARTUP: overview
-#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ./post-init.el :mkdirp yes
 
 * Core Emacs Configuration
 ** Lexical Binding
 #+begin_src emacs-lisp
-;;; init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
 #+end_src
 
-** Garbage Collection (GCMH Strategy)
+** Garbage Collection
 #+begin_src emacs-lisp
 ;; CRITICAL: Restore GC after startup with optimized values
-(defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
+(defvar better-gc-cons-threshold (* 100 1024 1024)  ;; 128MB (increased from default 800KB)
   "Optimal GC threshold for modern LSP-heavy workflows.
 Lower this if you experience freezing, raise if stuttering.")
 
@@ -32,22 +32,6 @@ Lower this if you experience freezing, raise if stuttering.")
                      (float-time (time-subtract after-init-time before-init-time))
                      gcs-done))
           100) ;; Run late to ensure accurate timing
-#+end_src
-
-** Smart Garbage Collection Hooks
-#+begin_src emacs-lisp
-;; Increase GC threshold in minibuffer to prevent slowdowns during completion
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (defun gc-minibuffer-setup-hook ()
-              (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
-
-            (defun gc-minibuffer-exit-hook ()
-              (garbage-collect)
-              (setq gc-cons-threshold better-gc-cons-threshold))
-
-            (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
-            (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
 #+end_src
 
 ** Define Constants
@@ -86,35 +70,6 @@ Lower this if you experience freezing, raise if stuttering.")
 (defconst eaf-env-p
   (and (display-graphic-p) python-p pip-p)
   "Do we have EAF environment setup?")
-
-(defvar doom-escape-hook nil
-  "Hook run when `doom/escape' is called.")
-#+end_src
-
-** Package Management
-#+begin_src emacs-lisp
-(require 'package)
-
-(setq package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
-                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-                         ("melpa" . "https://melpa.org/packages/")))
-(package-initialize)
-(unless package-archive-contents
-  (package-refresh-contents))
-
-(eval-and-compile
-  (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
-	use-package-always-ensure t
-        use-package-expand-minimally t
-        use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
-        ;;use-package-always-defer t
-        use-package-enable-imenu-support t))
-
-(eval-when-compile
-  (require 'use-package)
-  (require 'bind-key))
-
-(use-package no-littering :demand t)  ;; Must load immediately
 #+end_src
 
 ** Performance Tuning
@@ -166,24 +121,6 @@ Lower this if you experience freezing, raise if stuttering.")
   (global-so-long-mode))
 
 ;; ====================
-;; UNDO SYSTEM
-;; ====================
-;; Increase undo limits significantly to prevent undo tree corruption
-(setq undo-limit 800000           ;; 800KB (default: 160KB)
-      undo-strong-limit 1200000   ;; 1.2MB (default: 240KB)
-      undo-outer-limit 120000000) ;; 120MB (default: 24MB)
-
-;; ====================
-;; SCROLLING OPTIMIZATION
-;; ====================
-(setq scroll-conservatively 101
-      scroll-margin 0
-      scroll-preserve-screen-position t
-      auto-window-vscroll nil
-      fast-but-imprecise-scrolling t  ;; Trade accuracy for speed
-      redisplay-skip-fontification-on-input t)  ;; Skip during rapid input
-
-;; ====================
 ;; REDISPLAY OPTIMIZATIONS
 ;; ====================
 (setq redisplay-skip-fontification-on-input t)  ; Doom's setting
@@ -195,7 +132,6 @@ Lower this if you experience freezing, raise if stuttering.")
 ;; ====================
 (setq-default cursor-in-non-selected-windows nil)  ;; Don't show cursor in other windows
 (setq highlight-nonselected-windows nil)
-(setq blink-cursor-mode nil)
 
 ;; ====================
 ;; FRAME RESIZE
@@ -224,15 +160,10 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Small Configs
 #+begin_src emacs-lisp
 ;; Move backup files to dedicated directory
-(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-var-emacs-directory))))
 
 ;; Confirmation settings
-(setq confirm-kill-emacs 'y-or-n-p
-      confirm-kill-processes nil)  ;; Auto-kill processes on exit
-
-;; Disable audio/visual bells
-(setq ring-bell-function 'ignore
-      visible-bell nil)
+(setq confirm-kill-processes nil)  ;; Auto-kill processes on exit
 
 ;; Faster echo of keystrokes
 (setq echo-keystrokes 0.1)
@@ -308,7 +239,7 @@ Lower this if you experience freezing, raise if stuttering.")
   (interactive)
   ;; Assuming config.org is the main configuration file and this config.el is tangled from it.
   ;; If config.el is the primary config, change to: (load-file (expand-file-name "config.el" user-emacs-directory))
-  (let ((config-file "~/.config/emacs/init.el"))
+  (let ((config-file "~/.config/emacs/post-init.el"))
     (if (file-exists-p config-file)
         (progn
           (message "Reloading Emacs configuration from config.org...")
@@ -344,12 +275,18 @@ Lower this if you experience freezing, raise if stuttering.")
           (save-some-buffers t)  ; Auto-save all buffers
           (kill-emacs)))
     (save-buffers-kill-terminal)))
+
+;; Add temporarily to find the problematic functions
+(defun ar/find-broken-interactive-forms ()
+  "Find functions with broken interactive forms."
+  (interactive)
+  (occur "(interactive \"<"))
 #+end_src
 
 ** Session Management
 #+begin_src emacs-lisp
 (use-package autorevert
-  :ensure nil
+  :straight (:type built-in)
   :hook (after-init . global-auto-revert-mode)
   :custom
   (auto-revert-interval 3)
@@ -359,11 +296,12 @@ Lower this if you experience freezing, raise if stuttering.")
   (auto-revert-verbose nil))  ;; Suppress messages
 
 (use-package recentf
-  :ensure nil
+  :straight (:type built-in)
   :hook (after-init . recentf-mode)
   :custom
-  (recentf-max-saved-items 200)  ;; Limit for performance
-  (recentf-auto-cleanup 'never)  ;; Clean manually or on daemon mode
+  (recentf-max-saved-items 300)  ;; Limit for performance
+  (recentf-max-menu-items 15)
+  (recentf-auto-cleanup 'mode)  ;; Clean manually or on daemon mode
   (recentf-exclude
    (list "\\.tar$" "\\.tbz2$" "\\.tbz$" "\\.tgz$" "\\.bz2$"
          "\\.bz$" "\\.gz$" "\\.gzip$" "\\.xz$" "\\.zip$"
@@ -373,40 +311,10 @@ Lower this if you experience freezing, raise if stuttering.")
          "-autoloads\\.el$" "autoload\\.el$"
          "/tmp/" "/ssh:" "/sudo:" "recentf")))
 
-(use-package savehist
-  :ensure nil
-  :hook (after-init . savehist-mode)
-  :custom
-  (savehist-file (locate-user-emacs-file "savehist"))
-  (savehist-autosave-interval 300)
-  (savehist-additional-variables
-   '(kill-ring
-     search-ring
-     regexp-search-ring
-     compile-command
-     extended-command-history))
-  (history-length 1000)
-  (history-delete-duplicates t))
-
-(use-package saveplace
-  :ensure nil
-  :hook (after-init . save-place-mode)
-  :custom
-  (save-place-limit 400))
-
-;; Autosave settings
-(setq auto-save-default t
-      auto-save-interval 300
-      auto-save-timeout 30
-      auto-save-visited-interval 5)
-(auto-save-visited-mode 1)
 #+end_src
 
 * General Keybindings
-*Test what escape key does here*
 #+begin_src emacs-lisp
-;; in favor of escap in Editor Behaviour
-;;(global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 (use-package general
   :after evil
   :config
@@ -465,18 +373,21 @@ This setup defines a robust function to find and set the best available font fro
 ** Theming
 #+begin_src emacs-lisp
 (use-package catppuccin-theme
-  :demand t  ;; Load immediately for consistent UI
+  :demand t
   :custom
   (catppuccin-highlight-matches t)
   (catppuccin-italic-comments t)
-  (catppuccin-dark-line-numbers-background t)
+  (catppuccin-dark-line-numbers-background nil)  ;; CHANGED: Set to nil to prevent nil backgrounds
   :config
   (setq catppuccin-flavor 'mocha)
   (load-theme 'catppuccin t)
   (custom-set-faces
    '(bold ((t (:foreground "#f5e0dc" :weight bold))))
    '(italic ((t (:foreground "#f38ba8" :slant italic))))
-   '(sp-show-pair-match-face ((t (:background "#b4befe" :foreground "black" :weight medium))))))
+   '(sp-show-pair-match-face ((t (:background "#b4befe" :foreground "black" :weight medium))))
+   ;; ADD: Explicit line-number faces to prevent nil values
+   '(line-number ((t (:inherit default :foreground "#6c7086"))))
+   '(line-number-current-line ((t (:inherit default :foreground "#cdd6f4" :weight bold))))))
 #+end_src
 
 ** Solaire Mode
@@ -567,7 +478,7 @@ This setup defines a robust function to find and set the best available font fro
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
-  :ensure nil
+  :straight (:type built-in)
   :defer 0.5
   :hook (after-init . which-key-mode)
   :custom
@@ -578,8 +489,8 @@ This setup defines a robust function to find and set the best available font fro
 
 ** Frame Padding
 #+begin_src emacs-lisp
-(setq-default internal-border-width 10)
-(add-to-list 'default-frame-alist '(internal-border-width . 10))
+(setq-default internal-border-width 5)
+(add-to-list 'default-frame-alist '(internal-border-width . 5))
 #+end_src
 
 * Evil
@@ -682,46 +593,6 @@ This setup defines a robust function to find and set the best available font fro
 
   ;; Don't interfere with localleader key
   (define-key evil-motion-state-map "\\" nil)
-
-  ;; Doom-style: Make C-g work like <escape>
-  (define-key evil-insert-state-map [escape] 'evil-normal-state)
-  (define-key evil-visual-state-map [escape] 'evil-exit-visual-state)
-  (define-key evil-replace-state-map [escape] 'evil-normal-state)
-  (define-key evil-operator-state-map [escape] 'keyboard-quit)
-
-  (defun doom/escape (&optional interactive)
-    "Run the doom escape sequence.
-1. If any escape hook returns non-nil, stop
-2. Otherwise handle minibuffer, visual state, or normal quit"
-    (interactive "<p>")
-    (cond
-     ;; Run escape hooks - they can stop propagation by returning t
-     ((run-hook-with-args-until-success 'doom-escape-hook))
-
-     ;; Minibuffer is active - quit it
-     ((active-minibuffer-window)
-      (if (minibufferp)
-          (ar/minibuffer-keyboard-quit)
-	(abort-recursive-edit)))
-
-     ;; Evil visual state active - exit it
-     ((and (fboundp 'evil-visual-state-p)
-           (evil-visual-state-p))
-      (evil-exit-visual-state))
-
-     ;; Not in normal state - force it
-     ((and (fboundp 'evil-normal-state-p)
-           (not (evil-normal-state-p))
-           (not (evil-emacs-state-p)))
-      (evil-force-normal-state))
-
-     ;; Default fallback
-     (t (keyboard-quit))))
-
-  (global-set-key [remap keyboard-quit] #'doom/escape)
-
-  ;; Ensure ESC also triggers doom/escape
-  (global-set-key [escape] #'doom/escape)
 
   ;; Make movement keys work on visual lines
   (define-key evil-motion-state-map "j" 'evil-next-visual-line)
@@ -1021,23 +892,312 @@ This setup defines a robust function to find and set the best available font fro
   (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
 #+end_src
 
-* Minibuffer Performance
+* Unified Escape Key System
 #+begin_src emacs-lisp
-;; Doom's minibuffer GC strategy
-(defun doom-defer-garbage-collection-h ()
-  "Defer GC during minibuffer activity."
-  (setq gc-cons-threshold most-positive-fixnum))
+;; ==========================
+;; UNIFIED ESCAPE KEY SYSTEM
+;; ==========================
+;; DO NOT DUPLICATE ESCAPE BINDINGS ELSEWHERE
 
-(defun doom-restore-garbage-collection-h ()
-  "Restore GC after minibuffer closes."
-  ;; Defer slightly so commands benefit
-  (run-at-time 1 nil
-               (lambda ()
-                 (setq gc-cons-threshold (* 16 1024 1024)))))
+;; === CORE CONFIGURATION ===
+(defvar doom-escape-hook nil
+  "Hook run when `doom/escape' is called.
+Each function should return non-nil to prevent further processing.")
 
-(add-hook 'minibuffer-setup-hook #'doom-defer-garbage-collection-h)
-(add-hook 'minibuffer-exit-hook #'doom-restore-garbage-collection-h)
+;; === HELPER: Minibuffer Quit ===
+(defun ar/minibuffer-keyboard-quit ()
+  "Abort recursive edit properly in minibuffer."
+  (interactive)
+  (cond
+   ((and delete-selection-mode transient-mark-mode mark-active)
+    (setq deactivate-mark t))
+   (t
+    (when (get-buffer "*Completions*")
+      (delete-windows-on "*Completions*"))
+    (abort-recursive-edit))))
+
+;; === MAIN ESCAPE FUNCTION ===
+(defun doom/escape (&optional interactive)
+  "Unified escape sequence with proper priority handling."
+  (interactive "p")
+  (cond
+   ;; Don't interfere with keyboard macros
+   ((or defining-kbd-macro executing-kbd-macro) nil)
+
+   ;; Run custom hooks
+   ((run-hook-with-args-until-success 'doom-escape-hook))
+
+   ;; Active minibuffer
+   ((minibuffer-window-active-p (minibuffer-window))
+    (if (minibufferp)
+        (ar/minibuffer-keyboard-quit)
+      (abort-recursive-edit)))
+
+   ;; Evil visual state
+   ((and (bound-and-true-p evil-mode)
+         (fboundp 'evil-visual-state-p)
+         (evil-visual-state-p))
+    (evil-exit-visual-state))
+
+   ;; Evil operator state
+   ((and (bound-and-true-p evil-mode)
+         (fboundp 'evil-operator-state-p)
+         (evil-operator-state-p))
+    (evil-force-normal-state))
+
+   ;; Other non-normal Evil states
+   ((and (bound-and-true-p evil-mode)
+         (fboundp 'evil-normal-state-p)
+         (not (evil-normal-state-p))
+         (not (evil-emacs-state-p)))
+    (evil-force-normal-state))
+
+   ;; Fallback
+   (t (keyboard-quit))))
+
+;; === EVIL INTEGRATION ===
+(with-eval-after-load 'evil
+  ;; CRITICAL: Enable for terminal support
+  (when (fboundp 'evil-esc-mode)
+    (evil-esc-mode 1))
+
+  (setq evil-esc-delay 0.01)
+
+  ;; Global remap
+  (global-set-key [remap keyboard-quit] #'doom/escape)
+
+  ;; Evil state bindings
+  (define-key evil-insert-state-map [escape] #'evil-normal-state)
+  (define-key evil-visual-state-map [escape] #'evil-exit-visual-state)
+  (define-key evil-replace-state-map [escape] #'evil-normal-state)
+  (define-key evil-operator-state-map [escape] #'keyboard-quit)
+  (define-key evil-motion-state-map [escape] #'doom/escape)
+  (define-key evil-normal-state-map [escape] #'doom/escape)
+  (define-key evil-emacs-state-map [escape] #'doom/escape)
+
+  ;; Ex maps
+  (define-key evil-ex-completion-map [escape] #'abort-recursive-edit)
+  (define-key evil-ex-search-keymap [escape] #'abort-recursive-edit))
+
+;; === MINIBUFFER ===
+(define-key minibuffer-local-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-ns-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-completion-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-must-match-map [escape] #'ar/minibuffer-keyboard-quit)
+(define-key minibuffer-local-isearch-map [escape] #'ar/minibuffer-keyboard-quit)
+
+(with-eval-after-load 'replace
+  (define-key query-replace-map [escape] #'exit))
+
+(with-eval-after-load 'vertico
+  (define-key vertico-map [escape] #'ar/minibuffer-keyboard-quit))
+
+;; ==============================
+;; HOOK FUNCTIONS
+;; ==============================
+
+;; === COMPLETION ===
+(with-eval-after-load 'corfu
+  (defun ar/corfu-quit-on-escape ()
+    (when (and (bound-and-true-p corfu-mode)
+               (frame-live-p corfu--frame))
+      (corfu-quit)
+      t))
+  (add-hook 'doom-escape-hook #'ar/corfu-quit-on-escape)
+  (define-key corfu-map [escape] #'corfu-quit))
+
+(with-eval-after-load 'company
+  (defun ar/company-abort-on-escape ()
+    (when company-candidates
+      (company-abort)
+      t))
+  (add-hook 'doom-escape-hook #'ar/company-abort-on-escape))
+
+;; === WHICH-KEY ===
+(with-eval-after-load 'which-key
+  (defun ar/which-key-abort-on-escape ()
+    (when (bound-and-true-p which-key--popup-showing-p)
+      (which-key--hide-popup)
+      t))
+  (add-hook 'doom-escape-hook #'ar/which-key-abort-on-escape))
+
+;; === POPUPS ===
+(defun ar/popup-close-on-escape ()
+  (cond
+   ((and (bound-and-true-p popper-mode)
+         (popper-popup-p (current-buffer)))
+    (popper-close-latest)
+    t)
+   ((and (bound-and-true-p popper-mode)
+         popper-open-popup-alist)
+    (popper-close-latest)
+    t)
+   ((seq-find (lambda (win) (window-parameter win 'popup))
+              (window-list))
+    (delete-window (seq-find (lambda (win) (window-parameter win 'popup))
+                             (window-list)))
+    t)
+   (t nil)))
+
+(add-hook 'doom-escape-hook #'ar/popup-close-on-escape)
+
+;; === SPECIAL MODES ===
+(defun ar/quit-special-buffer-on-escape ()
+  (when (or (derived-mode-p 'special-mode)
+            (derived-mode-p 'messages-buffer-mode)
+            (derived-mode-p 'compilation-mode)
+            (derived-mode-p 'help-mode)
+            (derived-mode-p 'helpful-mode))
+    (quit-window)
+    t))
+
+(add-hook 'doom-escape-hook #'ar/quit-special-buffer-on-escape)
+
+(with-eval-after-load 'simple
+  (define-key special-mode-map [escape] #'quit-window)
+  (when (boundp 'messages-buffer-mode-map)
+    (define-key messages-buffer-mode-map [escape] #'quit-window)
+    (define-key messages-buffer-mode-map (kbd "q") #'quit-window)))
+
+(with-eval-after-load 'help-mode
+  (define-key help-mode-map [escape] #'quit-window)
+  (define-key help-mode-map (kbd "q") #'quit-window))
+
+(with-eval-after-load 'helpful
+  (define-key helpful-mode-map [escape] #'quit-window)
+  (define-key helpful-mode-map (kbd "q") #'quit-window))
+
+(with-eval-after-load 'compile
+  (define-key compilation-mode-map [escape] #'quit-window))
+
+;; === ORG MODE ===
+(with-eval-after-load 'org-agenda
+  (defun ar/org-agenda-quit-on-escape ()
+    (when (derived-mode-p 'org-agenda-mode)
+      (quit-window)
+      t))
+  (add-hook 'doom-escape-hook #'ar/org-agenda-quit-on-escape)
+  (define-key org-agenda-mode-map [escape] #'quit-window))
+
+;; === MAGIT ===
+(with-eval-after-load 'magit
+  (defun ar/magit-quit-on-escape ()
+    (when (derived-mode-p 'magit-mode)
+      (cond
+       ((and (boundp 'magit-popup-mode) magit-popup-mode)
+        (magit-popup-quit)
+        t)
+       (t
+        (magit-mode-bury-buffer)
+        t))))
+  (add-hook 'doom-escape-hook #'ar/magit-quit-on-escape))
+
+;; === OTHER MODES ===
+(with-eval-after-load 'dired
+  (define-key dired-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'deft
+  (define-key deft-mode-map [escape] #'quit-window)
+  (define-key deft-mode-map (kbd "q") #'quit-window))
+
+(with-eval-after-load 'proced
+  (define-key proced-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'deadgrep
+  (define-key deadgrep-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'ibuffer
+  (define-key ibuffer-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'pdf-tools
+  (define-key pdf-view-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'info
+  (define-key Info-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'man
+  (define-key Man-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'woman
+  (define-key woman-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'package
+  (define-key package-menu-mode-map [escape] #'quit-window))
+
+(with-eval-after-load 'embark
+  (defun ar/embark-quit-on-escape ()
+    (when (and (boundp 'embark--target)
+               embark--target)
+      (keyboard-quit)
+      t))
+  (add-hook 'doom-escape-hook #'ar/embark-quit-on-escape))
+
+(with-eval-after-load 'treemacs
+  (define-key treemacs-mode-map [escape]
+    (lambda ()
+      (interactive)
+      (if (one-window-p)
+          (doom/escape)
+        (delete-window)))))
+
+;; === EIN & ESHELL (don't quit buffer) ===
+(with-eval-after-load 'ein
+  (defun ar/ein-quit-on-escape ()
+    (when (derived-mode-p 'ein:notebook-mode)
+      (when (and (bound-and-true-p evil-mode)
+                 (not (evil-normal-state-p)))
+        (evil-normal-state)
+        t)))
+  (add-hook 'doom-escape-hook #'ar/ein-quit-on-escape))
+
+(with-eval-after-load 'eshell
+  (defun ar/eshell-quit-on-escape ()
+    (when (derived-mode-p 'eshell-mode)
+      (when (and (bound-and-true-p evil-mode)
+                 (not (evil-normal-state-p)))
+        (evil-normal-state)
+        t)))
+  (add-hook 'doom-escape-hook #'ar/eshell-quit-on-escape))
+
+;; ===============================
+;; TESTING
+;; ===============================
+
+(defun ar/test-escape-key ()
+  "Test escape key behavior in current context."
+  (interactive)
+  (let ((mode-info (format "Major: %s, Evil: %s"
+                          major-mode
+                          (if (bound-and-true-p evil-state)
+                              evil-state
+                            "N/A")))
+        (hooks-info (format "Hooks: %d" (length doom-escape-hook)))
+        (popup-info (cond
+                     ((and (bound-and-true-p popper-mode)
+                           (popper-popup-p (current-buffer)))
+                      "Popper popup")
+                     ((seq-find (lambda (w) (window-parameter w 'popup))
+                               (window-list))
+                      "Shackle popup")
+                     (t "No popup"))))
+    (message "Escape Test: %s | %s | %s" mode-info hooks-info popup-info)))
+
+(global-set-key (kbd "C-c t e") #'ar/test-escape-key)
+
+(defun ar/list-escape-hooks ()
+  "List all functions in doom-escape-hook."
+  (interactive)
+  (if doom-escape-hook
+      (message "Escape hooks (%d): %s"
+               (length doom-escape-hook)
+               (mapconcat #'symbol-name doom-escape-hook ", "))
+    (message "No escape hooks registered")))
+
+;; =================================
+;; END OF UNIFIED ESCAPE KEY SYSTEM
+;; =================================
 #+end_src
+
 * Editor Behaviour
 ** Avy for Fast Navigation
 This section configures *avy*, a powerful package for jumping to visible text. It allows for rapid, character-based navigation within the visible buffer, integrating smoothly with evil-mode as a motion provider.
@@ -1225,7 +1385,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
      pdf-view-mode))     ; PDF viewer
 
     ;; Ensure the personal dictionary file exists, creating it if necessary.
-  (let ((dict-file (expand-file-name "dict.txt" user-emacs-directory)))
+  (let ((dict-file (expand-file-name "dict.txt" minimal-emacs-user-directory)))
     (unless (file-exists-p dict-file)
       (write-region "" nil dict-file)))
 
@@ -1396,24 +1556,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 (add-hook 'before-save-hook #'smart-delete-trailing-whitespace)
 #+end_src
 
-** Smooth Scrolling
-
-#+begin_src emacs-lisp
-;; ;; Vertical Scroll
-;; (setq scroll-step 1)
-;; (setq scroll-margin 1)
-;; (setq scroll-conservatively 101)
-;; (setq scroll-up-aggressively 0.01)
-;; (setq scroll-down-aggressively 0.01)
-;; (setq auto-window-vscroll nil)
-;; (setq fast-but-imprecise-scrolling nil)
-;; (setq mouse-wheel-scroll-amount '(1 ((shift) . 1)))
-;; (setq mouse-wheel-progressive-speed nil)
-;; ;; Horizontal Scroll
-;; (setq hscroll-step 1)
-;; (setq hscroll-margin 1)
-#+end_src
-
 ** Symbol Highlighting
 #+begin_src emacs-lisp
 (use-package symbol-overlay
@@ -1428,10 +1570,9 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ** Basic Completion
 #+begin_src emacs-lisp
 (use-package emacs
-  :ensure nil
+  :straight (:type built-in)
   :custom
   (completion-cycle-threshold 3)
-  (tab-always-indent 'complete)
   (text-mode-ispell-word-completion nil)
   (read-extended-command-predicate #'command-completion-default-include-p))
 #+end_src
@@ -1460,7 +1601,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 *vertico-directory* simplifies directory navigation.
 #+begin_src emacs-lisp
 (use-package vertico-directory
-  :ensure nil
+  :straight (:type built-in)
   :after vertico
   ;; More convenient directory navigation commands
   :bind (:map vertico-map
@@ -1469,42 +1610,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
               ("M-DEL" . vertico-directory-delete-word))
   ;; Tidy shadowed file names
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
-#+end_src
-
-** Minibuffer ESC Quits Everywhere
-#+begin_src emacs-lisp
-;; Enhanced minibuffer quit function
-(defun ar/minibuffer-keyboard-quit ()
-  "Abort recursive edit.
-In Delete Selection mode, if the mark is active, just deactivate it;
-then it takes a second invocation to abort the minibuffer."
-  (interactive)
-  (if (and delete-selection-mode transient-mark-mode mark-active)
-      (setq deactivate-mark t)
-    (when (get-buffer "*Completions*")
-      (delete-windows-on "*Completions*"))
-    (abort-recursive-edit)))
-
-;; Use [escape] notation, not (kbd "<escape>") for better compatibility
-(define-key minibuffer-local-map [escape] 'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-ns-map [escape] 'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-completion-map [escape] 'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-must-match-map [escape] 'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-isearch-map [escape] 'ar/minibuffer-keyboard-quit)
-
-;; Vertico integration
-(with-eval-after-load 'vertico
-  (define-key vertico-map [escape] 'ar/minibuffer-keyboard-quit))
-
-;; Query-replace-map for y-or-n prompts
-(with-eval-after-load 'replace
-  (define-key query-replace-map [escape] 'exit))
-
-;; Evil ex and search maps - use abort-recursive-edit
-(with-eval-after-load 'evil
-  (define-key evil-ex-completion-map [escape] 'abort-recursive-edit)
-  (define-key evil-ex-search-keymap [escape] 'abort-recursive-edit))
-
 #+end_src
 
 ** Marginalia
@@ -1721,7 +1826,7 @@ then it takes a second invocation to abort the minibuffer."
 ** Dabbrev
 #+begin_src emacs-lisp
 (use-package dabbrev
-  :ensure nil
+  :straight (:type built-in)
   :bind (("M-/" . dabbrev-completion)
          ("C-M-/" . dabbrev-expand))
   :config
@@ -1870,7 +1975,7 @@ Only tangles if the file has been modified and saved."
 =Disable Optimizations if needed=
 #+begin_src emacs-lisp
 (use-package org
-  :ensure nil
+  :straight (:type built-in)
   :mode ("\\.org\\'" . org-mode)
   :hook
   ((org-mode . visual-line-mode)
@@ -1896,6 +2001,8 @@ Only tangles if the file has been modified and saved."
   (org-log-into-drawer t)
   (org-return-follows-link t)
   (org-src-fontify-natively t)
+  ;; (org-agenda-window-setup 'other-window)
+  ;; (org-src-window-setup 'other-window)
 
   ;; Element cache - ESSENTIAL for large files
   (org-element-use-cache t)
@@ -2140,7 +2247,7 @@ Only tangles if the file has been modified and saved."
 *Use dynamic directory*
 #+begin_src emacs-lisp
 (use-package org-capture
-  :ensure nil
+  :straight (:type built-in)
   :after org
   :custom
   (org-capture-templates
@@ -2193,7 +2300,7 @@ Only tangles if the file has been modified and saved."
 ** Org Habit
 #+begin_src emacs-lisp
 (use-package org-habit
-  :ensure nil
+  :straight (:type built-in)
   :defer t
   :after org
   :custom
@@ -2308,27 +2415,6 @@ Only tangles if the file has been modified and saved."
   (evil-org-agenda-set-keys))
 #+end_src
 
-** Org Agenda ESC Key Fix
-#+begin_src emacs-lisp
-;; Fix ESC key behavior in org-agenda dispatcher
-(with-eval-after-load 'org-agenda
-  ;; Make ESC quit the agenda dispatcher properly
-  (defun ar/org-agenda-quit-dispatcher ()
-    "Quit org-agenda command dispatcher."
-    (interactive)
-    (throw 'exit nil))
-
-  ;; Add hook to bind ESC in agenda dispatcher
-  (defun ar/org-agenda-setup-escape ()
-    "Setup escape key for org-agenda."
-    (local-set-key [escape] 'ar/org-agenda-quit-dispatcher))
-
-  ;; This ensures ESC works in the agenda command selection buffer
-  (add-hook 'org-agenda-mode-hook
-            (lambda ()
-              (local-set-key [escape] 'quit-window))))
-#+end_src
-
 ** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
@@ -2363,7 +2449,7 @@ Only tangles if the file has been modified and saved."
 ** Snippets
 #+begin_src emacs-lisp
 ;; This is the directory where you will store your personal snippets.
-(defvar my/snippets-directory (expand-file-name "snippets" user-emacs-directory)
+(defvar my/snippets-directory (expand-file-name "snippets" minimal-user-emacs-directory)
   "Directory for personal yasnippet snippets.")
 
 ;; Create the custom snippets directory if it doesn't exist.
@@ -2482,7 +2568,7 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
   :defer t
   :config
   ;; Set the breakpoint file location to be inside the var directory.
-  (setq dap-breakpoints-file (expand-file-name "dap-breakpoints.json" no-littering-var-directory))
+  (setq dap-breakpoints-file (expand-file-name "dap-breakpoints.json" user-emacs-directory))
 
   ;; --- Built-in UI Integration ---
   ;; Enable the automatic UI layout management.
@@ -2971,8 +3057,8 @@ Extended and deferred require python3.")
   (setq treemacs-follow-after-init t
         treemacs-is-never-other-window t
         treemacs-sorting 'alphabetic-case-insensitive-asc
-        treemacs-persist-file (expand-file-name "treemacs-persist" no-littering-var-directory)
-        treemacs-last-error-persist-file (expand-file-name "treemacs-last-error-persist" no-littering-var-directory)
+        treemacs-persist-file (expand-file-name "treemacs-persist" user-emacs-directory)
+        treemacs-last-error-persist-file (expand-file-name "treemacs-last-error-persist" user-emacs-directory)
         treemacs-width 35
         treemacs-width-is-initially-locked t
         treemacs-display-in-side-window t
@@ -3053,7 +3139,7 @@ Extended and deferred require python3.")
                                 ("pdf" . "zathura"))))
 
 (use-package dired
-  :ensure nil
+  :straight (:type built-in)
   :commands (dired dired-jump)
   :hook (dired-mode . dired-hide-dotfiles-mode)
   :custom
@@ -3094,7 +3180,7 @@ Extended and deferred require python3.")
     (kbd "gr") 'revert-buffer))
 
 (use-package dired-x
-  :ensure nil
+  :straight (:type built-in)
   :after dired
   :custom
   (dired-x-hands-off-my-keys nil)
@@ -3134,8 +3220,8 @@ Extended and deferred require python3.")
   :defer t
   :init
   (setq projectile-project-search-path (list my/projects-directory)
-        projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" no-littering-var-directory)
-        projectile-cache-file (expand-file-name "projectile.cache" no-littering-var-directory))
+        projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" user-emacs-directory)
+        projectile-cache-file (expand-file-name "projectile.cache" user-emacs-directory))
 
   :custom
   ;; === Performance Settings ===
@@ -3265,10 +3351,10 @@ Extended and deferred require python3.")
 ** Bookmarks Enhancement
 #+begin_src emacs-lisp
 (use-package bookmark
+  :straight (:type built-in)
   :defer t
-  :ensure nil
   :custom
-  (bookmark-default-file (expand-file-name "bookmarks" no-littering-var-directory))
+  (bookmark-default-file (expand-file-name "bookmarks" user-emacs-directory))
   (bookmark-save-flag 1))
 #+end_src
 
@@ -3745,7 +3831,7 @@ RefTeX provides powerful cross-referencing capabilities. We use it only for refe
 
 #+begin_src emacs-lisp
 (use-package reftex
-  :ensure nil
+  :straight (:type built-in)
   :after tex
   :hook (LaTeX-mode . reftex-mode)
   :custom
@@ -4010,109 +4096,101 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
 #+end_src
 
 * Popup Management System
-** Shackle: Display Rules
+** Popwin: Display Rules
 #+begin_src emacs-lisp
-(use-package shackle
-  :defer t
+(use-package popwin
   :init
-  (setq shackle-default-alignment 'below
-        shackle-default-size 0.4
-        shackle-select-reused-windows nil
-        shackle-inhibit-window-quit-on-same-windows nil
-        shackle-default-window-parameters '((mode-line-format . nil)))
+  (setq popwin:popup-window-height 0.35
+        popwin:popup-window-width 0.35
+        popwin:popup-window-position 'bottom)
 
   :config
-  ;; Define popup rules matching Doom Emacs patterns
-  (setq shackle-rules
-        '(;; Fallback rule for special buffers (those starting with space or *)
-          ("^\\*[Hh]elp" :select t :size 0.35 :align below :popup t)
-          ("^\\*info" :select t :size 0.4 :align below :popup t)
-          ("^\\*Man" :select t :size 0.45 :align below :popup t)
-          ("^\\*WoMan" :select t :size 0.45 :align below :popup t)
+  ;; Enable popwin mode
+  (popwin-mode 1)
 
-          ;; Compilation and messages
-          ("^\\*compilation\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Compile-Log\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Messages\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Warnings\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Backtrace\\*" :select t :size 0.4 :align below :popup t)
+  ;; Set display-buffer to use popwin
+  (setq display-buffer-function 'popwin:display-buffer)
 
-          ;; Shell and terminal
-          ("^\\*shell\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*eshell\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*term\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*vterm" :select t :size 0.35 :align below :popup t)
+  ;; Define popup rules
+  (setq popwin:special-display-config
+        '(;; === Help and Documentation ===
+          ("*Help*" :height 0.35 :position bottom :noselect nil)
+          ("*info*" :height 0.4 :position bottom :noselect nil)
+          ("*Man*" :height 0.45 :position bottom :noselect nil)
+          ("*woman*" :height 0.45 :position bottom :noselect nil)
+          (help-mode :height 0.35 :position bottom :noselect nil)
+          (helpful-mode :height 0.35 :position bottom :noselect nil)
 
-          ;; Org mode
-          ("^\\*Org Src" :select t :size 0.5 :align right :popup t)
-          ("^\\*Org Agenda\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Agenda Commands\\*" :select t :size 0.4 :align below :popup t)
-          ("^CAPTURE-.*\\.org" :regexp t :select t :size 0.4 :align below :popup t)
-          ("^\\*Org Select\\*" :select t :size 0.3 :align below :popup t)
+          ;; === Compilation and Messages ===
+          ("*compilation*" :height 0.3 :position bottom :noselect t)
+          ("*Compile-Log*" :height 0.3 :position bottom :noselect t)
+          ("*Messages*" :height 0.3 :position bottom :noselect t)
+          ("*Warnings*" :height 0.3 :position bottom :noselect t)
+          ("*Backtrace*" :height 0.4 :position bottom :noselect nil)
+          (compilation-mode :height 0.3 :position bottom :noselect t)
 
-          ;; Magit (Removed specific Magit mode rules as Magit handles display)
-          ("^magit-revision:" :regexp t :select t :size 0.6 :align below :popup t)
-          ("^magit:" :regexp t :select t :size 0.7 :align below :popup t)
+          ;; === Shell and Terminal ===
+          ("*shell*" :height 0.35 :position bottom :noselect nil)
+          ("*eshell*" :height 0.35 :position bottom :noselect nil)
+          ("*term*" :height 0.35 :position bottom :noselect nil)
+          ("^\\*vterm" :regexp t :height 0.35 :position bottom :noselect nil)
 
-          ;; Development tools
-          ("^\\*Flycheck errors\\*" :select t :size 0.3 :align below :popup t)
-          ("^\\*lsp-help\\*" :select t :size 0.35 :align below :popup t)
-          ("^\\*eldoc" :select nil :size 0.3 :align below :popup t)
-          ("^\\*xref\\*" :select t :size 0.3 :align below :popup t)
+          ;; === Org Mode ===
+          ("*Org Src*" :width 0.7 :position right :noselect nil)
+          ("*Org Agenda*" :height 0.4 :position bottom :noselect nil)
+          ("*Agenda Commands*" :height 0.25 :position bottom :noselect nil)
+          ("^CAPTURE-.*\\.org" :regexp t :height 0.4 :position bottom :noselect nil)
+          ("*Org Select*" :height 0.3 :position bottom :noselect nil)
+          (org-agenda-mode :height 0.4 :position bottom :noselect nil)
 
-          ;; LSP Bridge
-          ("^\\*lsp-bridge" :select nil :size 0.35 :align below :popup t)
+          ;; === Magit (minimal - Magit has its own display logic) ===
+          ("^magit-revision:" :regexp t :height 0.6 :position bottom :noselect nil)
+          ("^magit:" :regexp t :height 0.7 :position bottom :noselect nil)
 
-          ;; Debugger (dape)
-          ("^\\*dape-repl" :select nil :size 0.35 :align below :popup t)
-          ("^\\*dape-info" :select nil :size 0.35 :align right :popup t)
+          ;; === Debugger (dape) ===
+          ("^\\*dape-repl" :regexp t :height 0.35 :position bottom :noselect t)
+          ("^\\*dape-info" :regexp t :width 0.35 :position right :noselect t)
 
-          ;; Grep, occur, deadgrep
-          ("^\\*grep\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Occur\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*deadgrep" :select t :size 0.4 :align below :popup t)
+          ;; === Grep, Occur, Search ===
+          ("*grep*" :height 0.4 :position bottom :noselect nil)
+          ("*Occur*" :height 0.4 :position bottom :noselect nil)
+          ("^\\*deadgrep" :regexp t :height 0.4 :position bottom :noselect nil)
+          (occur-mode :height 0.4 :position bottom :noselect nil)
 
-          ;; Completion
-          ("^\\*Completions\\*" :select nil :size 0.3 :align below :popup t)
-          ("^\\*Embark Actions\\*" :select t :size 0.3 :align below :popup t)
-          ("^\\*Embark Collect" :select t :size 0.5 :align below :popup t)
+          ;; === Completion ===
+          ("*Completions*" :height 0.3 :position bottom :noselect t)
+          ("*Embark Actions*" :height 0.3 :position bottom :noselect nil)
+          ("^\\*Embark Collect" :regexp t :height 0.5 :position bottom :noselect nil)
+          (completion-list-mode :height 0.3 :position bottom :noselect t)
 
-          ;; Miscellaneous
-          ("^\\*Apropos\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Bookmark List\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Calculator\\*" :select t :size 0.4 :align below :popup t)
-          ("^\\*Calc" :select t :size 0.4 :align below :popup t)
-          ("^\\*Colors\\*" :select t :size 0.3 :align below :popup t)
-          ("^\\*undo-tree\\*" :select t :size 0.3 :align right :popup t)
+          ;; === Miscellaneous ===
+          ("*Apropos*" :height 0.4 :position bottom :noselect nil)
+          ("*Bookmark List*" :height 0.4 :position bottom :noselect nil)
+          ("*Calculator*" :height 0.4 :position bottom :noselect nil)
+          ("^\\*Calc" :regexp t :height 0.4 :position bottom :noselect nil)
+          ("*Colors*" :height 0.3 :position bottom :noselect nil)
+          ("*undo-tree*" :width 0.3 :position right :noselect nil)
 
-          ;; PDF Tools and Org Noter
-          ("^\\*Outline" :select nil :size 0.3 :align right :popup t)
+          ;; === PDF Tools and Org Noter ===
+          ("^\\*Outline" :regexp t :width 0.3 :position right :noselect t)
 
-          ;; Jupyter and EIN
-          ("^\\*ein:notebooklist" :select t :size 0.5 :align below :popup t)
-          ("^\\*ob-async" :select nil :size 0.3 :align below :popup t)
+          ;; === Jupyter and EIN ===
+          ("^\\*ein:notebooklist" :regexp t :height 0.5 :position bottom :noselect nil)
+          ("^\\*ob-async" :regexp t :height 0.3 :position bottom :noselect t)
 
-	  ;; Later additions
-	  ;; Org-roam backlinks sidebar
-          ("^\\*org-roam\\*" :select nil :size 0.33 :align right :popup t)
+          ;; === Org-roam ===
+          ("^\\*org-roam\\*" :regexp t :width 0.33 :position right :noselect t)
 
-          ;; Embark Collect - hide modeline
-          ("^\\*Embark Collect \\(Live\\|Completions\\)\\*" :regexp t :select t :size 0.5 :align below :popup t)
+          ;; === Deft ===
+          (deft-mode :height 0.5 :position bottom :noselect nil)
 
-          ;; Proced
-          (proced-mode :select t :size 0.5 :align below)
-
-          ;; Deft
-          (deft-mode :select t :same t)))
-
-  ;; Enable shackle mode
-  (shackle-mode 1))
+          ;; === Proced ===
+          (proced-mode :height 0.5 :position bottom :noselect nil))))
 #+end_src
 
 ** Popper: Quick Popup Access
 #+begin_src emacs-lisp
 (use-package popper
-  :defer t
   :bind (("C-`" . popper-toggle)
          ("M-`" . popper-cycle)
          ("C-M-`" . popper-toggle-type))
@@ -4147,11 +4225,12 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
 
   (setq popper-group-function #'popper-group-by-project)
 
+  ;; Let popwin handle display rules, popper handles access
+  (setq popper-display-control nil)
+
   :config
   (popper-mode 1)
-  (popper-echo-mode 1)
-  (setq popper-display-control t)
-  (setq popper-display-function nil))
+  (popper-echo-mode 1))
 #+end_src
 
 ** Popup Utilities and Keybindings
@@ -4159,62 +4238,32 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
 (defun ar/popup-close-all ()
   "Close all popup windows."
   (interactive)
-  (dolist (window (window-list))
-    (when (window-parameter window 'popup)
-      (delete-window window)))
+  ;; Close popwin windows
+  (when (bound-and-true-p popwin-mode)
+    (popwin:close-popup-window))
   ;; Also close popper popups
   (when (bound-and-true-p popper-mode)
-    (popper-close-all)))
+    (dolist (buf popper-buried-popup-buffers)
+      (when (get-buffer-window buf)
+        (delete-window (get-buffer-window buf))))))
 
 (defun ar/popup-raise ()
   "Raise (show) the last popup window."
   (interactive)
-  (if (bound-and-true-p popper-mode)
-      (popper-toggle)
-    (message "No popup system active")))
+  (if (bound-and-true-p popwin-mode)
+      (popwin:popup-last-buffer)
+    (when (bound-and-true-p popper-mode)
+      (popper-toggle))))
 
 (defun ar/popup-toggle-messages ()
   "Toggle the *Messages* buffer as a popup."
   (interactive)
   (let ((buf (get-buffer "*Messages*")))
     (if buf
-        (if (get-buffer-window buf)
-            (delete-window (get-buffer-window buf))
+        (if (bound-and-true-p popwin-mode)
+            (popwin:display-buffer buf)
           (display-buffer buf))
       (message "No *Messages* buffer"))))
-
-;; Evil integration: close popups with ESC
-(with-eval-after-load 'evil
-  (defun ar/popup-close-on-escape ()
-    "Close popup windows when pressing ESC.
-Returns t if a popup was closed, nil otherwise."
-    (cond
-     ;; If current buffer is a popper popup, close it
-     ((and (bound-and-true-p popper-mode)
-           (popper-popup-p (current-buffer)))
-      (popper-close-latest)
-      t)
-
-     ;; If there are any open popper popups, close the latest one
-     ((and (bound-and-true-p popper-mode)
-           popper-open-popup-alist)
-      (popper-close-latest)
-      t)
-
-     ;; Close shackle popups by window parameter
-     ((seq-find (lambda (win)
-                  (window-parameter win 'popup))
-		(window-list))
-      (delete-window (seq-find (lambda (win)
-				 (window-parameter win 'popup))
-                               (window-list)))
-      t)
-
-     ;; No popup to close
-     (t nil)))
-
-  ;; Add to doom-escape-hook
-  (add-hook 'doom-escape-hook #'ar/popup-close-on-escape))
 
 ;; Keybindings
 (ar/global-leader
@@ -4225,61 +4274,10 @@ Returns t if a popup was closed, nil otherwise."
   "w p k" '(popper-kill-latest-popup :wk "Kill Latest Popup")
   "w p K" '(ar/popup-close-all :wk "Close All Popups")
   "w p r" '(ar/popup-raise :wk "Raise Last Popup")
-  "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages"))
-#+end_src
-
-** Child-Frame/Posframe Optimization
-#+begin_src emacs-lisp
-;; Set optimal default frame parameters for child frames
-(setq default-frame-alist
-      (append default-frame-alist
-              '((alpha-background . 100)  ; Full opacity for child frames
-                (undecorated . t)         ; No window decorations
-                (no-accept-focus . nil)   ; Can receive focus
-                (no-focus-on-map . nil)   ; Can be focused when mapped
-                (min-width  . 0)
-                (min-height . 0)
-                (border-width . 0)
-                (internal-border-width . 5)  ; You already have this
-                (vertical-scroll-bars . nil)
-                (horizontal-scroll-bars . nil)
-                (left-fringe . 0)
-                (right-fringe . 0)
-                (menu-bar-lines . 0)
-                (tool-bar-lines . 0)
-                (line-spacing . 0)
-                (unsplittable . t)
-                (no-other-frame . t)
-                (undecorated-round . t)   ; Rounded corners on supported systems
-                (cursor-type . nil))))    ; No cursor in child frames
-
-;; Posframe-specific optimization (if using posframe)
-(with-eval-after-load 'posframe
-  (setq posframe-mouse-banish nil)  ; Don't move mouse
-
-  ;; Doom's posframe parameters
-  (setq posframe-arghandler
-        (lambda (buffer-or-name key value)
-          (let ((base-args
-                 (list :internal-border-width 5
-                       :internal-border-color (face-background 'solaire-default-face nil t)
-                       :background-color (face-background 'default nil t)
-                       :foreground-color (face-foreground 'default nil t)
-                       :lines-truncate t
-                       :accept-focus nil
-                       :no-accept-focus t)))
-            (or (plist-get base-args key) value)))))
-
-;; LSP-Bridge ACM specific frame parameters
-(with-eval-after-load 'lsp-bridge
-  ;; These parameters make the completion popup much faster
-  (setq acm-frame-background-dark-color (face-background 'default nil t))
-  (setq acm-frame-background-light-color (face-background 'default nil t))
-
-  ;; Optimize frame creation
-  (advice-add 'acm-frame-create :before
-              (lambda (&rest _)
-                (setq x-gtk-resize-child-frames 'resize-mode))))
+  "w p m" '(ar/popup-toggle-messages :wk "Toggle Messages")
+  "w p 0" '(popwin:close-popup-window :wk "Close Popwin Popup")
+  "w p SPC" '(popwin:select-popup-window :wk "Select Popup Window")
+  "w p s" '(popwin:stick-popup-window :wk "Stick Popup Window"))
 #+end_src
 
 * Miscelleanous
@@ -4294,37 +4292,6 @@ Returns t if a popup was closed, nil otherwise."
   ;; This should be in your PATH if installed via home-manager.
   (gnuplot-program "gnuplot")
   (gnuplot-default-term 'pdfcairo))
-#+end_src
-
-** Quit Special Buffers with ESC
-#+begin_src emacs-lisp
-;; Special buffer quit function for doom-escape-hook
-(defun ar/quit-special-buffer-on-escape ()
-  "Quit special mode buffers. Returns t if handled, nil otherwise."
-  (when (or (derived-mode-p 'special-mode)
-            (derived-mode-p 'messages-buffer-mode)
-            (derived-mode-p 'compilation-mode))
-    (quit-window)
-    t))
-
-;; Add to doom-escape-hook (at end)
-(add-hook 'doom-escape-hook #'ar/quit-special-buffer-on-escape 'append)
-
-;; Also bind ESC directly in special-mode-map as backup
-(with-eval-after-load 'simple
-  (define-key special-mode-map [escape] #'quit-window)
-  (define-key messages-buffer-mode-map [escape] #'quit-window)
-  (define-key messages-buffer-mode-map (kbd "q") #'quit-window))
-
-;; Help and compilation modes
-(with-eval-after-load 'help-mode
-  (define-key help-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'compile
-  (define-key compilation-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'helpful
-  (define-key helpful-mode-map [escape] #'quit-window))
 #+end_src
 
 ** Enhanced Window, Buffer & General Keybindings
