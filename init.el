@@ -1521,6 +1521,12 @@ Each function should return non-nil to prevent further processing.")
          ("M-n" . symbol-overlay-jump-next)
          ("M-p" . symbol-overlay-jump-prev)))
 
+(use-package adaptive-wrap
+  :defer t
+  :hook
+  ;; Enable adaptive-wrap whenever visual-line-mode is active
+  (visual-line-mode . adaptive-wrap-prefix-mode))
+
 (use-package emacs
   :straight (:type built-in)
   :custom
@@ -1704,7 +1710,7 @@ Each function should return non-nil to prevent further processing.")
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-keyword))
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
 
   ;; Make these capfs composable.
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
@@ -2354,7 +2360,6 @@ Only tangles if the file has been modified and saved."
   (lsp-modeline-diagnostics-enable t)
   (lsp-diagnostics-provider :flycheck)
   (lsp-completion-provider :none)
-  (lsp-eldoc-render-all nil)
   (lsp-idle-delay 0.2)
   (lsp-log-io nil)
   (lsp-signature-render-documentation nil))
@@ -2365,7 +2370,6 @@ Only tangles if the file has been modified and saved."
   :custom
   (lsp-ui-doc-position 'at-point)
   (lsp-ui-doc-show-with-mouse nil)
-  (lsp-ui-sideline-show-diagnostics t)
   (lsp-ui-sideline-show-hover t)
   (lsp-ui-sideline-show-code-actions t)
   (lsp-ui-sideline-delay 0.2)
