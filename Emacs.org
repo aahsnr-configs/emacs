@@ -1,12 +1,50 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+STARTUP: overview
-#+PROPERTY: header-args:emacs-lisp :tangle ./post-init.el :mkdirp yes
+#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
 * Core Emacs Configuration
 ** Lexical Binding
 #+begin_src emacs-lisp
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+#+end_src
+
+** Garbage Collection
+#+begin_src emacs-lisp
+;; CRITICAL: Restore GC after startup with optimized values
+(defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
+  "Optimal GC threshold for modern LSP-heavy workflows.
+Lower this if you experience freezing, raise if stuttering.")
+
+(defvar better-gc-cons-percentage 0.1
+  "GC percentage of heap to trigger collection.")
+
+;; Restore GC settings after startup
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold better-gc-cons-threshold
+                  gc-cons-percentage better-gc-cons-percentage)
+            (setq file-name-handler-alist file-name-handler-alist-original)
+            (makunbound 'file-name-handler-alist-original)
+
+            ;; Report startup time
+            (message "Emacs loaded in %.2fs with %d GCs"
+                     (float-time (time-subtract after-init-time before-init-time))
+                     gcs-done))
+          100) ;; Run late to ensure accurate timing
+
+;; Increase GC threshold in minibuffer to prevent slowdowns during completion
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (defun gc-minibuffer-setup-hook ()
+              (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
+
+            (defun gc-minibuffer-exit-hook ()
+              (garbage-collect)
+              (setq gc-cons-threshold better-gc-cons-threshold))
+
+            (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
+            (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
 #+end_src
 
 ** Define Constants
@@ -47,6 +85,39 @@
   "Do we have EAF environment setup?")
 #+end_src
 
+** Package Management
+#+begin_src emacs-lisp
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name
+        "straight/repos/straight.el/bootstrap.el"
+        (or (bound-and-true-p straight-base-dir)
+            user-emacs-directory)))
+      (bootstrap-version 7))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
+
+(eval-and-compile
+  (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
+        use-package-expand-minimally t
+        use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
+        ;;use-package-always-defer t
+        use-package-enable-imenu-support t))
+
+(eval-when-compile
+  (require 'use-package)
+  (require 'bind-key))
+#+end_src
+
 ** Performance Tuning
 #+begin_src emacs-lisp
 ;; ====================
@@ -57,11 +128,11 @@
 ;; created, otherwise it will error. We hook it into `after-make-frame-functions`
 ;; to ensure it runs at the correct time, both on startup and for new frames
 ;; created by emacsclient in daemon mode.
-(when (fboundp 'pgtk-use-im-context)
-  (add-hook 'after-make-frame-functions
-            (lambda (frame)
-              (with-selected-frame frame
-                (pgtk-use-im-context nil)))))
+;; (when (fboundp 'pgtk-use-im-context)
+;;   (add-hook 'after-make-frame-functions
+;;             (lambda (frame)
+;;               (with-selected-frame frame
+;;                 (pgtk-use-im-context nil)))))
 
 
 ;; ====================
@@ -95,6 +166,24 @@
   (global-so-long-mode))
 
 ;; ====================
+;; UNDO SYSTEM
+;; ====================
+;; Increase undo limits significantly to prevent undo tree corruption
+(setq undo-limit 800000           ;; 800KB (default: 160KB)
+      undo-strong-limit 1200000   ;; 1.2MB (default: 240KB)
+      undo-outer-limit 120000000) ;; 120MB (default: 24MB)
+
+;; ====================
+;; SCROLLING OPTIMIZATION
+;; ====================
+(setq scroll-conservatively 101
+      scroll-margin 0
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil
+      fast-but-imprecise-scrolling t  ;; Trade accuracy for speed
+      redisplay-skip-fontification-on-input t)  ;; Skip during rapid input
+
+;; ====================
 ;; REDISPLAY OPTIMIZATIONS
 ;; ====================
 (setq redisplay-skip-fontification-on-input t)  ; Doom's setting
@@ -106,6 +195,7 @@
 ;; ====================
 (setq-default cursor-in-non-selected-windows nil)  ;; Don't show cursor in other windows
 (setq highlight-nonselected-windows nil)
+(setq blink-cursor-mode nil)
 
 ;; ====================
 ;; FRAME RESIZE
@@ -205,6 +295,9 @@
 ;; Revert buffer
 (global-set-key (kbd "<f5>") #'revert-buffer-quick)
 #+end_src
+
+#+RESULTS:
+: revert-buffer-quick
 
 ** Custom Functions
 #+begin_src emacs-lisp
@@ -330,6 +423,12 @@
   :custom
   (save-place-limit 400))
 
+;; Autosave settings
+(setq auto-save-default t
+      auto-save-interval 300
+      auto-save-timeout 30
+      auto-save-visited-interval 5)
+(auto-save-visited-mode 1)
 #+end_src
 
 * General Keybindings
@@ -1405,7 +1504,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
      pdf-view-mode))     ; PDF viewer
 
     ;; Ensure the personal dictionary file exists, creating it if necessary.
-  (let ((dict-file (expand-file-name "dict.txt" minimal-emacs-user-directory)))
+  (let ((dict-file (expand-file-name "dict.txt" user-emacs-directory)))
     (unless (file-exists-p dict-file)
       (write-region "" nil dict-file)))
 
@@ -1593,6 +1692,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   :straight (:type built-in)
   :custom
   (completion-cycle-threshold 3)
+  (tab-always-indent 'complete)
   (text-mode-ispell-word-completion nil)
   (read-extended-command-predicate #'command-completion-default-include-p))
 #+end_src
@@ -1805,7 +1905,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  (add-to-list 'completion-at-point-functions #'cape-keyword))
 
   ;; Make these capfs composable.
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
@@ -2442,7 +2542,7 @@ Only tangles if the file has been modified and saved."
 ** Snippets
 #+begin_src emacs-lisp
 ;; This is the directory where you will store your personal snippets.
-(defvar my/snippets-directory (expand-file-name "snippets" minimal-emacs-user-directory)
+(defvar my/snippets-directory (expand-file-name "snippets" user-emacs-directory)
   "Directory for personal yasnippet snippets.")
 
 ;; Create the custom snippets directory if it doesn't exist.

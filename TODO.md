@@ -6,6 +6,7 @@
   - *High*
   - *Medium*
   - *Low*
+[NOTE]: No apparent performance gains from minimal-emacs.d
 
 
 ---
