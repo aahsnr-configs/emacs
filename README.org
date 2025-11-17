@@ -1,3 +1,0 @@
-* Personal Configuration for Emacs: Startup and Performance Optimized
-
-*Details to be added later*
