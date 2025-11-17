@@ -1905,7 +1905,6 @@ Only tangles if the file has been modified and saved."
                 '(("python" . python-ts)
                   ("bash" . bash-ts)
                   ("sh" . bash-ts)
-                  ("jupyter-python" . python-ts)
                   ("latex" . latex-ts)
                   ("typescript" . typescript-ts)))))
 
@@ -2420,299 +2419,50 @@ Only tangles if the file has been modified and saved."
               (interactive)
               (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
 
-(use-package jupyter
-  :defer t
-  :after org
-  :config
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((jupyter . t)))
+(defun my/org-src-setup-lsp ()
+  "Setup LSP for org source block edit buffers.
+Sets buffer-file-name to tangle target and disables problematic LSP features."
+  (when (and (boundp 'org-src-mode)
+             org-src-mode
+             (derived-mode-p 'python-ts-mode))
+    (let* ((info (org-babel-get-src-block-info))
+           (params (nth 2 info))
+           (tangle-file (alist-get :tangle params)))
 
-  ;; Set default header args for jupyter-python blocks
-  (setq org-babel-default-header-args:jupyter-python
-        '((:async . "yes")
-          (:session . "py")
-          (:kernel . "python3")
-          (:tangle . "no")))
+      ;; Only setup LSP for blocks with tangle files
+      (when (and tangle-file
+                 (not (string= tangle-file "no"))
+                 (not (string= tangle-file "nil")))
 
-  ;; Override python blocks to use jupyter automatically
-  (with-eval-after-load 'ob-jupyter
-    (org-babel-jupyter-override-src-block "python"))
+        ;; Resolve tangle file path
+        (let* ((org-buffer (marker-buffer org-src--beg-marker))
+               (org-file (buffer-file-name org-buffer))
+               (org-dir (file-name-directory org-file))
+               (tangle-path (expand-file-name tangle-file org-dir)))
 
-  ;; Keybindings
-  (ar/global-leader
-    "j" '(:ignore t :wk "jupyter")
-    "j c" '(jupyter-connect-repl :wk "Connect REPL")
-    "j r" '(jupyter-run-repl :wk "Run REPL")
-    "j k" '(jupyter-shutdown-kernel :wk "Shutdown kernel")
-    "j i" '(jupyter-inspect-at-point :wk "Inspect")))
+          ;; Create tangle file if it doesn't exist
+          (unless (file-exists-p tangle-path)
+            (let ((tangle-dir (file-name-directory tangle-path)))
+              (unless (file-directory-p tangle-dir)
+                (make-directory tangle-dir t)))
+            (with-temp-file tangle-path
+              (insert (format "# Tangled from: %s\n" org-file))))
 
-(use-package ob-async
-  :after org
-  :config
-  (setq ob-async-no-async-languages-alist '("python" "jupyter-python")))
+          ;; Set buffer-file-name for LSP (CRITICAL)
+          (setq-local buffer-file-name tangle-path)
 
-;; Function to dynamically set tangle target for current block
-(defun my/jupyter-set-tangle-file ()
-  "Dynamically set tangle file for current jupyter-python block."
-  (interactive)
-  (let* ((default-dir (file-name-directory (buffer-file-name)))
-         (python-dir (expand-file-name "python/" default-dir))
-         (filename (read-string "Python filename (without .py): "
-                               (file-name-base (buffer-file-name)))))
-    (unless (file-directory-p python-dir)
-      (make-directory python-dir t))
-    ;; Set property for current subtree
-    (org-set-property "header-args:jupyter-python"
-                     (format ":session py :async yes :kernel python3 :tangle python/%s.py"
-                            filename))
-    (message "Set tangle to: python/%s.py" filename)))
+          ;; Disable problematic LSP UI features in org-src buffers
+          (setq-local lsp-headerline-breadcrumb-enable nil
+                      lsp-modeline-code-actions-enable nil
+                      lsp-modeline-diagnostics-enable nil
+                      lsp-lens-enable nil
+                      lsp-signature-auto-activate nil)
 
-;; Alternative: Use file-level property dynamically
-(defun my/jupyter-setup-project-tangle ()
-  "Setup tangle target at file level for jupyter-python blocks."
-  (interactive)
-  (let* ((default-dir (file-name-directory (buffer-file-name)))
-         (python-dir (expand-file-name "python/" default-dir))
-         (default-file (file-name-base (buffer-file-name)))
-         (filename (read-string "Default Python filename: " default-file)))
-    (unless (file-directory-p python-dir)
-      (make-directory python-dir t))
-    (save-excursion
-      (goto-char (point-min))
-      ;; Add or update PROPERTY line
-      (if (re-search-forward "^#\\+PROPERTY: header-args:jupyter-python" nil t)
-          (progn
-            (beginning-of-line)
-            (kill-line)
-            (insert (format "#+PROPERTY: header-args:jupyter-python :session py :async yes :kernel python3 :tangle python/%s.py"
-                          filename)))
-        (goto-char (point-min))
-        (when (re-search-forward "^#\\+title:" nil t)
-          (end-of-line)
-          (newline)
-          (insert (format "#+PROPERTY: header-args:jupyter-python :session py :async yes :kernel python3 :tangle python/%s.py"
-                        filename)))))
-    (message "Set default tangle to: python/%s.py" filename)))
+          ;; Start LSP
+          (lsp-deferred))))))
 
-;; Helper to use subtree's tangle-dir property
-(defun my/org-jupyter-tangle-to-subdir (filename)
-  "Tangle to python/ subdirectory, respecting tangle-dir property."
-  (let ((tangle-dir (or (org-entry-get nil "tangle-dir" t) "python/")))
-    (expand-file-name filename (expand-file-name tangle-dir default-directory))))
-
-;; Keybindings
-(ar/global-leader
-  "o j" '(:ignore t :wk "jupyter tangle")
-  "o j t" '(my/jupyter-set-tangle-file :wk "Set tangle file (subtree)")
-  "o j T" '(my/jupyter-setup-project-tangle :wk "Setup file-level tangle"))
-
-(use-package ein
-  :commands (ein:run ein:login ein:notebooklist-open ein:ipynb-mode)
-  :config
-  ;; Configuration
-  (setq ein:output-area-inlined-images t
-        ein:slice-image t
-        ein:query-timeout 1000
-        ein:default-url-or-port "http://localhost:8888"
-        ein:completion-backend 'ein:use-none-backend
-        ein:use-auto-complete-superpack nil)
-
-  ;; Keybindings
-  (ar/global-leader
-    "e" '(:ignore t :wk "ein (notebooks)")
-    "e l" '(ein:login :wk "Login")
-    "e r" '(ein:run :wk "Run server")
-    "e o" '(ein:notebooklist-open :wk "Open list")
-    "e s" '(ein:stop :wk "Stop server"))
-
-  ;; Evil integration
-  (with-eval-after-load 'evil
-    (evil-define-key 'normal ein:notebook-mode-map
-      (kbd "RET") 'ein:worksheet-execute-cell-and-goto-next
-      (kbd "C-<return>") 'ein:worksheet-execute-cell
-      (kbd "S-<return>") 'ein:worksheet-execute-cell-and-insert-below)
-
-    (evil-define-key 'insert ein:notebook-mode-map
-      (kbd "C-<return>") 'ein:worksheet-execute-cell
-      (kbd "S-<return>") 'ein:worksheet-execute-cell-and-insert-below)))
-
-;; Auto-open .ipynb files with ein
-(add-to-list 'auto-mode-alist '("\\.ipynb\\'" . ein:ipynb-mode))
-
-(defun my/babel-ansi ()
-  "Apply ANSI color codes to the result of an Org Babel block."
-  (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
-    (save-excursion
-      (goto-char beg)
-      (when (looking-at org-babel-result-regexp)
-        (let ((end (org-babel-result-end))
-              (ansi-color-context-region nil))
-          (ansi-color-apply-on-region beg end))))))
-
-(define-minor-mode org-babel-ansi-colors-mode
-  "Apply ANSI color codes to Org Babel results globally."
-  :global t
-  :init-value t
-  (if org-babel-ansi-colors-mode
-      (add-hook 'org-babel-after-execute-hook #'my/babel-ansi)
-    (remove-hook 'org-babel-after-execute-hook #'my/babel-ansi)))
-
-(defun my/jupyter-org-scalar (value)
-  (cond
-   ((stringp value) value)
-   (t (jupyter-org-scalar value))))
-
-(define-minor-mode my/emacs-jupyter-raw-output
-  "Make emacs-jupyter do raw output")
-
-(defun my/jupyter-org-scalar-around (fun value)
-  (if my/emacs-jupyter-raw-output
-      (my/jupyter-org-scalar value)
-    (funcall fun value)))
-
-(with-eval-after-load 'jupyter
-  (advice-add 'jupyter-org-scalar :around #'my/jupyter-org-scalar-around))
-
-(defun my/org-strip-results (data)
-  (replace-regexp-in-string ":\\(RESULTS\\|END\\):\n" "" data))
-
-(with-eval-after-load 'org
-  ;; Project structure helper
-  (defun my/org-setup-project-structure ()
-    "Create project subfolder structure for tangling."
-    (interactive)
-    (let* ((org-dir (file-name-directory (buffer-file-name)))
-           (python-dir (expand-file-name "python/" org-dir))
-           (tex-dir (expand-file-name "tex/" org-dir))
-           (output-dir (expand-file-name "output/" org-dir)))
-      (dolist (dir (list python-dir tex-dir output-dir))
-        (unless (file-directory-p dir)
-          (make-directory dir t)))
-      (message "Created: python/, tex/, output/ directories")))
-
-  ;; Improved template with proper #+PROPERTY syntax
-  (defun my/org-insert-scientific-project-template ()
-    "Insert header template for scientific org document."
-    (interactive)
-    (goto-char (point-min))
-    (insert "#+TITLE: Scientific Analysis\n")
-    (insert "#+AUTHOR: " user-full-name "\n")
-    (insert "#+DATE: " (format-time-string "%Y-%m-%d") "\n")
-    (insert "#+OPTIONS: toc:nil\n")
-    (insert "#+STARTUP: overview indent\n")
-    (insert "# -*- org-src-preserve-indentation: t; -*-\n\n")
-
-    (insert "# LaTeX configuration for export\n")
-    (insert "#+LATEX_CLASS: article\n")
-    (insert "#+LATEX_HEADER: \\usepackage{amsmath}\n")
-    (insert "#+LATEX_HEADER: \\usepackage{graphicx}\n\n")
-
-    (insert "# Language-specific header arguments\n")
-    (insert "# LaTeX: never evaluate, export code for PDF\n")
-    (insert "#+PROPERTY: header-args:latex :exports code :eval never\n\n")
-
-    (insert "# Python: export results, tangle to python/, evaluate on demand\n")
-    (insert "#+PROPERTY: header-args:python :session py :exports results :eval never-export :tangle python/analysis.py\n\n")
-
-    (insert "# Jupyter-Python: same as Python but async\n")
-    (insert "#+PROPERTY: header-args:jupyter-python :session py :async yes :exports results :eval never-export :tangle python/jupyter.py :kernel python3\n\n")
-
-    (insert "# To toggle Python export, use my/org-toggle-python-export\n")
-    (insert "# To change tangle file, use my/org-set-python-tangle-file\n\n")
-    (message "Inserted scientific project template"))
-
-  ;; Toggle Python export: results vs none
-  (defun my/org-toggle-python-export ()
-    "Toggle Python/Jupyter blocks between exporting results vs. none."
-    (interactive)
-    (save-excursion
-      (goto-char (point-min))
-      (let ((changed 0))
-        ;; Toggle Python
-        (when (re-search-forward
-               "^#\\+PROPERTY: header-args:python.*:exports \\(results\\|none\\)" nil t)
-          (let ((current (match-string 1)))
-            (replace-match (if (string= current "results") "none" "results")
-                          t t nil 1)
-            (setq changed (1+ changed))))
-        ;; Toggle Jupyter-Python
-        (goto-char (point-min))
-        (when (re-search-forward
-               "^#\\+PROPERTY: header-args:jupyter-python.*:exports \\(results\\|none\\)" nil t)
-          (let ((current (match-string 1)))
-            (replace-match (if (string= current "results") "none" "results")
-                          t t nil 1)
-            (setq changed (1+ changed))))
-	;;<
-        (if (> changed 0)
-            (progn
-              (org-mode-restart)
-              (message "Toggled %d language export setting(s). Press C-c C-c on #+PROPERTY lines to refresh." changed))
-          (message "No Python/Jupyter property lines found")))))
-
-  ;; Set tangle file for Python blocks
-  (defun my/org-set-python-tangle-file ()
-    "Set tangle file for Python and Jupyter-Python blocks."
-    (interactive)
-    (let* ((default-dir (file-name-directory (buffer-file-name)))
-           (python-dir (expand-file-name "python/" default-dir))
-           (filename (read-string "Python filename (without .py): "
-                                 (file-name-base (buffer-file-name)))))
-      (unless (file-directory-p python-dir)
-        (make-directory python-dir t))
-      (save-excursion
-        (goto-char (point-min))
-        (let ((changed 0))
-          ;; Update Python tangle
-          (when (re-search-forward
-                 "^#\\+PROPERTY: header-args:python.*:tangle \\([^ \n]+\\)" nil t)
-            (replace-match (concat "python/" filename ".py") t t nil 1)
-            (setq changed (1+ changed)))
-          ;; Update Jupyter-Python tangle
-          (goto-char (point-min))
-          (when (re-search-forward
-                 "^#\\+PROPERTY: header-args:jupyter-python.*:tangle \\([^ \n]+\\)" nil t)
-            (replace-match (concat "python/" filename ".py") t t nil 1)
-            (setq changed (1+ changed)))
-          (if (> changed 0)
-              ;; <
-              (progn
-                (org-mode-restart)
-                (message "Updated %d tangle path(s) to python/%s.py. Press C-c C-c on #+PROPERTY lines to refresh."
-                        changed filename))
-            (message "No Python/Jupyter property lines found"))))))
-
-  ;; Set export type for current subtree
-  (defun my/org-set-subtree-export (lang export-type)
-    "Set export type for LANG in current subtree. EXPORT-TYPE: results, code, both, or none."
-    (interactive
-     (list (completing-read "Language: " '("python" "jupyter-python" "latex") nil t)
-           (completing-read "Export type: " '("results" "code" "both" "none") nil t)))
-    (org-set-property (format "header-args:%s" lang)
-                     (format ":exports %s" export-type))
-    (message "Set %s exports to %s for current subtree" lang export-type))
-
-  ;; Quick insertion with property awareness
-  (defun my/org-insert-src-block (lang)
-    "Insert a source block for LANG. Properties are applied automatically."
-    (interactive
-     (list (completing-read "Language: "
-                           '("python" "jupyter-python" "latex" "emacs-lisp" "shell")
-                           nil t)))
-    (insert (format "#+begin_src %s\n\n#+end_src\n" lang))
-    (forward-line -2)
-    (message "Inserted %s block. Header args from #+PROPERTY will be applied automatically." lang))
-
-  ;; Keybindings
-  (ar/global-leader
-    "o p" '(:ignore t :wk "properties")
-    "o p s" '(my/org-insert-scientific-project-template :wk "Scientific template")
-    "o p d" '(my/org-setup-project-structure :wk "Setup project dirs")
-    "o p t" '(my/org-toggle-python-export :wk "Toggle Python export")
-    "o p f" '(my/org-set-python-tangle-file :wk "Set tangle file")
-    "o p e" '(my/org-set-subtree-export :wk "Set subtree export")
-    "o i s" '(my/org-insert-src-block :wk "Insert source block")))
+;; Hook into org-src-mode
+(add-hook 'org-src-mode-hook #'my/org-src-setup-lsp)
 
 (use-package persp-mode
   :defer t
@@ -3693,6 +3443,339 @@ Extended and deferred require python3.")
   :hook (python-ts-mode . (lambda ()
                             (require 'lsp-pyright)
                             (lsp-deferred))))
+
+;; Flycheck 35.0+ has built-in ruff support
+;; Simply ensure ruff is installed: pip install ruff
+
+(with-eval-after-load 'flycheck
+  ;; Add python-ruff to the list of checkers for python-ts-mode
+  (add-to-list 'flycheck-checkers 'python-ruff)
+
+  ;; Set it as the preferred checker for python-ts-mode
+  (defun my/flycheck-python-setup ()
+    "Setup Flycheck for Python with Ruff."
+    (flycheck-select-checker 'python-ruff))
+
+  (add-hook 'python-ts-mode-hook #'my/flycheck-python-setup))
+
+;; For older flycheck versions without built-in ruff, use this:
+;; (with-eval-after-load 'flycheck
+;;   (flycheck-define-checker python-ruff
+;;     "A Python syntax and style checker using Ruff."
+;;     :command ("ruff" "check"
+;;               "--output-format=concise"
+;;               "--stdin-filename" source-original
+;;               "-")
+;;     :standard-input t
+;;     :error-patterns
+;;     ((error line-start
+;;             (or "-" (file-name)) ":" line ":" (optional column ":") " "
+;;             (id (one-or-more (any alpha digit))) " "
+;;             (message (one-or-more not-newline))
+;;             line-end))
+;;     :modes (python-mode python-ts-mode))
+;;
+;;   (add-to-list 'flycheck-checkers 'python-ruff))
+
+(with-eval-after-load 'apheleia
+  (setf (alist-get 'ruff apheleia-formatters)
+        '("ruff" "format" "--stdin-filename" filepath "-"))
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff)))
+
+(use-package jupyter
+  :defer t
+  :after org
+  :config
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((jupyter . t)))
+
+  ;; Set default header args for jupyter-python blocks
+  (setq org-babel-default-header-args:jupyter-python
+        '((:async . "yes")
+          (:session . "py")
+          (:kernel . "python3")
+          (:tangle . "no")))
+
+  ;; Override python blocks to use jupyter automatically
+  (with-eval-after-load 'ob-jupyter
+    (org-babel-jupyter-override-src-block "python")
+    (add-to-list 'org-src-lang-modes '("jupyter-python" . python-ts)))
+
+  ;; Keybindings
+  (ar/global-leader
+    "j" '(:ignore t :wk "jupyter")
+    "j c" '(jupyter-connect-repl :wk "Connect REPL")
+    "j r" '(jupyter-run-repl :wk "Run REPL")
+    "j k" '(jupyter-shutdown-kernel :wk "Shutdown kernel")
+    "j i" '(jupyter-inspect-at-point :wk "Inspect")))
+
+(use-package ob-async
+  :after org
+  :config
+  (setq ob-async-no-async-languages-alist '("python" "jupyter-python")))
+
+;; Function to dynamically set tangle target for current block
+(defun my/jupyter-set-tangle-file ()
+  "Dynamically set tangle file for current jupyter-python block."
+  (interactive)
+  (let* ((default-dir (file-name-directory (buffer-file-name)))
+         (python-dir (expand-file-name "python/" default-dir))
+         (filename (read-string "Python filename (without .py): "
+                               (file-name-base (buffer-file-name)))))
+    (unless (file-directory-p python-dir)
+      (make-directory python-dir t))
+    ;; Set property for current subtree
+    (org-set-property "header-args:jupyter-python"
+                     (format ":session py :async yes :kernel python3 :tangle python/%s.py"
+                            filename))
+    (message "Set tangle to: python/%s.py" filename)))
+
+;; Alternative: Use file-level property dynamically
+(defun my/jupyter-setup-project-tangle ()
+  "Setup tangle target at file level for jupyter-python blocks."
+  (interactive)
+  (let* ((default-dir (file-name-directory (buffer-file-name)))
+         (python-dir (expand-file-name "python/" default-dir))
+         (default-file (file-name-base (buffer-file-name)))
+         (filename (read-string "Default Python filename: " default-file)))
+    (unless (file-directory-p python-dir)
+      (make-directory python-dir t))
+    (save-excursion
+      (goto-char (point-min))
+      ;; Add or update PROPERTY line
+      (if (re-search-forward "^#\\+PROPERTY: header-args:jupyter-python" nil t)
+          (progn
+            (beginning-of-line)
+            (kill-line)
+            (insert (format "#+PROPERTY: header-args:jupyter-python :session py :async yes :kernel python3 :tangle python/%s.py"
+                          filename)))
+        (goto-char (point-min))
+        (when (re-search-forward "^#\\+title:" nil t)
+          (end-of-line)
+          (newline)
+          (insert (format "#+PROPERTY: header-args:jupyter-python :session py :async yes :kernel python3 :tangle python/%s.py"
+                        filename)))))
+    (message "Set default tangle to: python/%s.py" filename)))
+
+;; Helper to use subtree's tangle-dir property
+(defun my/org-jupyter-tangle-to-subdir (filename)
+  "Tangle to python/ subdirectory, respecting tangle-dir property."
+  (let ((tangle-dir (or (org-entry-get nil "tangle-dir" t) "python/")))
+    (expand-file-name filename (expand-file-name tangle-dir default-directory))))
+
+;; Keybindings
+(ar/global-leader
+  "o j" '(:ignore t :wk "jupyter tangle")
+  "o j t" '(my/jupyter-set-tangle-file :wk "Set tangle file (subtree)")
+  "o j T" '(my/jupyter-setup-project-tangle :wk "Setup file-level tangle"))
+
+(use-package ein
+  :commands (ein:run ein:login ein:notebooklist-open ein:ipynb-mode)
+  :config
+  ;; Configuration
+  (setq ein:output-area-inlined-images t
+        ein:slice-image t
+        ein:query-timeout 1000
+        ein:default-url-or-port "http://localhost:8888"
+        ein:completion-backend 'ein:use-none-backend
+        ein:use-auto-complete-superpack nil)
+
+  ;; Keybindings
+  (ar/global-leader
+    "e" '(:ignore t :wk "ein (notebooks)")
+    "e l" '(ein:login :wk "Login")
+    "e r" '(ein:run :wk "Run server")
+    "e o" '(ein:notebooklist-open :wk "Open list")
+    "e s" '(ein:stop :wk "Stop server"))
+
+  ;; Evil integration
+  (with-eval-after-load 'evil
+    (evil-define-key 'normal ein:notebook-mode-map
+      (kbd "RET") 'ein:worksheet-execute-cell-and-goto-next
+      (kbd "C-<return>") 'ein:worksheet-execute-cell
+      (kbd "S-<return>") 'ein:worksheet-execute-cell-and-insert-below)
+
+    (evil-define-key 'insert ein:notebook-mode-map
+      (kbd "C-<return>") 'ein:worksheet-execute-cell
+      (kbd "S-<return>") 'ein:worksheet-execute-cell-and-insert-below)))
+
+;; Auto-open .ipynb files with ein
+(add-to-list 'auto-mode-alist '("\\.ipynb\\'" . ein:ipynb-mode))
+
+(defun my/babel-ansi ()
+  "Apply ANSI color codes to the result of an Org Babel block."
+  (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
+    (save-excursion
+      (goto-char beg)
+      (when (looking-at org-babel-result-regexp)
+        (let ((end (org-babel-result-end))
+              (ansi-color-context-region nil))
+          (ansi-color-apply-on-region beg end))))))
+
+(define-minor-mode org-babel-ansi-colors-mode
+  "Apply ANSI color codes to Org Babel results globally."
+  :global t
+  :init-value t
+  (if org-babel-ansi-colors-mode
+      (add-hook 'org-babel-after-execute-hook #'my/babel-ansi)
+    (remove-hook 'org-babel-after-execute-hook #'my/babel-ansi)))
+
+(defun my/jupyter-org-scalar (value)
+  (cond
+   ((stringp value) value)
+   (t (jupyter-org-scalar value))))
+
+(define-minor-mode my/emacs-jupyter-raw-output
+  "Make emacs-jupyter do raw output")
+
+(defun my/jupyter-org-scalar-around (fun value)
+  (if my/emacs-jupyter-raw-output
+      (my/jupyter-org-scalar value)
+    (funcall fun value)))
+
+(with-eval-after-load 'jupyter
+  (advice-add 'jupyter-org-scalar :around #'my/jupyter-org-scalar-around))
+
+(defun my/org-strip-results (data)
+  (replace-regexp-in-string ":\\(RESULTS\\|END\\):\n" "" data))
+
+(with-eval-after-load 'org
+  ;; Project structure helper
+  (defun my/org-setup-project-structure ()
+    "Create project subfolder structure for tangling."
+    (interactive)
+    (let* ((org-dir (file-name-directory (buffer-file-name)))
+           (python-dir (expand-file-name "python/" org-dir))
+           (tex-dir (expand-file-name "tex/" org-dir))
+           (output-dir (expand-file-name "output/" org-dir)))
+      (dolist (dir (list python-dir tex-dir output-dir))
+        (unless (file-directory-p dir)
+          (make-directory dir t)))
+      (message "Created: python/, tex/, output/ directories")))
+
+  ;; Improved template with proper #+PROPERTY syntax
+  (defun my/org-insert-scientific-project-template ()
+    "Insert header template for scientific org document."
+    (interactive)
+    (goto-char (point-min))
+    (insert "#+TITLE: Scientific Analysis\n")
+    (insert "#+AUTHOR: " user-full-name "\n")
+    (insert "#+DATE: " (format-time-string "%Y-%m-%d") "\n")
+    (insert "#+OPTIONS: toc:nil\n")
+    (insert "#+STARTUP: overview indent\n")
+    (insert "# -*- org-src-preserve-indentation: t; -*-\n\n")
+
+    (insert "# LaTeX configuration for export\n")
+    (insert "#+LATEX_CLASS: article\n")
+    (insert "#+LATEX_HEADER: \\usepackage{amsmath}\n")
+    (insert "#+LATEX_HEADER: \\usepackage{graphicx}\n\n")
+
+    (insert "# Language-specific header arguments\n")
+    (insert "# LaTeX: never evaluate, export code for PDF\n")
+    (insert "#+PROPERTY: header-args:latex :exports code :eval never\n\n")
+
+    (insert "# Python: export results, tangle to python/, evaluate on demand\n")
+    (insert "#+PROPERTY: header-args:python :session py :exports results :eval never-export :tangle python/analysis.py\n\n")
+
+    (insert "# Jupyter-Python: same as Python but async\n")
+    (insert "#+PROPERTY: header-args:jupyter-python :session py :async yes :exports results :eval never-export :tangle python/jupyter.py :kernel python3\n\n")
+
+    (insert "# To toggle Python export, use my/org-toggle-python-export\n")
+    (insert "# To change tangle file, use my/org-set-python-tangle-file\n\n")
+    (message "Inserted scientific project template"))
+
+  ;; Toggle Python export: results vs none
+  (defun my/org-toggle-python-export ()
+    "Toggle Python/Jupyter blocks between exporting results vs. none."
+    (interactive)
+    (save-excursion
+      (goto-char (point-min))
+      (let ((changed 0))
+        ;; Toggle Python
+        (when (re-search-forward
+               "^#\\+PROPERTY: header-args:python.*:exports \\(results\\|none\\)" nil t)
+          (let ((current (match-string 1)))
+            (replace-match (if (string= current "results") "none" "results")
+                          t t nil 1)
+            (setq changed (1+ changed))))
+        ;; Toggle Jupyter-Python
+        (goto-char (point-min))
+        (when (re-search-forward
+               "^#\\+PROPERTY: header-args:jupyter-python.*:exports \\(results\\|none\\)" nil t)
+          (let ((current (match-string 1)))
+            (replace-match (if (string= current "results") "none" "results")
+                          t t nil 1)
+            (setq changed (1+ changed))))
+	;;<
+        (if (> changed 0)
+            (progn
+              (org-mode-restart)
+              (message "Toggled %d language export setting(s). Press C-c C-c on #+PROPERTY lines to refresh." changed))
+          (message "No Python/Jupyter property lines found")))))
+
+  ;; Set tangle file for Python blocks
+  (defun my/org-set-python-tangle-file ()
+    "Set tangle file for Python and Jupyter-Python blocks."
+    (interactive)
+    (let* ((default-dir (file-name-directory (buffer-file-name)))
+           (python-dir (expand-file-name "python/" default-dir))
+           (filename (read-string "Python filename (without .py): "
+                                 (file-name-base (buffer-file-name)))))
+      (unless (file-directory-p python-dir)
+        (make-directory python-dir t))
+      (save-excursion
+        (goto-char (point-min))
+        (let ((changed 0))
+          ;; Update Python tangle
+          (when (re-search-forward
+                 "^#\\+PROPERTY: header-args:python.*:tangle \\([^ \n]+\\)" nil t)
+            (replace-match (concat "python/" filename ".py") t t nil 1)
+            (setq changed (1+ changed)))
+          ;; Update Jupyter-Python tangle
+          (goto-char (point-min))
+          (when (re-search-forward
+                 "^#\\+PROPERTY: header-args:jupyter-python.*:tangle \\([^ \n]+\\)" nil t)
+            (replace-match (concat "python/" filename ".py") t t nil 1)
+            (setq changed (1+ changed)))
+          (if (> changed 0)
+              ;; <
+              (progn
+                (org-mode-restart)
+                (message "Updated %d tangle path(s) to python/%s.py. Press C-c C-c on #+PROPERTY lines to refresh."
+                        changed filename))
+            (message "No Python/Jupyter property lines found"))))))
+
+  ;; Set export type for current subtree
+  (defun my/org-set-subtree-export (lang export-type)
+    "Set export type for LANG in current subtree. EXPORT-TYPE: results, code, both, or none."
+    (interactive
+     (list (completing-read "Language: " '("python" "jupyter-python" "latex") nil t)
+           (completing-read "Export type: " '("results" "code" "both" "none") nil t)))
+    (org-set-property (format "header-args:%s" lang)
+                     (format ":exports %s" export-type))
+    (message "Set %s exports to %s for current subtree" lang export-type))
+
+  ;; Quick insertion with property awareness
+  (defun my/org-insert-src-block (lang)
+    "Insert a source block for LANG. Properties are applied automatically."
+    (interactive
+     (list (completing-read "Language: "
+                           '("python" "jupyter-python" "latex" "emacs-lisp" "shell")
+                           nil t)))
+    (insert (format "#+begin_src %s\n\n#+end_src\n" lang))
+    (forward-line -2)
+    (message "Inserted %s block. Header args from #+PROPERTY will be applied automatically." lang))
+
+  ;; Keybindings
+  (ar/global-leader
+    "o p" '(:ignore t :wk "properties")
+    "o p s" '(my/org-insert-scientific-project-template :wk "Scientific template")
+    "o p d" '(my/org-setup-project-structure :wk "Setup project dirs")
+    "o p t" '(my/org-toggle-python-export :wk "Toggle Python export")
+    "o p f" '(my/org-set-python-tangle-file :wk "Set tangle file")
+    "o p e" '(my/org-set-subtree-export :wk "Set subtree export")
+    "o i s" '(my/org-insert-src-block :wk "Insert source block")))
 
 (use-package popwin
   :init
