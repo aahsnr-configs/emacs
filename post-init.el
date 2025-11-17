@@ -1,27 +1,5 @@
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
 
-;; CRITICAL: Restore GC after startup with optimized values
-(defvar better-gc-cons-threshold (* 100 1024 1024)  ;; 128MB (increased from default 800KB)
-  "Optimal GC threshold for modern LSP-heavy workflows.
-Lower this if you experience freezing, raise if stuttering.")
-
-(defvar better-gc-cons-percentage 0.1
-  "GC percentage of heap to trigger collection.")
-
-;; Restore GC settings after startup
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (setq gc-cons-threshold better-gc-cons-threshold
-                  gc-cons-percentage better-gc-cons-percentage)
-            (setq file-name-handler-alist file-name-handler-alist-original)
-            (makunbound 'file-name-handler-alist-original)
-
-            ;; Report startup time
-            (message "Emacs loaded in %.2fs with %d GCs"
-                     (float-time (time-subtract after-init-time before-init-time))
-                     gcs-done))
-          100) ;; Run late to ensure accurate timing
-
 (defconst *sys/win32*
   (eq system-type 'windows-nt)
   "Are we running on a WinTel system?")
@@ -139,7 +117,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (setq inhibit-compacting-font-caches t)  ;; Don't compact font cache
 
 ;; Move backup files to dedicated directory
-(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-var-emacs-directory))))
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
 
 ;; Confirmation settings
 (setq confirm-kill-processes nil)  ;; Auto-kill processes on exit
