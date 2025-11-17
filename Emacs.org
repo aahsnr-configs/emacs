@@ -7,6 +7,8 @@
 ** Lexical Binding
 #+begin_src emacs-lisp
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+
+(declare (special minimal-user-emacs-directory))
 #+end_src
 
 ** Define Constants
