@@ -3877,44 +3877,6 @@ Extended and deferred require python3.")
     (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
     (setq org-pdftools-link-prefix "pdf")))
 
-(use-package org-noter
-  :defer t
-  :after (org pdf-view)
-  :custom
-  ;; Store all notes inside the dedicated `noter` directory.
-  (org-noter-notes-search-path (list my/org-noter-directory))
-  ;; Use a consistent naming scheme for note files.
-  (org-noter-notes-file-name "%s.org")
-  ;; Automatically create a new heading for each note.
-  (org-noter-insert-note-no-questions t)
-  ;; Keep the notes window focused after creating a note.
-  (org-noter-always-focus-on-notes-buffer t)
-  ;; Customize the note heading template.
-  (org-noter-heading-application-function 'org-noter-insert-heading-at-point)
-  (org-noter-note-heading-template "* %s\n:PROPERTIES:\n:NOTER_PAGE: %p\n:NOTER_LEFT: %l\n:NOTER_RIGHT: %r\n:END:\n\n")
-
-  :config
-  ;; Custom function to create a new notes file if one doesn't exist
-  ;; or find the existing one and open it side-by-side.
-  (defun ar/org-noter-find-or-create-notes ()
-    "Find the notes for the current PDF or create a new notes file.
-Opens the notes in a split window to the right."
-    (interactive)
-    (let ((pdf-path (buffer-file-name)))
-      (unless pdf-path
-        (error "Current buffer is not visiting a file"))
-      (let* ((pdf-name (file-name-nondirectory pdf-path))
-             (notes-file (expand-file-name (format "%s.org" (file-name-sans-extension pdf-name)) my/org-noter-directory)))
-        (if (file-exists-p notes-file)
-            (find-file notes-file)
-          (progn
-            (find-file notes-file)
-            (insert (format "#+title: Notes on %s\n\n" pdf-name))))
-        (delete-other-windows)
-        (split-window-right)
-        (windmove-right)
-        (find-file pdf-path)))))
-
 (use-package gnuplot
   :defer t
   :mode (("\\.gp\\'" . gnuplot-mode)
