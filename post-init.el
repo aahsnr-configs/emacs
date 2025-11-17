@@ -231,30 +231,60 @@
   (occur "(interactive \"<"))
 
 (use-package autorevert
-  :straight (:type built-in)
-  :hook (after-init . global-auto-revert-mode)
+  :ensure nil
+  :commands (auto-revert-mode global-auto-revert-mode)
+  :hook
+  (after-init . global-auto-revert-mode)
   :custom
   (auto-revert-interval 3)
   (auto-revert-remote-files nil)
   (auto-revert-use-notify t)
   (auto-revert-avoid-polling nil)
-  (auto-revert-verbose nil))  ;; Suppress messages
+  (auto-revert-verbose t))
 
 (use-package recentf
-  :straight (:type built-in)
-  :hook (after-init . recentf-mode)
+  :ensure nil
+  :commands (recentf-mode recentf-cleanup)
+  :hook
+  (after-init . recentf-mode)
+
   :custom
-  (recentf-max-saved-items 300)  ;; Limit for performance
-  (recentf-max-menu-items 15)
-  (recentf-auto-cleanup 'mode)  ;; Clean manually or on daemon mode
+  (recentf-auto-cleanup (if (daemonp) 300 'never))
   (recentf-exclude
    (list "\\.tar$" "\\.tbz2$" "\\.tbz$" "\\.tgz$" "\\.bz2$"
          "\\.bz$" "\\.gz$" "\\.gzip$" "\\.xz$" "\\.zip$"
          "\\.7z$" "\\.rar$"
          "COMMIT_EDITMSG\\'"
          "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
-         "-autoloads\\.el$" "autoload\\.el$"
-         "/tmp/" "/ssh:" "/sudo:" "recentf")))
+         "-autoloads\\.el$" "autoload\\.el$"))
+
+  :config
+  ;; A cleanup depth of -90 ensures that `recentf-cleanup' runs before
+  ;; `recentf-save-list', allowing stale entries to be removed before the list
+  ;; is saved by `recentf-save-list', which is automatically added to
+  ;; `kill-emacs-hook' by `recentf-mode'.
+  (add-hook 'kill-emacs-hook #'recentf-cleanup -90))
+
+(use-package savehist
+  :ensure nil
+  :commands (savehist-mode savehist-save)
+  :hook
+  (after-init . savehist-mode)
+  :custom
+  (savehist-autosave-interval 600)
+  (savehist-additional-variables
+   '(kill-ring                        ; clipboard
+     register-alist                   ; macros
+     mark-ring global-mark-ring       ; marks
+     search-ring regexp-search-ring)))
+
+(use-package saveplace
+  :ensure nil
+  :commands (save-place-mode save-place-local-mode)
+  :hook
+  (after-init . save-place-mode)
+  :custom
+  (save-place-limit 400))
 
 (use-package general
   :after evil
@@ -353,7 +383,7 @@
 
 (use-package doom-modeline
   :defer 0.1
-  :hook (after-init . doom-modeline-mode)
+  :hook (elpaca-elpaca-after-init . doom-modeline-mode)
   :config
   (setq doom-modeline-height 28 ;; changing from 28 to 1
         doom-modeline-bar-width 3
@@ -393,9 +423,9 @@
   (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
 
 (use-package which-key
-  :straight (:type built-in)
+  :ensure nil
   :defer 0.5
-  :hook (after-init . which-key-mode)
+  :hook (elpaca-after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
   (which-key-separator " → ")
@@ -558,7 +588,7 @@
 
      (?< . ("<" . ">"))
      (?> . ("<" . ">"))))
-  :hook (after-init . global-evil-surround-mode))
+  :hook (elpaca-after-init . global-evil-surround-mode))
 
 (use-package evil-matchit
   :after evil
@@ -1385,7 +1415,7 @@ Each function should return non-nil to prevent further processing.")
          ("M-p" . symbol-overlay-jump-prev)))
 
 (use-package emacs
-  :straight (:type built-in)
+  :ensure nil
   :custom
   (completion-cycle-threshold 3)
   (text-mode-ispell-word-completion nil)
@@ -1399,14 +1429,14 @@ Each function should return non-nil to prevent further processing.")
 
 (use-package vertico
   :demand t
-  :hook (after-init . vertico-mode)
+  :hook (elpaca-after-init . vertico-mode)
   :custom
   (vertico-resize nil)
   (vertico-cycle t)
   (vertico-count 10))
 
 (use-package vertico-directory
-  :straight (:type built-in)
+  :ensure nil
   :after vertico
   ;; More convenient directory navigation commands
   :bind (:map vertico-map
@@ -1423,7 +1453,7 @@ Each function should return non-nil to prevent further processing.")
   (setq marginalia-max-relative-age 0  ;; Always show absolute time
         marginalia-align 'right))
 ;; (use-package marginalia
-;;   :hook (after-init . marginalia-mode))
+;;   :hook (elpaca-after-init . marginalia-mode))
 
 (use-package nerd-icons-completion
   :demand t
@@ -1537,7 +1567,7 @@ Each function should return non-nil to prevent further processing.")
   (embark-collect-mode . consult-preview-at-point-mode))
 
 ;; (use-package corfu
-;;   :hook (after-init . global-corfu-mode)
+;;   :hook (elpaca-after-init . global-corfu-mode)
 ;;   :config
 ;;   (corfu-history-mode)
 ;;   (corfu-popupinfo-mode) ; don't set delay or
@@ -1604,7 +1634,7 @@ Each function should return non-nil to prevent further processing.")
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
 
 (use-package dabbrev
-  :straight (:type built-in)
+  :ensure nil
   :bind (("M-/" . dabbrev-completion)
          ("C-M-/" . dabbrev-expand))
   :config
@@ -1736,7 +1766,7 @@ Only tangles if the file has been modified and saved."
     (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
 
 (use-package org
-  :straight (:type built-in)
+  :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :hook
   ((org-mode . visual-line-mode)
@@ -1992,7 +2022,7 @@ Only tangles if the file has been modified and saved."
   :init (consult-org-roam-mode 1))
 
 (use-package org-capture
-  :straight (:type built-in)
+  :ensure nil
   :after org
   :custom
   (org-capture-templates
@@ -2042,7 +2072,7 @@ Only tangles if the file has been modified and saved."
       "* GOAL %? :goal:\nDEADLINE: %(org-read-date nil nil \"+1y\")\n:PROPERTIES:\n:CREATED: %U\n:TYPE:\n:END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
 
 (use-package org-habit
-  :straight (:type built-in)
+  :ensure nil
   :defer t
   :after org
   :custom
@@ -2169,7 +2199,7 @@ Only tangles if the file has been modified and saved."
   "o n i" '(org-noter-insert-note :wk "Insert Note"))
 
 (use-package envrc
-  :hook (after-init . envrc-global-mode))
+  :hook (elpaca-after-init . envrc-global-mode))
 
 ;; This is the directory where you will store your personal snippets.
 (defvar my/snippets-directory (expand-file-name "snippets" minimal-user-emacs-directory)
@@ -2182,7 +2212,7 @@ Only tangles if the file has been modified and saved."
 (use-package yasnippet-snippets :after yasnippet)
 
 (use-package yasnippet
-  :hook (after-init . yas-global-mode)
+  :hook (elpaca-after-init . yas-global-mode)
   :custom
   ;; Use a completing-read prompt for a better UI when multiple snippets match.
   (yas-prompt-functions '(yas-completing-prompt))
@@ -2722,7 +2752,7 @@ Extended and deferred require python3.")
 (use-package treemacs
   :defer t
   :init
-  (setq treemacs-follow-after-init t
+  (setq treemacs-follow-elpaca-after-init t
         treemacs-is-never-other-window t
         treemacs-sorting 'alphabetic-case-insensitive-asc
         treemacs-persist-file (expand-file-name "treemacs-persist" user-emacs-directory)
@@ -2733,7 +2763,7 @@ Extended and deferred require python3.")
         treemacs-position 'left
         treemacs-no-delete-other-windows t
         treemacs-show-hidden-files t
-        treemacs-expand-after-init t
+        treemacs-expand-elpaca-after-init t
         treemacs-space-between-root-nodes t
         treemacs-silent-refresh t
         treemacs-silent-filewatch t
@@ -2804,7 +2834,7 @@ Extended and deferred require python3.")
                                 ("pdf" . "zathura"))))
 
 (use-package dired
-  :straight (:type built-in)
+  :ensure nil
   :commands (dired dired-jump)
   :hook (dired-mode . dired-hide-dotfiles-mode)
   :custom
@@ -2845,7 +2875,7 @@ Extended and deferred require python3.")
     (kbd "gr") 'revert-buffer))
 
 (use-package dired-x
-  :straight (:type built-in)
+  :ensure nil
   :after dired
   :custom
   (dired-x-hands-off-my-keys nil)
@@ -2918,7 +2948,7 @@ Extended and deferred require python3.")
     (interactive)
     (projectile-discover-projects-in-search-path))
 
-  (add-hook 'after-init-hook #'my/projectile-discover-projects)
+  (add-hook 'elpaca-after-init-hook #'my/projectile-discover-projects)
 
   ;; === Helper Functions ===
   (defun my/projectile-bibliography-files ()
@@ -2980,8 +3010,8 @@ Extended and deferred require python3.")
       (message "Not in a project"))))
 
 (use-package proj-persp-extras
-  :vc (:url "https://github.com/brandonwillard/proj-persp-extras"
-       :branch "master")
+  :ensure (:host github
+           :repo "brandonwillard/proj-persp-extras")
   :after (persp-mode projectile)
   :config
   ;; Enable automatic project-perspective correspondence
@@ -3007,7 +3037,7 @@ Extended and deferred require python3.")
   (advice-add 'projectile-switch-project :around #'my/proj-persp-switch-project-advice))
 
 (use-package bookmark
-  :straight (:type built-in)
+  :ensure nil
   :defer t
   :custom
   (bookmark-default-file (expand-file-name "bookmarks" user-emacs-directory))
@@ -3182,7 +3212,12 @@ Extended and deferred require python3.")
  "g S" '(git-gutter:stage-hunk :wk "stage hunk"))
 
 (use-package tex
-  :ensure auctex
+  ;; Replace :ensure auctex with the elpaca recipe
+  :ensure (auctex :repo "https://git.savannah.gnu.org/git/auctex.git" :branch "main"
+                  :pre-build (("make" "elpa"))
+                  :build (:not elpaca--compile-info) ;; Make will take care of this step
+                  :files ("*.el" "doc/*.info*" "etc" "images" "latex" "style")
+                  :version (lambda (_) (require 'auctex) AUCTeX-version))
   :defer t
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
@@ -3416,7 +3451,7 @@ Extended and deferred require python3.")
     (message "Not in a project")))
 
 (use-package reftex
-  :straight (:type built-in)
+  :ensure nil
   :after tex
   :hook (LaTeX-mode . reftex-mode)
   :custom

@@ -260,30 +260,60 @@
 ** Session Management
 #+begin_src emacs-lisp
 (use-package autorevert
-  :ensure nil
-  :hook (elpaca-after-init . global-auto-revert-mode)
+  :straight (:type built-in)
+  :commands (auto-revert-mode global-auto-revert-mode)
+  :hook
+  (after-init . global-auto-revert-mode)
   :custom
   (auto-revert-interval 3)
   (auto-revert-remote-files nil)
   (auto-revert-use-notify t)
   (auto-revert-avoid-polling nil)
-  (auto-revert-verbose nil))  ;; Suppress messages
+  (auto-revert-verbose t))
 
 (use-package recentf
-  :ensure nil
-  :hook (elpaca-after-init . recentf-mode)
+  :straight (:type built-in)
+  :commands (recentf-mode recentf-cleanup)
+  :hook
+  (after-init . recentf-mode)
+
   :custom
-  (recentf-max-saved-items 300)  ;; Limit for performance
-  (recentf-max-menu-items 15)
-  (recentf-auto-cleanup 'mode)  ;; Clean manually or on daemon mode
+  (recentf-auto-cleanup (if (daemonp) 300 'never))
   (recentf-exclude
    (list "\\.tar$" "\\.tbz2$" "\\.tbz$" "\\.tgz$" "\\.bz2$"
          "\\.bz$" "\\.gz$" "\\.gzip$" "\\.xz$" "\\.zip$"
          "\\.7z$" "\\.rar$"
          "COMMIT_EDITMSG\\'"
          "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
-         "-autoloads\\.el$" "autoload\\.el$"
-         "/tmp/" "/ssh:" "/sudo:" "recentf")))
+         "-autoloads\\.el$" "autoload\\.el$"))
+
+  :config
+  ;; A cleanup depth of -90 ensures that `recentf-cleanup' runs before
+  ;; `recentf-save-list', allowing stale entries to be removed before the list
+  ;; is saved by `recentf-save-list', which is automatically added to
+  ;; `kill-emacs-hook' by `recentf-mode'.
+  (add-hook 'kill-emacs-hook #'recentf-cleanup -90))
+
+(use-package savehist
+  :straight (:type built-in)
+  :commands (savehist-mode savehist-save)
+  :hook
+  (after-init . savehist-mode)
+  :custom
+  (savehist-autosave-interval 600)
+  (savehist-additional-variables
+   '(kill-ring                        ; clipboard
+     register-alist                   ; macros
+     mark-ring global-mark-ring       ; marks
+     search-ring regexp-search-ring)))
+
+(use-package saveplace
+  :straight (:type built-in)
+  :commands (save-place-mode save-place-local-mode)
+  :hook
+  (after-init . save-place-mode)
+  :custom
+  (save-place-limit 400))
 
 #+end_src
 
@@ -406,7 +436,7 @@ This setup defines a robust function to find and set the best available font fro
 #+begin_src emacs-lisp
 (use-package doom-modeline
   :defer 0.1
-  :hook (elpaca-elpaca-after-init . doom-modeline-mode)
+  :hook (after-init . doom-modeline-mode)
   :config
   (setq doom-modeline-height 28 ;; changing from 28 to 1
         doom-modeline-bar-width 3
@@ -452,9 +482,9 @@ This setup defines a robust function to find and set the best available font fro
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
-  :ensure nil
+  :straight (:type built-in)
   :defer 0.5
-  :hook (elpaca-after-init . which-key-mode)
+  :hook (after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
   (which-key-separator " → ")
@@ -634,7 +664,7 @@ This setup defines a robust function to find and set the best available font fro
 
      (?< . ("<" . ">"))
      (?> . ("<" . ">"))))
-  :hook (elpaca-after-init . global-evil-surround-mode))
+  :hook (after-init . global-evil-surround-mode))
 
 (use-package evil-matchit
   :after evil
@@ -1544,7 +1574,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ** Basic Completion
 #+begin_src emacs-lisp
 (use-package emacs
-  :ensure nil
+  :straight (:type built-in)
   :custom
   (completion-cycle-threshold 3)
   (text-mode-ispell-word-completion nil)
@@ -1564,7 +1594,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 #+begin_src emacs-lisp
 (use-package vertico
   :demand t
-  :hook (elpaca-after-init . vertico-mode)
+  :hook (after-init . vertico-mode)
   :custom
   (vertico-resize nil)
   (vertico-cycle t)
@@ -1575,7 +1605,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 *vertico-directory* simplifies directory navigation.
 #+begin_src emacs-lisp
 (use-package vertico-directory
-  :ensure nil
+  :straight (:type built-in)
   :after vertico
   ;; More convenient directory navigation commands
   :bind (:map vertico-map
@@ -1595,7 +1625,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (setq marginalia-max-relative-age 0  ;; Always show absolute time
         marginalia-align 'right))
 ;; (use-package marginalia
-;;   :hook (elpaca-after-init . marginalia-mode))
+;;   :hook (after-init . marginalia-mode))
 #+end_src
 
 ** Nerd Icons Completion
@@ -1800,7 +1830,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ** Dabbrev
 #+begin_src emacs-lisp
 (use-package dabbrev
-  :ensure nil
+  :straight (:type built-in)
   :bind (("M-/" . dabbrev-completion)
          ("C-M-/" . dabbrev-expand))
   :config
@@ -1949,7 +1979,7 @@ Only tangles if the file has been modified and saved."
 =Disable Optimizations if needed=
 #+begin_src emacs-lisp
 (use-package org
-  :ensure nil
+  :straight (:type built-in)
   :mode ("\\.org\\'" . org-mode)
   :hook
   ((org-mode . visual-line-mode)
@@ -2221,7 +2251,7 @@ Only tangles if the file has been modified and saved."
 *Use dynamic directory*
 #+begin_src emacs-lisp
 (use-package org-capture
-  :ensure nil
+  :straight (:type built-in)
   :after org
   :custom
   (org-capture-templates
@@ -2274,7 +2304,7 @@ Only tangles if the file has been modified and saved."
 ** Org Habit
 #+begin_src emacs-lisp
 (use-package org-habit
-  :ensure nil
+  :straight (:type built-in)
   :defer t
   :after org
   :custom
@@ -2417,7 +2447,7 @@ Only tangles if the file has been modified and saved."
 ** Envrc
 #+begin_src emacs-lisp
 (use-package envrc
-  :hook (elpaca-after-init . envrc-global-mode))
+  :hook (after-init . envrc-global-mode))
 #+end_src
 
 ** Snippets
@@ -2433,7 +2463,7 @@ Only tangles if the file has been modified and saved."
 (use-package yasnippet-snippets :after yasnippet)
 
 (use-package yasnippet
-  :hook (elpaca-after-init . yas-global-mode)
+  :hook (after-init . yas-global-mode)
   :custom
   ;; Use a completing-read prompt for a better UI when multiple snippets match.
   (yas-prompt-functions '(yas-completing-prompt))
@@ -3028,7 +3058,7 @@ Extended and deferred require python3.")
 (use-package treemacs
   :defer t
   :init
-  (setq treemacs-follow-elpaca-after-init t
+  (setq treemacs-follow-after-init t
         treemacs-is-never-other-window t
         treemacs-sorting 'alphabetic-case-insensitive-asc
         treemacs-persist-file (expand-file-name "treemacs-persist" user-emacs-directory)
@@ -3039,7 +3069,7 @@ Extended and deferred require python3.")
         treemacs-position 'left
         treemacs-no-delete-other-windows t
         treemacs-show-hidden-files t
-        treemacs-expand-elpaca-after-init t
+        treemacs-expand-after-init t
         treemacs-space-between-root-nodes t
         treemacs-silent-refresh t
         treemacs-silent-filewatch t
@@ -3113,7 +3143,7 @@ Extended and deferred require python3.")
                                 ("pdf" . "zathura"))))
 
 (use-package dired
-  :ensure nil
+  :straight (:type built-in)
   :commands (dired dired-jump)
   :hook (dired-mode . dired-hide-dotfiles-mode)
   :custom
@@ -3154,7 +3184,7 @@ Extended and deferred require python3.")
     (kbd "gr") 'revert-buffer))
 
 (use-package dired-x
-  :ensure nil
+  :straight (:type built-in)
   :after dired
   :custom
   (dired-x-hands-off-my-keys nil)
@@ -3230,7 +3260,7 @@ Extended and deferred require python3.")
     (interactive)
     (projectile-discover-projects-in-search-path))
 
-  (add-hook 'elpaca-after-init-hook #'my/projectile-discover-projects)
+  (add-hook 'after-init-hook #'my/projectile-discover-projects)
 
   ;; === Helper Functions ===
   (defun my/projectile-bibliography-files ()
@@ -3295,7 +3325,7 @@ Extended and deferred require python3.")
 ** Persp-Mode + Projectile Integration
 #+begin_src emacs-lisp
 (use-package proj-persp-extras
-  :ensure (:host github
+  :straight (:host github
            :repo "brandonwillard/proj-persp-extras")
   :after (persp-mode projectile)
   :config
@@ -3325,7 +3355,7 @@ Extended and deferred require python3.")
 ** Bookmarks Enhancement
 #+begin_src emacs-lisp
 (use-package bookmark
-  :ensure nil
+  :straight (:type built-in)
   :defer t
   :custom
   (bookmark-default-file (expand-file-name "bookmarks" user-emacs-directory))
@@ -3539,12 +3569,7 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
 
 #+begin_src emacs-lisp
 (use-package tex
-  ;; Replace :ensure auctex with the elpaca recipe
-  :ensure (auctex :repo "https://git.savannah.gnu.org/git/auctex.git" :branch "main"
-                  :pre-build (("make" "elpa"))
-                  :build (:not elpaca--compile-info) ;; Make will take care of this step
-                  :files ("*.el" "doc/*.info*" "etc" "images" "latex" "style")
-                  :version (lambda (_) (require 'auctex) AUCTeX-version))
+  :straight auctex
   :defer t
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
@@ -3810,7 +3835,7 @@ RefTeX provides powerful cross-referencing capabilities. We use it only for refe
 
 #+begin_src emacs-lisp
 (use-package reftex
-  :ensure nil
+  :straight (:type built-in)
   :after tex
   :hook (LaTeX-mode . reftex-mode)
   :custom
