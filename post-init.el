@@ -1,4 +1,5 @@
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+;;(declare (special minimal-emacs-use-userr-directory))
 
 (defconst *sys/win32*
   (eq system-type 'windows-nt)
@@ -298,6 +299,7 @@
     ;; Core
     "SPC" '(execute-extended-command :wk "M-x")
     "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
+    "q f" '(delete-frame :wk "Delete Emacs Client Frame")
     "q r" '(ar/reload-config :wk "Reload Config")))
 
 (defun ar/set-fonts ()
@@ -2202,7 +2204,7 @@ Only tangles if the file has been modified and saved."
   :hook (after-init . envrc-global-mode))
 
 ;; This is the directory where you will store your personal snippets.
-(defvar my/snippets-directory (expand-file-name "snippets" minimal-user-emacs-directory)
+(defvar my/snippets-directory (expand-file-name "snippets" minimal-emacs-user-directory)
   "Directory for personal yasnippet snippets.")
 
 ;; Create the custom snippets directory if it doesn't exist.
@@ -3850,6 +3852,68 @@ Extended and deferred require python3.")
   "w p 0" '(popwin:close-popup-window :wk "Close Popwin Popup")
   "w p SPC" '(popwin:select-popup-window :wk "Select Popup Window")
   "w p s" '(popwin:stick-popup-window :wk "Stick Popup Window"))
+
+(use-package org-pdftools
+  :defer t
+  :hook (org-load . org-pdftools-setup-link))
+
+(use-package pdf-tools
+  :defer t
+  :magic ("%PDF" . pdf-view-mode)
+  :hook (pdf-view-mode . pdf-view-midnight-minor-mode)
+  :custom
+  (pdf-view-midnight-colors '("#1e1e2e" . "#cdd6f4"))
+  (pdf-view-continuous t)
+  ;; Point to system-installed epdfinfo
+  (pdf-info-epdfinfo-program "/usr/bin/epdfinfo")
+
+  :config
+  (custom-set-faces
+   '(pdf-view-highlight-face ((t (:background "#f9e2af" :foreground "#1e1e2e"))))
+   '(pdf-view-link-face ((t (:foreground "#89b4fa"))))
+   '(pdf-view-active-link-face ((t (:foreground "#cba6f7")))))
+  ;; Ensure Org mode integration is set up after Org itself is loaded.
+  (with-eval-after-load 'org
+    (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
+    (setq org-pdftools-link-prefix "pdf")))
+
+(use-package org-noter
+  :defer t
+  :after (org pdf-view)
+  :custom
+  ;; Store all notes inside the dedicated `noter` directory.
+  (org-noter-notes-search-path (list my/org-noter-directory))
+  ;; Use a consistent naming scheme for note files.
+  (org-noter-notes-file-name "%s.org")
+  ;; Automatically create a new heading for each note.
+  (org-noter-insert-note-no-questions t)
+  ;; Keep the notes window focused after creating a note.
+  (org-noter-always-focus-on-notes-buffer t)
+  ;; Customize the note heading template.
+  (org-noter-heading-application-function 'org-noter-insert-heading-at-point)
+  (org-noter-note-heading-template "* %s\n:PROPERTIES:\n:NOTER_PAGE: %p\n:NOTER_LEFT: %l\n:NOTER_RIGHT: %r\n:END:\n\n")
+
+  :config
+  ;; Custom function to create a new notes file if one doesn't exist
+  ;; or find the existing one and open it side-by-side.
+  (defun ar/org-noter-find-or-create-notes ()
+    "Find the notes for the current PDF or create a new notes file.
+Opens the notes in a split window to the right."
+    (interactive)
+    (let ((pdf-path (buffer-file-name)))
+      (unless pdf-path
+        (error "Current buffer is not visiting a file"))
+      (let* ((pdf-name (file-name-nondirectory pdf-path))
+             (notes-file (expand-file-name (format "%s.org" (file-name-sans-extension pdf-name)) my/org-noter-directory)))
+        (if (file-exists-p notes-file)
+            (find-file notes-file)
+          (progn
+            (find-file notes-file)
+            (insert (format "#+title: Notes on %s\n\n" pdf-name))))
+        (delete-other-windows)
+        (split-window-right)
+        (windmove-right)
+        (find-file pdf-path)))))
 
 (use-package gnuplot
   :defer t

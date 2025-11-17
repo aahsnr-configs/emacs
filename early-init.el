@@ -97,6 +97,10 @@ of the progress or any relevant activities during startup.")
   "Directory beneath minimal-emacs.d files are placed.
 Note that this should end with a directory separator.")
 
+(defun get-minimal-emacs-user-directory ()
+  "Return the value of `minimal-emacs-user-directory`."
+  minimal-emacs-user-directory)
+
 ;;; Load pre-early-init.el
 
 ;; Prefer loading newer compiled files
