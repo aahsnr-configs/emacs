@@ -349,7 +349,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Session Management
 #+begin_src emacs-lisp
 (use-package autorevert
-  :straight (:type built-in)
+  :ensure nil
   :hook (after-init . global-auto-revert-mode)
   :custom
   (auto-revert-interval 3)
@@ -359,7 +359,7 @@ Lower this if you experience freezing, raise if stuttering.")
   (auto-revert-verbose nil))  ;; Suppress messages
 
 (use-package recentf
-  :straight (:type built-in)
+  :ensure nil
   :hook (after-init . recentf-mode)
   :custom
   (recentf-max-saved-items 200)  ;; Limit for performance
@@ -374,7 +374,7 @@ Lower this if you experience freezing, raise if stuttering.")
          "/tmp/" "/ssh:" "/sudo:" "recentf")))
 
 (use-package savehist
-  :straight (:type built-in)
+  :ensure nil
   :hook (after-init . savehist-mode)
   :custom
   (savehist-file (locate-user-emacs-file "savehist"))
@@ -389,7 +389,7 @@ Lower this if you experience freezing, raise if stuttering.")
   (history-delete-duplicates t))
 
 (use-package saveplace
-  :straight (:type built-in)
+  :ensure nil
   :hook (after-init . save-place-mode)
   :custom
   (save-place-limit 400))
@@ -567,7 +567,7 @@ This setup defines a robust function to find and set the best available font fro
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
-  :straight (:type built-in)
+  :ensure nil
   :defer 0.5
   :hook (after-init . which-key-mode)
   :custom
@@ -1101,7 +1101,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
     "j i" '(ace-link-info :wk "Jump to Link (Info)")
     "j e" '(ace-link-eww :wk "Jump to Link (EWW)")))
 
-(use-package ace-link :straight t :defer t)
+(use-package ace-link :defer t)
 #+end_src
 
 ** Rainbow Delimiters
@@ -1181,7 +1181,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ** Indent Bars
 #+begin_src emacs-lisp
 (use-package indent-bars
-  :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
   :custom
   (indent-bars-treesit-support t)
   (indent-bars-no-descend-string t)
@@ -1461,7 +1460,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 *vertico-directory* simplifies directory navigation.
 #+begin_src emacs-lisp
 (use-package vertico-directory
-  :straight (:type built-in)
+  :ensure nil
   :after vertico
   ;; More convenient directory navigation commands
   :bind (:map vertico-map
@@ -1868,7 +1867,7 @@ Only tangles if the file has been modified and saved."
 =Disable Optimizations if needed=
 #+begin_src emacs-lisp
 (use-package org
-  :straight (:type built-in)
+  :ensure nil
   :mode ("\\.org\\'" . org-mode)
   :hook
   ((org-mode . visual-line-mode)
@@ -2138,7 +2137,7 @@ Only tangles if the file has been modified and saved."
 *Use dynamic directory*
 #+begin_src emacs-lisp
 (use-package org-capture
-  :straight (:type built-in)
+  :ensure nil
   :after org
   :custom
   (org-capture-templates
@@ -2191,7 +2190,7 @@ Only tangles if the file has been modified and saved."
 ** Org Habit
 #+begin_src emacs-lisp
 (use-package org-habit
-  :straight (:type built-in)
+  :ensure nil
   :defer t
   :after org
   :custom
@@ -3049,7 +3048,7 @@ Extended and deferred require python3.")
                                 ("pdf" . "zathura"))))
 
 (use-package dired
-  :straight (:type built-in)
+  :ensure nil
   :commands (dired dired-jump)
   :hook (dired-mode . dired-hide-dotfiles-mode)
   :custom
@@ -3090,7 +3089,7 @@ Extended and deferred require python3.")
     (kbd "gr") 'revert-buffer))
 
 (use-package dired-x
-  :straight (:type built-in)
+  :ensure nil
   :after dired
   :custom
   (dired-x-hands-off-my-keys nil)
@@ -3119,7 +3118,7 @@ Extended and deferred require python3.")
 #+begin_src emacs-lisp
 (use-package project
   :defer t
-  :straight (:type built-in)
+  :ensure nil
   :custom
   (project-vc-extra-root-markers '(".envrc" ".project" "pyproject.toml" "Cargo.toml" ".git" "flake.nix"))
   (project-list-file (expand-file-name "projects" no-littering-var-directory))
@@ -3220,7 +3219,7 @@ Extended and deferred require python3.")
 #+begin_src emacs-lisp
 (use-package bookmark
   :defer t
-  :straight (:type built-in)
+  :ensure nil
   :custom
   (bookmark-default-file (expand-file-name "bookmarks" no-littering-var-directory))
   (bookmark-save-flag 1))
@@ -3427,7 +3426,7 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
 
 #+begin_src emacs-lisp
 (use-package tex
-  :straight auctex
+  :ensure auctex
   :defer t
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
@@ -3677,7 +3676,7 @@ RefTeX provides powerful cross-referencing capabilities. We use it only for refe
 
 #+begin_src emacs-lisp
 (use-package reftex
-  :straight (:type built-in)
+  :ensure nil
   :after tex
   :hook (LaTeX-mode . reftex-mode)
   :custom
@@ -4219,7 +4218,6 @@ Returns t if a popup was closed, nil otherwise."
 #+begin_src emacs-lisp
 (use-package gnuplot
   :defer t
-  :straight t
   :mode (("\\.gp\\'" . gnuplot-mode)
          ("\\.gnuplot\\'" . gnuplot-mode))
   :custom
