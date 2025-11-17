@@ -93,27 +93,18 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ** Package Management
 #+begin_src emacs-lisp
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name
-        "straight/repos/straight.el/bootstrap.el"
-        (or (bound-and-true-p straight-base-dir)
-            user-emacs-directory)))
-      (bootstrap-version 7))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
+(require 'package)
 
-(straight-use-package 'use-package)
-(setq straight-use-package-by-default t)
+(setq package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+                         ("melpa" . "https://melpa.org/packages/")))
+(package-initialize)
+(unless package-archive-contents
+  (package-refresh-contents))
 
 (eval-and-compile
   (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
+	use-package-always-ensure t
         use-package-expand-minimally t
         use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
         ;;use-package-always-defer t
@@ -129,6 +120,21 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Performance Tuning
 
 #+begin_src emacs-lisp
+;; ====================
+;; PGTK/Wayland Mitigations
+;; ====================
+;; Mitigate Input Lag by disabling GTK input methods.
+;; The function `pgtk-use-im-context` MUST be called after a frame is
+;; created, otherwise it will error. We hook it into `after-make-frame-functions`
+;; to ensure it runs at the correct time, both on startup and for new frames
+;; created by emacsclient in daemon mode.
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
+
+
 ;; ====================
 ;; BIDI OPTIMIZATION
 ;; ====================
@@ -1175,16 +1181,23 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ** Indent Bars
 #+begin_src emacs-lisp
 (use-package indent-bars
-  :defer t
-  :hook ((prog-mode . indent-bars-mode)
-         (tex-mode . indent-bars-mode)
-         (org-src-mode . indent-bars-mode))
-  :config
-  (require 'indent-bars-ts)
-  (setopt indent-bars-no-descend-lists t
-          indent-bars-treesit-support t
-          indent-bars-width-frac 0.3))
+  :straight (indent-bars :type git :host github :repo "jdtsmith/indent-bars")
+  :custom
+  (indent-bars-treesit-support t)
+  (indent-bars-no-descend-string t)
+  (indent-bars-treesit-ignore-blank-lines-types '("module"))
+  (indent-bars-treesit-wrap '((python argument_list parameters
+                      list list_comprehension
+                      dictionary dictionary_comprehension
+                      parenthesized_expression subscript)))
+  (indent-bars-pattern "....")
+  (indent-bars-width-frac 0.25)
+  (indent-bars-pad-frac 0.2)
+  :hook ((prog-mode yaml-mode) . indent-bars-mode))
 #+end_src
+
+#+RESULTS:
+| indent-bars-mode |
 
 ** Jinx
 #+begin_src emacs-lisp
@@ -1402,59 +1415,35 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 ;; (setq hscroll-margin 1)
 #+end_src
 
+** Symbol Highlighting
+#+begin_src emacs-lisp
+(use-package symbol-overlay
+  :defer t
+  :hook (prog-mode . symbol-overlay-mode)
+  :bind (("M-i" . symbol-overlay-put)
+         ("M-n" . symbol-overlay-jump-next)
+         ("M-p" . symbol-overlay-jump-prev)))
+#+end_src
+
 * Completion Framework
+** Basic Completion
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :custom
+  (completion-cycle-threshold 3)
+  (tab-always-indent 'complete)
+  (text-mode-ispell-word-completion nil)
+  (read-extended-command-predicate #'command-completion-default-include-p))
+#+end_src
+
 ** Orderless for Advanced Filtering
 #+begin_src emacs-lisp
 (use-package orderless
-  :demand t
-  :config
-  ;; Doom's custom dispatcher for advanced filtering
-  (defun +orderless-consult-dispatch (word _index _total)
-    "Orderless dispatcher for consult async commands."
-    (cond
-     ;; Ensure $ works with Consult tofu suffixes
-     ((string-suffix-p "$" word)
-      `(orderless-regexp . ,(concat (substring word 0 -1)
-                                    (if (fboundp 'consult--tofu-regexp)
-                                        (consult--tofu-regexp)
-                                      "\\'"))))
-     ;; File extensions
-     ((and (or minibuffer-completing-file-name
-               (derived-mode-p 'eshell-mode))
-           (string-match-p "\\`\\.[^/]+\\'" word))
-      `(orderless-regexp . ,(concat "\\." (substring word 1)
-                                    (if (fboundp 'consult--tofu-regexp)
-                                        (consult--tofu-regexp)
-                                      "\\'"))))
-     ;; Ignore wildcards
-     ((string-prefix-p "!" word)
-      `(orderless-without-literal . ,(substring word 1)))))
-
-  ;; Doom's style with initialism by default
-  (orderless-define-completion-style +orderless-with-initialism
-    (orderless-matching-styles '(orderless-initialism
-                                  orderless-literal
-                                  orderless-regexp)))
-
-  (setq completion-styles '(orderless basic)
-        completion-category-defaults nil
-        completion-category-overrides
-        '((file (styles partial-completion))
-          ;; Enable initialism for commands/variables
-          (command (styles +orderless-with-initialism))
-          (variable (styles +orderless-with-initialism))
-          (symbol (styles +orderless-with-initialism)))
-
-        ;; CRITICAL: Doom's escapable split
-        orderless-component-separator #'orderless-escapable-split-on-space
-
-        ;; Doom's style dispatchers
-        orderless-style-dispatchers
-        (list #'+orderless-consult-dispatch
-              #'orderless-affix-dispatch))
-
-  ;; Performance: Don't highlight all matches in long candidate lists
-  (setq orderless-highlight-matches-in-minibuffer nil))
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles partial-completion))))
+  (completion-pcm-leading-wildcard t)) ;; Emacs 31: partial-completion behaves like substring
 #+end_src
 
 ** Vertico: The Vertical Completion UI
@@ -1656,11 +1645,33 @@ then it takes a second invocation to abort the minibuffer."
 
 ** Corfu
 #+begin_src emacs-lisp
+;; (use-package corfu
+;;   :hook (after-init . global-corfu-mode)
+;;   :config
+;;   (corfu-history-mode)
+;;   (corfu-popupinfo-mode) ; don't set delay or
+;;   :bind
+;;   (:map corfu-map
+;;         ("TAB" . corfu-next)
+;;         ([tab] . corfu-next)
+;;         ("S-TAB" . corfu-previous)
+;;         ([backtab] . corfu-previous)
+;;         ("C-c h" . corfu-info-documentation))
+;;   :custom
+;;   (corfu-cycle t)
+;;   (corfu-auto t)
+;;   (corfu-auto-resize nil)
+;;   (corfu-auto-delay 0.13)
+;;   (corfu-preselect 'prompt)
+;;   (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
+;;   (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
+;;   (corfu-on-exact-match nil))
+
+;; (orderless-define-completion-style orderless-literal-only
+;;   (orderless-style-dispatchers nil)
+;;   (orderless-matching-styles '(orderless-literal)))
+
 (use-package corfu
-  :hook (after-init . global-corfu-mode)
-  :config
-  (corfu-history-mode)
-  (corfu-popupinfo-mode) ; don't set delay or
   :bind
   (:map corfu-map
         ("TAB" . corfu-next)
@@ -1668,19 +1679,19 @@ then it takes a second invocation to abort the minibuffer."
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
         ("C-c h" . corfu-info-documentation))
+  :config
+  (corfu-history-mode)
+  (corfu-popupinfo-mode)
   :custom
-  (corfu-cycle t)
-  (corfu-auto t)
-  (corfu-auto-resize nil)
-  (corfu-auto-delay 0.13)
-  (corfu-preselect 'prompt)
-  (corfu-quit-at-boundary 'separator) ; hecks if the current completion boundary has been left
-  (corfu-quit-no-match 'separator) ; corfu completion will quit eagerly
-  (corfu-on-exact-match nil))
+  (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+  (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  (corfu-preview-current nil)    ;; Disable current candidate preview
+  (corfu-preselect 'prompt)      ;; Preselect the prompt
+  (corfu-on-exact-match 'insert) ;; Configure handling of exact matches
 
-(orderless-define-completion-style orderless-literal-only
-  (orderless-style-dispatchers nil)
-  (orderless-matching-styles '(orderless-literal)))
+  :init
+  (global-corfu-mode))
 #+end_src
 
 ** Nerd Icons Corfu
@@ -1693,22 +1704,18 @@ then it takes a second invocation to abort the minibuffer."
 ** Cape
 #+begin_src emacs-lisp
 (use-package cape
-  :commands (cape-file cape-elisp-block cape-keyword)
-  :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
-  :autoload (cape-wrap-silent cape-wrap-purify)
   :init
   (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
   (add-to-list 'completion-at-point-functions #'cape-keyword)
-  ;; (add-to-list 'completion-at-point-functions #'cape-abbrev)
 
   ;; Make these capfs composable.
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add 'comint-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
-  (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
+  ;; (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+  ;; (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
 #+end_src
 
@@ -1724,7 +1731,6 @@ then it takes a second invocation to abort the minibuffer."
   (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
   (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
 #+end_src
-
 
 ** Wgrep: Writable Grep
 #+begin_src emacs-lisp
@@ -2425,22 +2431,14 @@ Only tangles if the file has been modified and saved."
 #+begin_src emacs-lisp
 (use-package lsp-mode
   :defer t
-  :commands (lsp lsp-deferred)
   :hook (prog-mode . lsp-deferred)
-  :init
-  (setq lsp-keymap-prefix "C-c l")
   :custom
-  ;; --- UI & Functionality Enhancements ---
   (lsp-semantic-tokens-enable t)
   (lsp-headerline-breadcrumb-enable t)
   (lsp-lens-enable t)
   (lsp-modeline-diagnostics-enable t)
-
-  ;; --- Diagnostics & Completion Integration ---
   (lsp-diagnostics-provider :flycheck)
   (lsp-completion-provider :none)
-
-  ;; --- Performance & Behavior ---
   (lsp-eldoc-render-all nil)
   (lsp-idle-delay 0.2)
   (lsp-log-io nil)
@@ -2448,8 +2446,6 @@ Only tangles if the file has been modified and saved."
 
 (use-package lsp-ui
   :defer t
-  :after lsp-mode
-  :commands lsp-ui-mode
   :hook (lsp-mode . lsp-ui-mode)
   :custom
   (lsp-ui-doc-position 'at-point)
@@ -3932,32 +3928,14 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
 #+end_src
 
 * Python Development Environment
+** LSP Pyright
 #+begin_src emacs-lisp
 (use-package lsp-pyright
   :after lsp-mode
   :custom
-  ;; Use basedpyright instead of pyright
-  (lsp-pyright-langserver-command "basedpyright-langserver")
-
-  ;; Type checking - use "all" for basedpyright's strictest mode
-  (lsp-pyright-type-checking-mode "standard")  ;; Change to "all" for maximum strictness
-
-  ;; Diagnostic mode - "workspace" analyzes all files
-  (lsp-pyright-diagnostic-mode "workspace")
-
-  ;; Enable basedpyright-specific inlay hints
-  (lsp-pyright-basedpyright-inlay-hints-variable-types t)
-  (lsp-pyright-basedpyright-inlay-hints-function-return-types t)
-  (lsp-pyright-basedpyright-inlay-hints-call-argument-names t)
-  (lsp-pyright-basedpyright-inlay-hints-generic-types nil)
-
-  ;; Auto-import settings
-  (lsp-pyright-auto-import-completions t)
-  (lsp-pyright-auto-search-paths t)
-
-  ;; Python executable detection
-  (lsp-pyright-python-executable-cmd "python3")
-
+  (lsp-pyright-langserver-command "basedpyright")
+  (lsp-pyright-type-checking-mode "standard")
+  (lsp-pyright-diagnostic-mode "openFilesOnly")
   :hook (python-ts-mode . (lambda ()
                             (require 'lsp-pyright)
                             (lsp-deferred))))
