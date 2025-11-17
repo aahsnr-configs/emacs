@@ -28,5 +28,3 @@
 (eval-when-compile
   (require 'use-package)
   (require 'bind-key))
-
-(use-package no-littering :demand t)  ;; Must load immediately
