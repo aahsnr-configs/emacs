@@ -958,6 +958,7 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 (use-package rainbow-mode
   :defer t
   :hook ((prog-mode . rainbow-mode)
+	 (LaTeX-mode . rainbow-mode)
          (org-mode . rainbow-mode)))
 #+end_src
 
@@ -2520,16 +2521,22 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   :defer t
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
+	 (LaTeX-mode . TeX-source-correlate-mode) ; Enable forward/inverse search
          (LaTeX-mode . TeX-fold-mode))
   :custom
   (TeX-engine 'luatex)
   (TeX-process-asynchronous t)  ; Don't hang Emacs during compilation
   (TeX-check-TeX nil)            ; Don't look for traditional TeX distributions
   (TeX-clean-confirm nil)
+  (TeX-electric-math nil)
+  (TeX-display-help nil)
+
   ;; === Viewer Configuration ===
   (TeX-view-program-selection '((output-pdf "PDF Tools")))
-  (TeX-source-correlate-mode t)  ; Enable forward/inverse search
-  (TeX-PDF-mode t)               ; Always produce PDF output
+  (TeX-source-correlate-mode t)
+  (TeX-source-correlate-method 'synctex)
+  (TeX-source-correlate-start-server nil)
+  (TeX-PDF-mode t)
 
   ;; === Parsing and Auto-save ===
   (TeX-auto-save t)
@@ -2539,6 +2546,12 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   ;; === Indentation ===
   (LaTeX-indent-level 2)
   (LaTeX-item-indent 0)
+  (TeX-brace-indent-level 2)
+
+  ;; Use hidden directories for AUCTeX files.
+  (TeX-auto-local ".auctex-auto")
+  (TeX-style-local ".auctex-style")
+
 
   :config
   (add-to-list 'TeX-command-list
@@ -2566,9 +2579,15 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
           "\\.fdb_latexmk" "\\.fls" "\\.xdv"
           "-blx\\.bib" "\\.run\\.xml"))
 
+  (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
+
+  (add-to-list 'auto-mode-alist '("\\.map\\'" . TeX-mode))
   ;; === Simplify LaTeX command style for Tectonic ===
   (setq LaTeX-command-style '(("" "%(latex)"))))
 
+(custom-set-variables
+ '(font-latex-fontify-script 'multi-level)
+ '(font-latex-fontify-sectioning '1.2))
 #+end_src
 
 ** Evil Integration for LaTeX
@@ -2690,7 +2709,10 @@ We configure Citar to use our project-aware helper function via buffer-local var
   :hook (LaTeX-mode . reftex-mode)
   :custom
   (reftex-plug-into-AUCTeX t)
-  (reftex-default-bibliography nil))
+  (reftex-default-bibliography nil)
+  ;; Doom-style TOC navigation
+  (reftex-toc-split-windows-horizontally t)
+  (reftex-toc-split-windows-fraction 0.2))
 #+end_src
 
 ** Fast LaTeX Input
@@ -2840,6 +2862,143 @@ We configure Citar to use our project-aware helper function via buffer-local var
 (use-package org-fragtog
   :defer t
   :hook (org-mode . org-fragtog-mode))
+#+end_src
+
+** LSP Integration
+#+begin_src emacs-lisp
+(use-package lsp-latex
+  :straight (:host github :repo "ROCKTAKEY/lsp-latex")
+  :after (tex bibtex)
+  :hook
+  ((tex-mode . lsp-deferred)
+   (LaTeX-mode . lsp-deferred)
+   (bibtex-mode . lsp-deferred))
+  :custom
+  ;; Zathura settings from sample.txt
+  (lsp-latex-forward-search-executable "zathura")
+  (lsp-latex-forward-search-args '("--synctex-forward" "%l:1:%f" "%p")))
+#+end_src
+
+** Fontification
+#+begin_src emacs-lisp
+;; Fontification taken from https://tex.stackexchange.com/a/86119/81279.
+(setq font-latex-match-reference-keywords
+      '(;; BibLaTeX.
+        ("printbibliography" "[{")
+        ("addbibresource" "[{")
+        ;; Standard commands.
+        ("cite" "[{")
+        ("citep" "[{")
+        ("citet" "[{")
+        ("Cite" "[{")
+        ("parencite" "[{")
+        ("Parencite" "[{")
+        ("footcite" "[{")
+        ("footcitetext" "[{")
+        ;; Style-specific commands.
+        ("textcite" "[{")
+        ("Textcite" "[{")
+        ("smartcite" "[{")
+        ("Smartcite" "[{")
+        ("cite*" "[{")
+        ("parencite*" "[{")
+        ("supercite" "[{")
+        ;; Qualified citation lists.
+        ("cites" "[{")
+        ("Cites" "[{")
+        ("parencites" "[{")
+        ("Parencites" "[{")
+        ("footcites" "[{")
+        ("footcitetexts" "[{")
+        ("smartcites" "[{")
+        ("Smartcites" "[{")
+        ("textcites" "[{")
+        ("Textcites" "[{")
+        ("supercites" "[{")
+        ;; Style-independent commands.
+        ("autocite" "[{")
+        ("Autocite" "[{")
+        ("autocite*" "[{")
+        ("Autocite*" "[{")
+        ("autocites" "[{")
+        ("Autocites" "[{")
+        ;; Text commands.
+        ("citeauthor" "[{")
+        ("Citeauthor" "[{")
+        ("citetitle" "[{")
+        ("citetitle*" "[{")
+        ("citeyear" "[{")
+        ("citedate" "[{")
+        ("citeurl" "[{")
+        ;; Special commands.
+        ("fullcite" "[{")
+        ;; Cleveref.
+        ("cref" "{")
+        ("Cref" "{")
+        ("cpageref" "{")
+        ("Cpageref" "{")
+        ("cpagerefrange" "{")
+        ("Cpagerefrange" "{")
+        ("crefrange" "{")
+        ("Crefrange" "{")
+        ("labelcref" "{")))
+
+(setq font-latex-match-textual-keywords
+      '(;; BibLaTeX brackets.
+        ("parentext" "{")
+        ("brackettext" "{")
+        ("hybridblockquote" "[{")
+        ;; Auxiliary commands.
+        ("textelp" "{")
+        ("textelp*" "{")
+        ("textins" "{")
+        ("textins*" "{")
+        ;; Subcaption.
+        ("subcaption" "[{")))
+
+(setq font-latex-match-variable-keywords
+      '(;; Amsmath.
+        ("numberwithin" "{")
+        ;; Enumitem.
+        ("setlist" "[{")
+        ("setlist*" "[{")
+        ("newlist" "{")
+        ("renewlist" "{")
+        ("setlistdepth" "{")
+        ("restartlist" "{")
+        ("crefname" "{")))
+#+end_src
+
+** Smartparens LaTeX Integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'smartparens
+  ;; Define LaTeX-specific pairs
+  (sp-with-modes '(tex-mode plain-tex-mode latex-mode)
+    ;; Inhibit pair insertion if inside a math environment (prevents messes in equations)
+    (sp-local-pair "$" "$"
+                   :unless '(sp-point-after-word-p sp-in-math-p))
+    (sp-local-pair "\\[" "\\]"
+                   :unless '(sp-point-after-word-p sp-in-math-p))
+    ;; Doom-style: Smart quotes
+    (sp-local-pair "``" "''" :trigger "`")
+    (sp-local-pair "\\<" "\\>" :trigger "\\<")))
+#+end_src
+
+** Preview LaTeX
+#+begin_src emacs-lisp
+(use-package preview
+  :straight nil  ; Part of AUCTeX, do not install separately
+  :after tex
+  :hook (LaTeX-mode . LaTeX-preview-setup)
+  :custom
+  (preview-auto-cache-preamble t)
+  (preview-fast-conversion t) ; Faster ghostscript conversion
+  :config
+  ;; Doom-like scaling: adapts preview size to current font height
+  (setq-default preview-scale 1.4
+                preview-scale-function
+                (lambda () (* (/ 10.0 (face-attribute 'default :height))
+                              (face-attribute 'default :height)))))
 #+end_src
 
 ** Global Keybindings
@@ -2997,42 +3156,6 @@ We configure Citar to use our project-aware helper function via buffer-local var
   "o j" '(:ignore t :wk "jupyter tangle")
   "o j t" '(my/jupyter-set-tangle-file :wk "Set tangle file (subtree)")
   "o j T" '(my/jupyter-setup-project-tangle :wk "Setup file-level tangle"))
-#+end_src
-
-** EIN
-#+begin_src emacs-lisp
-(use-package ein
-  :commands (ein:run ein:login ein:notebooklist-open ein:ipynb-mode)
-  :config
-  ;; Configuration
-  (setq ein:output-area-inlined-images t
-        ein:slice-image t
-        ein:query-timeout 1000
-        ein:default-url-or-port "http://localhost:8888"
-        ein:completion-backend 'ein:use-none-backend
-        ein:use-auto-complete-superpack nil)
-
-  ;; Keybindings
-  (ar/global-leader
-    "e" '(:ignore t :wk "ein (notebooks)")
-    "e l" '(ein:login :wk "Login")
-    "e r" '(ein:run :wk "Run server")
-    "e o" '(ein:notebooklist-open :wk "Open list")
-    "e s" '(ein:stop :wk "Stop server"))
-
-  ;; Evil integration
-  (with-eval-after-load 'evil
-    (evil-define-key 'normal ein:notebook-mode-map
-      (kbd "RET") 'ein:worksheet-execute-cell-and-goto-next
-      (kbd "C-<return>") 'ein:worksheet-execute-cell
-      (kbd "S-<return>") 'ein:worksheet-execute-cell-and-insert-below)
-
-    (evil-define-key 'insert ein:notebook-mode-map
-      (kbd "C-<return>") 'ein:worksheet-execute-cell
-      (kbd "S-<return>") 'ein:worksheet-execute-cell-and-insert-below)))
-
-;; Auto-open .ipynb files with ein
-(add-to-list 'auto-mode-alist '("\\.ipynb\\'" . ein:ipynb-mode))
 #+end_src
 
 ** ANSI Colors
