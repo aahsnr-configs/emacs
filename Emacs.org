@@ -24,8 +24,11 @@ Lower this if you experience freezing, raise if stuttering.")
           (lambda ()
             (setq gc-cons-threshold better-gc-cons-threshold
                   gc-cons-percentage better-gc-cons-percentage)
-            (setq file-name-handler-alist file-name-handler-alist-original)
-            (makunbound 'file-name-handler-alist-original)
+
+            ;; FIX: Only restore file handlers if the original variable actually exists
+            (when (boundp 'file-name-handler-alist-original)
+              (setq file-name-handler-alist file-name-handler-alist-original)
+              (makunbound 'file-name-handler-alist-original))
 
             ;; Report startup time
             (message "Emacs loaded in %.2fs with %d GCs"
@@ -45,44 +48,6 @@ Lower this if you experience freezing, raise if stuttering.")
 
             (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
             (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
-#+end_src
-
-** Define Constants
-#+begin_src emacs-lisp
-(defconst *sys/win32*
-  (eq system-type 'windows-nt)
-  "Are we running on a WinTel system?")
-
-(defconst *sys/linux*
-  (eq system-type 'gnu/linux)
-  "Are we running on a GNU/Linux system?")
-
-(defconst *sys/mac*
-  (eq system-type 'darwin)
-  "Are we running on a Mac system?")
-
-(defconst python-p
-  (or (executable-find "python3")
-      (and (executable-find "python")
-	   ;;<
-           (> (length (shell-command-to-string "python --version | grep 'Python 3'")) 0)))
-  "Do we have python3?")
-
-(defconst pip-p
-  (or (executable-find "pip3")
-      (and (executable-find "pip")
-	   ;;<
-           (> (length (shell-command-to-string "pip --version | grep 'python 3'")) 0)))
-  "Do we have pip3?")
-
-(defconst clangd-p
-  (or (executable-find "clangd")  ;; usually
-      (executable-find "/usr/local/opt/llvm/bin/clangd"))  ;; macOS
-  "Do we have clangd?")
-
-(defconst eaf-env-p
-  (and (display-graphic-p) python-p pip-p)
-  "Do we have EAF environment setup?")
 #+end_src
 
 ** Package Management
@@ -128,11 +93,11 @@ Lower this if you experience freezing, raise if stuttering.")
 ;; created, otherwise it will error. We hook it into `after-make-frame-functions`
 ;; to ensure it runs at the correct time, both on startup and for new frames
 ;; created by emacsclient in daemon mode.
-;; (when (fboundp 'pgtk-use-im-context)
-;;   (add-hook 'after-make-frame-functions
-;;             (lambda (frame)
-;;               (with-selected-frame frame
-;;                 (pgtk-use-im-context nil)))))
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
 
 
 ;; ====================
@@ -183,17 +148,6 @@ Lower this if you experience freezing, raise if stuttering.")
       fast-but-imprecise-scrolling t  ;; Trade accuracy for speed
       redisplay-skip-fontification-on-input t)  ;; Skip during rapid input
 
-;; ====================
-;; REDISPLAY OPTIMIZATIONS
-;; ====================
-(setq redisplay-skip-fontification-on-input t)  ; Doom's setting
-(setq jit-lock-defer-time 0)
-(setq jit-lock-stealth-time 0.5)
-
-;; ====================
-;; CURSOR OPTIMIZATION
-;; ====================
-(setq-default cursor-in-non-selected-windows nil)  ;; Don't show cursor in other windows
 (setq highlight-nonselected-windows nil)
 (setq blink-cursor-mode nil)
 
@@ -275,96 +229,6 @@ Lower this if you experience freezing, raise if stuttering.")
       user-mail-address "ahsanur041@proton.me")
 #+end_src
 
-** Bindings
-#+begin_src emacs-lisp
-;; Unbind unneeded keys
-(global-set-key (kbd "C-z") nil)
-(global-set-key (kbd "M-z") nil)
-(global-set-key (kbd "M-m") nil)
-(global-set-key (kbd "C-x C-z") nil)
-(global-set-key (kbd "M-/") nil)
-;; Truncate lines
-(global-set-key (kbd "C-x C-l") #'toggle-truncate-lines)
-;; Adjust font size like web browsers
-(global-set-key (kbd "C-=") #'text-scale-increase)
-(global-set-key (kbd "C-+") #'text-scale-increase)
-(global-set-key (kbd "C--") #'text-scale-decrease)
-;; Move up/down paragraph
-(global-set-key (kbd "M-n") #'forward-paragraph)
-(global-set-key (kbd "M-p") #'backward-paragraph)
-;; Revert buffer
-(global-set-key (kbd "<f5>") #'revert-buffer-quick)
-#+end_src
-
-#+RESULTS:
-: revert-buffer-quick
-
-** Custom Functions
-#+begin_src emacs-lisp
-(defun ar/reload-config ()
-  "Reload the Emacs configuration."
-  (interactive)
-  ;; Assuming config.org is the main configuration file and this config.el is tangled from it.
-  ;; If config.el is the primary config, change to: (load-file (expand-file-name "config.el" user-emacs-directory))
-  (let ((config-file "~/.config/emacs/post-init.el"))
-    (if (file-exists-p config-file)
-        (progn
-          (message "Reloading Emacs configuration from config.org...")
-          (org-babel-load-file config-file)
-          (message "Configuration reloaded successfully!"))
-      (error "Configuration file %s not found" config-file))))
-
-;; NEW: Proper daemon shutdown function
-(defun ar/daemon-shutdown ()
-  "Properly shutdown the Emacs daemon without hanging."
-  (interactive)
-  (if (daemonp)
-      (progn
-        ;; Save important state quietly - with proper checks
-        (when (and (fboundp 'persp-save-state-to-file)
-                   (bound-and-true-p persp-mode)
-                   (boundp 'persp-hash)
-                   persp-hash
-                   (hash-table-p persp-hash))
-          (condition-case nil
-              (persp-save-state-to-file)
-            (error nil)))
-
-        ;; Save recentf quietly
-        (when (bound-and-true-p recentf-mode)
-          (condition-case nil
-              (recentf-save-list)
-            (error nil)))
-
-        ;; Kill without interactive prompts
-        (let ((kill-emacs-query-functions nil)
-              (confirm-kill-processes nil))
-          (save-some-buffers t)  ; Auto-save all buffers
-          (kill-emacs)))
-    (save-buffers-kill-terminal)))
-
-;; Add temporarily to find the problematic functions
-(defun ar/find-broken-interactive-forms ()
-  "Find functions with broken interactive forms."
-  (interactive)
-  (occur "(interactive \"<"))
-
-(defun my/org-babel-tangle-on-save ()
-  "Tangle the current org file if #+auto_tangle: t is set."
-  (when (and (eq major-mode 'org-mode)
-             (buffer-file-name))
-    (save-excursion
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+auto_tangle: *t" nil t)
-        (let ((inhibit-message t))
-          (condition-case err
-              (org-babel-tangle)
-            (error
-             (message "Tangle error: %s" (error-message-string err)))))))))
-
-(add-hook 'after-save-hook #'my/org-babel-tangle-on-save)
-#+end_src
-
 ** Session Management
 #+begin_src emacs-lisp
 (use-package autorevert
@@ -380,11 +244,10 @@ Lower this if you experience freezing, raise if stuttering.")
   (auto-revert-verbose t))
 
 (use-package recentf
-  :straight (:type built-in)
+  :ensure nil
   :commands (recentf-mode recentf-cleanup)
   :hook
   (after-init . recentf-mode)
-
   :custom
   (recentf-auto-cleanup (if (daemonp) 300 'never))
   (recentf-exclude
@@ -396,10 +259,6 @@ Lower this if you experience freezing, raise if stuttering.")
          "-autoloads\\.el$" "autoload\\.el$"))
 
   :config
-  ;; A cleanup depth of -90 ensures that `recentf-cleanup' runs before
-  ;; `recentf-save-list', allowing stale entries to be removed before the list
-  ;; is saved by `recentf-save-list', which is automatically added to
-  ;; `kill-emacs-hook' by `recentf-mode'.
   (add-hook 'kill-emacs-hook #'recentf-cleanup -90))
 
 (use-package savehist
@@ -451,7 +310,6 @@ Lower this if you experience freezing, raise if stuttering.")
 
 * UI & Theming
 ** Fonts
-This setup defines a robust function to find and set the best available font from a priority list. It prevents errors if a font is not installed and warns the user.
 #+begin_src emacs-lisp
 (defun ar/set-fonts ()
   "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
@@ -479,34 +337,29 @@ This setup defines a robust function to find and set the best available font fro
 
 ** Selective Line Numbers
 #+begin_src emacs-lisp
-;; Only enable line numbers in prog-mode and conf-mode
-;; CRITICAL: Never enable in org-mode or text-mode (huge performance hit)
 (dolist (mode '(prog-mode-hook conf-mode-hook))
   (add-hook mode (lambda () (display-line-numbers-mode t))))
-
-;; Explicitly disable in text modes
-(dolist (mode '(org-mode-hook text-mode-hook))
-  (add-hook mode (lambda () (display-line-numbers-mode -1))))
 #+end_src
 
 ** Theming
 #+begin_src emacs-lisp
-(use-package catppuccin-theme
-  :demand t
+(use-package doom-themes
   :custom
-  (catppuccin-highlight-matches t)
-  (catppuccin-italic-comments t)
-  (catppuccin-dark-line-numbers-background nil)  ;; CHANGED: Set to nil to prevent nil backgrounds
+  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
+  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; for treemacs users
+  (doom-themes-treemacs-theme "doom-tokyo-night") ; use "doom-colors" for less minimal icon theme
   :config
-  (setq catppuccin-flavor 'mocha)
-  (load-theme 'catppuccin t)
-  (custom-set-faces
-   '(bold ((t (:foreground "#f5e0dc" :weight bold))))
-   '(italic ((t (:foreground "#f38ba8" :slant italic))))
-   '(sp-show-pair-match-face ((t (:background "#b4befe" :foreground "black" :weight medium))))
-   ;; ADD: Explicit line-number faces to prevent nil values
-   '(line-number ((t (:inherit default :foreground "#6c7086"))))
-   '(line-number-current-line ((t (:inherit default :foreground "#cdd6f4" :weight bold))))))
+  (load-theme 'doom-tokyo-night t)
+
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (nerd-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
 #+end_src
 
 ** Solaire Mode
@@ -519,51 +372,53 @@ This setup defines a robust function to find and set the best available font fro
 
 ** Nerd Icons
 #+begin_src emacs-lisp
-;; (use-package nerd-icons
-;;   :defer 0.5
-;;   :custom
-;;   (nerd-icons-font-family "Symbols Nerd Font Mono")
-;;   (nerd-icons-color-icons t))
-
 (use-package nerd-icons
   :demand t  ; Force immediate load
   :custom
   (nerd-icons-font-family "Symbols Nerd Font Mono")
   (nerd-icons-color-icons t)
   :config
-  (setq inhibit-compacting-font-caches t)
-  ;; Pre-cache all icon families at startup
-  (dolist (family '(nerd-icons-codicon
-                    nerd-icons-faicon
-                    nerd-icons-flicon
-                    nerd-icons-mdicon
-                    nerd-icons-octicon
-                    nerd-icons-pomicon
-                    nerd-icons-powerline
-                    nerd-icons-sucicon
-                    nerd-icons-wicon
-                    nerd-icons-devicon))
-    ;; Call each function once to cache glyphs
-    (ignore-errors (funcall family "nf-md-home"))))
+  (setq inhibit-compacting-font-caches t))
 #+end_src
 
 ** Modeline
 #+begin_src emacs-lisp
+(size-indication-mode -1)
+(setq-default mode-line-percent-position nil)
+
 (use-package doom-modeline
   :defer 0.1
   :hook (after-init . doom-modeline-mode)
-  :config
-  (setq doom-modeline-height 28 ;; changing from 28 to 1
-        doom-modeline-bar-width 3
-        doom-modeline-icon t
-        doom-modeline-buffer-file-name-style 'auto
+  :hook (doom-modeline-mode . column-number-mode)
+  :init
+  (setq projectile-dynamic-mode-line nil)
+  (setq doom-modeline-bar-width 3
+        doom-modeline-github nil
+        doom-modeline-mu4e nil
+        doom-modeline-persp-name nil
         doom-modeline-minor-modes nil
-        doom-modeline-lsp-icon t
-        doom-modeline-indent-info t
-        doom-modeline-percent-position t
-        doom-modeline-github-timer nil
-        doom-modeline-gnus-timer nil))
-#+end_src
+        doom-modeline-major-mode-icon nil
+        doom-modeline-buffer-file-name-style 'relative-from-project)
+  :config
+  (setq doom-modeline-height 25
+        doom-modeline-column-zero-based nil
+        doom-modeline-bar-width 3
+        doom-modeline-buffer-file-size nil
+        doom-modeline-buffer-encoding nil
+        doom-modeline-percent-position nil
+        doom-modeline-vcs-icon t
+        doom-modeline-vcs-max-length 0))
+
+
+(use-package anzu
+  :bind (:map isearch-mode-map
+              ([remap isearch-query-replace] . anzu-isearch-query-replace)
+              ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
+  :init
+  (global-anzu-mode +1))
+
+(use-package evil-anzu :after evil)
+	#+end_src
 
 ** Dashboard
 #+begin_src emacs-lisp
@@ -1011,312 +866,6 @@ This setup defines a robust function to find and set the best available font fro
   (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
 #+end_src
 
-* Unified Escape Key System
-#+begin_src emacs-lisp
-;; ==========================
-;; UNIFIED ESCAPE KEY SYSTEM
-;; ==========================
-;; DO NOT DUPLICATE ESCAPE BINDINGS ELSEWHERE
-
-;; === CORE CONFIGURATION ===
-(defvar doom-escape-hook nil
-  "Hook run when `doom/escape' is called.
-Each function should return non-nil to prevent further processing.")
-
-;; === HELPER: Minibuffer Quit ===
-(defun ar/minibuffer-keyboard-quit ()
-  "Abort recursive edit properly in minibuffer."
-  (interactive)
-  (cond
-   ((and delete-selection-mode transient-mark-mode mark-active)
-    (setq deactivate-mark t))
-   (t
-    (when (get-buffer "*Completions*")
-      (delete-windows-on "*Completions*"))
-    (abort-recursive-edit))))
-
-;; === MAIN ESCAPE FUNCTION ===
-(defun doom/escape (&optional interactive)
-  "Unified escape sequence with proper priority handling."
-  (interactive "p")
-  (cond
-   ;; Don't interfere with keyboard macros
-   ((or defining-kbd-macro executing-kbd-macro) nil)
-
-   ;; Run custom hooks
-   ((run-hook-with-args-until-success 'doom-escape-hook))
-
-   ;; Active minibuffer
-   ((minibuffer-window-active-p (minibuffer-window))
-    (if (minibufferp)
-        (ar/minibuffer-keyboard-quit)
-      (abort-recursive-edit)))
-
-   ;; Evil visual state
-   ((and (bound-and-true-p evil-mode)
-         (fboundp 'evil-visual-state-p)
-         (evil-visual-state-p))
-    (evil-exit-visual-state))
-
-   ;; Evil operator state
-   ((and (bound-and-true-p evil-mode)
-         (fboundp 'evil-operator-state-p)
-         (evil-operator-state-p))
-    (evil-force-normal-state))
-
-   ;; Other non-normal Evil states
-   ((and (bound-and-true-p evil-mode)
-         (fboundp 'evil-normal-state-p)
-         (not (evil-normal-state-p))
-         (not (evil-emacs-state-p)))
-    (evil-force-normal-state))
-
-   ;; Fallback
-   (t (keyboard-quit))))
-
-;; === EVIL INTEGRATION ===
-(with-eval-after-load 'evil
-  ;; CRITICAL: Enable for terminal support
-  (when (fboundp 'evil-esc-mode)
-    (evil-esc-mode 1))
-
-  (setq evil-esc-delay 0.01)
-
-  ;; Global remap
-  (global-set-key [remap keyboard-quit] #'doom/escape)
-
-  ;; Evil state bindings
-  (define-key evil-insert-state-map [escape] #'evil-normal-state)
-  (define-key evil-visual-state-map [escape] #'evil-exit-visual-state)
-  (define-key evil-replace-state-map [escape] #'evil-normal-state)
-  (define-key evil-operator-state-map [escape] #'keyboard-quit)
-  (define-key evil-motion-state-map [escape] #'doom/escape)
-  (define-key evil-normal-state-map [escape] #'doom/escape)
-  (define-key evil-emacs-state-map [escape] #'doom/escape)
-
-  ;; Ex maps
-  (define-key evil-ex-completion-map [escape] #'abort-recursive-edit)
-  (define-key evil-ex-search-keymap [escape] #'abort-recursive-edit))
-
-;; === MINIBUFFER ===
-(define-key minibuffer-local-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-ns-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-completion-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-must-match-map [escape] #'ar/minibuffer-keyboard-quit)
-(define-key minibuffer-local-isearch-map [escape] #'ar/minibuffer-keyboard-quit)
-
-(with-eval-after-load 'replace
-  (define-key query-replace-map [escape] #'exit))
-
-(with-eval-after-load 'vertico
-  (define-key vertico-map [escape] #'ar/minibuffer-keyboard-quit))
-
-;; ==============================
-;; HOOK FUNCTIONS
-;; ==============================
-
-;; === COMPLETION ===
-(with-eval-after-load 'corfu
-  (defun ar/corfu-quit-on-escape ()
-    (when (and (bound-and-true-p corfu-mode)
-               (frame-live-p corfu--frame))
-      (corfu-quit)
-      t))
-  (add-hook 'doom-escape-hook #'ar/corfu-quit-on-escape)
-  (define-key corfu-map [escape] #'corfu-quit))
-
-(with-eval-after-load 'company
-  (defun ar/company-abort-on-escape ()
-    (when company-candidates
-      (company-abort)
-      t))
-  (add-hook 'doom-escape-hook #'ar/company-abort-on-escape))
-
-;; === WHICH-KEY ===
-(with-eval-after-load 'which-key
-  (defun ar/which-key-abort-on-escape ()
-    (when (bound-and-true-p which-key--popup-showing-p)
-      (which-key--hide-popup)
-      t))
-  (add-hook 'doom-escape-hook #'ar/which-key-abort-on-escape))
-
-;; === POPUPS ===
-(defun ar/popup-close-on-escape ()
-  (cond
-   ((and (bound-and-true-p popper-mode)
-         (popper-popup-p (current-buffer)))
-    (popper-close-latest)
-    t)
-   ((and (bound-and-true-p popper-mode)
-         popper-open-popup-alist)
-    (popper-close-latest)
-    t)
-   ((seq-find (lambda (win) (window-parameter win 'popup))
-              (window-list))
-    (delete-window (seq-find (lambda (win) (window-parameter win 'popup))
-                             (window-list)))
-    t)
-   (t nil)))
-
-(add-hook 'doom-escape-hook #'ar/popup-close-on-escape)
-
-;; === SPECIAL MODES ===
-(defun ar/quit-special-buffer-on-escape ()
-  (when (or (derived-mode-p 'special-mode)
-            (derived-mode-p 'messages-buffer-mode)
-            (derived-mode-p 'compilation-mode)
-            (derived-mode-p 'help-mode)
-            (derived-mode-p 'helpful-mode))
-    (quit-window)
-    t))
-
-(add-hook 'doom-escape-hook #'ar/quit-special-buffer-on-escape)
-
-(with-eval-after-load 'simple
-  (define-key special-mode-map [escape] #'quit-window)
-  (when (boundp 'messages-buffer-mode-map)
-    (define-key messages-buffer-mode-map [escape] #'quit-window)
-    (define-key messages-buffer-mode-map (kbd "q") #'quit-window)))
-
-(with-eval-after-load 'help-mode
-  (define-key help-mode-map [escape] #'quit-window)
-  (define-key help-mode-map (kbd "q") #'quit-window))
-
-(with-eval-after-load 'helpful
-  (define-key helpful-mode-map [escape] #'quit-window)
-  (define-key helpful-mode-map (kbd "q") #'quit-window))
-
-(with-eval-after-load 'compile
-  (define-key compilation-mode-map [escape] #'quit-window))
-
-;; === ORG MODE ===
-(with-eval-after-load 'org-agenda
-  (defun ar/org-agenda-quit-on-escape ()
-    (when (derived-mode-p 'org-agenda-mode)
-      (quit-window)
-      t))
-  (add-hook 'doom-escape-hook #'ar/org-agenda-quit-on-escape)
-  (define-key org-agenda-mode-map [escape] #'quit-window))
-
-;; === MAGIT ===
-(with-eval-after-load 'magit
-  (defun ar/magit-quit-on-escape ()
-    (when (derived-mode-p 'magit-mode)
-      (cond
-       ((and (boundp 'magit-popup-mode) magit-popup-mode)
-        (magit-popup-quit)
-        t)
-       (t
-        (magit-mode-bury-buffer)
-        t))))
-  (add-hook 'doom-escape-hook #'ar/magit-quit-on-escape))
-
-;; === OTHER MODES ===
-(with-eval-after-load 'dired
-  (define-key dired-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'deft
-  (define-key deft-mode-map [escape] #'quit-window)
-  (define-key deft-mode-map (kbd "q") #'quit-window))
-
-(with-eval-after-load 'proced
-  (define-key proced-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'deadgrep
-  (define-key deadgrep-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'ibuffer
-  (define-key ibuffer-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'pdf-tools
-  (define-key pdf-view-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'info
-  (define-key Info-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'man
-  (define-key Man-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'woman
-  (define-key woman-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'package
-  (define-key package-menu-mode-map [escape] #'quit-window))
-
-(with-eval-after-load 'embark
-  (defun ar/embark-quit-on-escape ()
-    (when (and (boundp 'embark--target)
-               embark--target)
-      (keyboard-quit)
-      t))
-  (add-hook 'doom-escape-hook #'ar/embark-quit-on-escape))
-
-(with-eval-after-load 'treemacs
-  (define-key treemacs-mode-map [escape]
-    (lambda ()
-      (interactive)
-      (if (one-window-p)
-          (doom/escape)
-        (delete-window)))))
-
-;; === EIN & ESHELL (don't quit buffer) ===
-(with-eval-after-load 'ein
-  (defun ar/ein-quit-on-escape ()
-    (when (derived-mode-p 'ein:notebook-mode)
-      (when (and (bound-and-true-p evil-mode)
-                 (not (evil-normal-state-p)))
-        (evil-normal-state)
-        t)))
-  (add-hook 'doom-escape-hook #'ar/ein-quit-on-escape))
-
-(with-eval-after-load 'eshell
-  (defun ar/eshell-quit-on-escape ()
-    (when (derived-mode-p 'eshell-mode)
-      (when (and (bound-and-true-p evil-mode)
-                 (not (evil-normal-state-p)))
-        (evil-normal-state)
-        t)))
-  (add-hook 'doom-escape-hook #'ar/eshell-quit-on-escape))
-
-;; ===============================
-;; TESTING
-;; ===============================
-
-(defun ar/test-escape-key ()
-  "Test escape key behavior in current context."
-  (interactive)
-  (let ((mode-info (format "Major: %s, Evil: %s"
-                          major-mode
-                          (if (bound-and-true-p evil-state)
-                              evil-state
-                            "N/A")))
-        (hooks-info (format "Hooks: %d" (length doom-escape-hook)))
-        (popup-info (cond
-                     ((and (bound-and-true-p popper-mode)
-                           (popper-popup-p (current-buffer)))
-                      "Popper popup")
-                     ((seq-find (lambda (w) (window-parameter w 'popup))
-                               (window-list))
-                      "Shackle popup")
-                     (t "No popup"))))
-    (message "Escape Test: %s | %s | %s" mode-info hooks-info popup-info)))
-
-(global-set-key (kbd "C-c t e") #'ar/test-escape-key)
-
-(defun ar/list-escape-hooks ()
-  "List all functions in doom-escape-hook."
-  (interactive)
-  (if doom-escape-hook
-      (message "Escape hooks (%d): %s"
-               (length doom-escape-hook)
-               (mapconcat #'symbol-name doom-escape-hook ", "))
-    (message "No escape hooks registered")))
-
-;; =================================
-;; END OF UNIFIED ESCAPE KEY SYSTEM
-;; =================================
-#+end_src
-
 * Editor Behaviour
 ** Avy for Fast Navigation
 This section configures *avy*, a powerful package for jumping to visible text. It allows for rapid, character-based navigation within the visible buffer, integrating smoothly with evil-mode as a motion provider.
@@ -1535,78 +1084,15 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 
 ** Smartparens
 #+begin_src emacs-lisp
-;; Doom's comment continuation advice
-(defun ar/newline-indent-and-continue-comments-a (orig-fn &rest args)
-  "Continue comments when pressing RET with smartparens."
-  (interactive "P")
-  (if (and (sp-point-in-comment)
-           comment-line-break-function)
-      (funcall comment-line-break-function (car args))
-    (apply orig-fn args)))
-
 (use-package smartparens
-  :defer t
-  :hook ((prog-mode . smartparens-mode)
-         (text-mode . smartparens-mode)
-         (org-mode . smartparens-mode)
-         (LaTeX-mode . smartparens-mode)
-         (markdown-mode . smartparens-mode))
+  :hook (prog-mode org-mode text-mode markdown-mode)
+  ;; load default config
   :config
-  (require 'smartparens-config)
-  (show-paren-mode -1)
-  (show-smartparens-global-mode +1)
-  (sp-pair "<" ">" :actions '(:rem))
+  (require 'smartparens-config))
 
-  ;; Re-enable only for C++ templates if needed
-  (sp-local-pair 'c++-mode "<" ">"
-                 :when '(sp-point-after-word-p)
-                 :unless '(sp-point-before-same-p))
-
-  ;; Doom's smartparens settings
-  (setq sp-show-pair-delay 0.1
-        sp-show-pair-from-inside t
-        sp-cancel-autoskip-on-backward-movement nil
-        sp-navigate-close-if-unbalanced t
-        sp-message-width nil)
-
-  ;; Smartparens interferes with evil replace mode
-  (add-hook 'evil-replace-state-entry-hook #'turn-off-smartparens-mode)
-  (add-hook 'evil-replace-state-exit-hook
-            (lambda ()
-              (when (and (bound-and-true-p smartparens-mode)
-                         (not smartparens-mode))
-                (turn-on-smartparens-mode))))
-
-  ;; Doom's pair behaviors
-  (sp-local-pair '(minibuffer-mode minibuffer-inactive-mode) "'" nil :actions nil)
-  (sp-local-pair '(minibuffer-mode minibuffer-inactive-mode) "`" nil :actions nil)
-
-  ;; Expand braces intelligently - CORRECTED SYNTAX
-  (sp-pair "{" nil :post-handlers '(:add ("||\n[i]" "RET")))
-  (sp-pair "(" nil :post-handlers '(:add ("||\n[i]" "RET")))
-  (sp-pair "[" nil :post-handlers '(:add ("||\n[i]" "RET")))
-
-  ;; Don't do square-bracket space-expansion for lisp modes
-  (sp-local-pair '(emacs-lisp-mode lisp-mode clojure-mode racket-mode hy-mode)
-                 "(" nil :post-handlers '(:add ("||\n[i]" "RET")))
-  (sp-local-pair '(emacs-lisp-mode lisp-mode clojure-mode racket-mode hy-mode)
-                 "[" nil :post-handlers nil)
-
-  ;; Reasonable default pairs for org-mode
-  (sp-local-pair 'org-mode "~" "~" :unless '(sp-point-before-word-p))
-  (sp-local-pair 'org-mode "=" "=" :unless '(sp-point-before-word-p))
-  (sp-local-pair 'org-mode "*" "*" :unless '(sp-point-before-word-p))
-
-  (advice-add 'newline-and-indent :around #'ar/newline-indent-and-continue-comments-a)
-
-  ;; Disable smartparens in some modes
-  (dolist (mode '(erc-mode
-                  gud-mode
-                  inferior-emacs-lisp-mode
-                  minibuffer-inactive-mode
-                  debugger-mode))
-    (add-to-list 'sp-ignore-modes-list mode))
-  )
+  ;; (show-paren-mode -1)
+  ;; (show-smartparens-global-mode +1)
+  ;; (sp-pair "<" ">" :actions '(:rem)
 #+end_src
 
 ** Exec Path From Shell
@@ -1633,14 +1119,13 @@ This section configures *avy*, a powerful package for jumping to visible text. I
 
 ** UTF-8 Coding System
 #+begin_src emacs-lisp
-(unless *sys/win32*
-  (set-selection-coding-system 'utf-8)
-  (prefer-coding-system 'utf-8)
-  (set-language-environment "UTF-8")
-  (set-default-coding-systems 'utf-8)
-  (set-terminal-coding-system 'utf-8)
-  (set-keyboard-coding-system 'utf-8)
-  (setq locale-coding-system 'utf-8))
+(set-selection-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(set-language-environment "UTF-8")
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(setq locale-coding-system 'utf-8)
 ;; Treat clipboard input as UTF-8 string first; compound text next, etc.
 (when (display-graphic-p)
   (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
@@ -1683,16 +1168,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   :bind (("M-i" . symbol-overlay-put)
          ("M-n" . symbol-overlay-jump-next)
          ("M-p" . symbol-overlay-jump-prev)))
-#+end_src
-
-** Adaptive Wrap
-#+begin_src emacs-lisp
-(use-package adaptive-wrap
-  :defer t
-  :hook
-  ;; Enable adaptive-wrap whenever visual-line-mode is active
-  (visual-line-mode . adaptive-wrap-prefix-mode))
-
 #+end_src
 
 * Completion Framework
@@ -1750,8 +1225,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   (marginalia-mode)
   (setq marginalia-max-relative-age 0  ;; Always show absolute time
         marginalia-align 'right))
-;; (use-package marginalia
-;;   :hook (after-init . marginalia-mode))
 #+end_src
 
 ** Nerd Icons Completion
@@ -1762,10 +1235,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
   :config
   (nerd-icons-completion-mode)
   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
-;; (use-package nerd-icons-completion
-;;   :config
-;;   (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup)
-;;   (nerd-icons-completion-mode))
 #+end_src
 
 ** Consult
@@ -1853,19 +1322,6 @@ This section configures *avy*, a powerful package for jumping to visible text. I
           embark-isearch-highlight-indicator))
 
   (define-key embark-collect-mode-map (kbd "e") #'embark-export))
-;; (use-package embark
-;;   :bind
-;;   (("C-." . embark-act)         ;; pick some comfortable binding
-;;    ("C-;" . embark-dwim)        ;; good alternative: M-.
-;;    ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
-
-;;   :init
-;;   (setq prefix-help-command #'embark-prefix-help-command)
-;;   :config
-;;   (define-key embark-collect-mode-map (kbd "e") #'embark-export)
-;;   ;; Embark collect buffers display is now handled by shackle rules
-;;   ;; See the shackle configuration in "Popup Management System" section
-;;   )
 #+end_src
 
 ** Embark Consult
@@ -2789,525 +2245,210 @@ We use *dape* for debugging. The UI for debugger windows is cleanly managed by t
               (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
 #+end_src
 
-** LSP for Org Source Blocks
+* Workflow Management
+** Projectile: Core Project Management
+We use Projectile with 'alien' indexing for speed, relying on external tools (git, fd, ripgrep).
+
 #+begin_src emacs-lisp
-(defun my/org-src-setup-lsp ()
-  "Setup LSP for org source block edit buffers.
-Sets buffer-file-name to tangle target and disables problematic LSP features."
-  (when (and (boundp 'org-src-mode)
-             org-src-mode
-             (derived-mode-p 'python-ts-mode))
-    (let* ((info (org-babel-get-src-block-info))
-           (params (nth 2 info))
-           (tangle-file (alist-get :tangle params)))
+(use-package projectile
+  :diminish projectile-mode
+  :init
+  (projectile-mode +1)
+  :custom
+  (projectile-sort-order 'recently-active)
+  (projectile-indexing-method 'alien)
+  (projectile-enable-caching t)
+  (projectile-completion-system 'auto)
+  (projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" user-emacs-directory))
+  :config
+  (setq projectile-switch-project-action #'projectile-dired))
 
-      ;; Only setup LSP for blocks with tangle files
-      (when (and tangle-file
-                 (not (string= tangle-file "no"))
-                 (not (string= tangle-file "nil")))
-
-        ;; Resolve tangle file path
-        (let* ((org-buffer (marker-buffer org-src--beg-marker))
-               (org-file (buffer-file-name org-buffer))
-               (org-dir (file-name-directory org-file))
-               (tangle-path (expand-file-name tangle-file org-dir)))
-
-          ;; Create tangle file if it doesn't exist
-          (unless (file-exists-p tangle-path)
-            (let ((tangle-dir (file-name-directory tangle-path)))
-              (unless (file-directory-p tangle-dir)
-                (make-directory tangle-dir t)))
-            (with-temp-file tangle-path
-              (insert (format "# Tangled from: %s\n" org-file))))
-
-          ;; Set buffer-file-name for LSP (CRITICAL)
-          (setq-local buffer-file-name tangle-path)
-
-          ;; Disable problematic LSP UI features in org-src buffers
-          (setq-local lsp-headerline-breadcrumb-enable nil
-                      lsp-modeline-code-actions-enable nil
-                      lsp-modeline-diagnostics-enable nil
-                      lsp-lens-enable nil
-                      lsp-signature-auto-activate nil)
-
-          ;; Start LSP
-          (lsp-deferred))))))
-
-;; Hook into org-src-mode
-(add-hook 'org-src-mode-hook #'my/org-src-setup-lsp)
+;; === Bibliography Integration Utility ===
+(defun ar/get-project-bibliographies ()
+  "Return a list of bibliography files found in the current project."
+  (when (and (bound-and-true-p projectile-mode)
+             (projectile-project-p))
+    (let* ((root (projectile-project-root))
+           (search-paths (list root
+                               (expand-file-name "references/" root)
+                               (expand-file-name "bib/" root)
+                               (expand-file-name "bibliography/" root)))
+           (bib-files '()))
+      (dolist (dir search-paths)
+        (when (file-directory-p dir)
+          (dolist (file (directory-files dir t "\\.bib\\'"))
+            (push file bib-files))))
+      (delete-dups bib-files))))
 #+end_src
 
-* Workflow Management
-** Perspective Mode (Workspaces)
+** Workspaces: Perspective Mode
+We use `persp-mode` for buffer isolation.
+*STABILITY FIX:* We disable aggressive auto-saving and catch errors during shutdown to prevent the daemon from hanging.
+
 #+begin_src emacs-lisp
 (use-package persp-mode
-  :defer t
-  :init
-  (setq persp-auto-resume-time 0
-        persp-auto-save-opt 1
-        persp-auto-save-num-of-backups 3
-        persp-nil-name "main"
-        persp-reset-windows-on-nil-window-conf nil
-        persp-set-last-persp-for-new-frames nil
-        persp-switch-to-added-buffer nil
-        persp-kill-foreign-buffer-behaviour 'kill
-        persp-remove-buffers-from-nil-persp-behaviour nil
-        persp-add-buffer-on-after-change-major-mode 'free
-        persp-add-buffer-on-find-file 'if-not-autopersp
-        persp-common-buffer-filter-functions
-        (list #'(lambda (b) (or (string-prefix-p " " (buffer-name b))
-                                (string-prefix-p "*" (buffer-name b))))))
-
+  :diminish
+  :hook (after-init . persp-mode)
+  :custom
+  (persp-keymap-prefix (kbd "C-c p"))
+  (persp-nil-name "main")
+  (persp-set-last-persp-for-new-frames nil)
+  (persp-kill-foreign-buffer-behaviour 'kill)
+  (persp-auto-resume-time -1)
+  (persp-auto-save-opt 0)
   :config
-  (persp-mode 1)
+  ;; Filter transient buffers
+  (add-hook 'persp-common-buffer-filter-functions
+            (lambda (b)
+              (let ((name (buffer-name b)))
+                (or (string-prefix-p " *" name)
+                    (string-prefix-p "*" name)
+                    (eq (buffer-local-value 'major-mode b) 'dired-mode)
+                    (eq (buffer-local-value 'major-mode b) 'dirvish-mode)))))
 
-  ;; FIXED: Safe perspective save with initialization checks
-  (defun ar/persp-save-state-quietly ()
-    "Save perspective state only if persp-mode is properly initialized."
-    (when (and (bound-and-true-p persp-mode)  ; Check if persp-mode is active
-               (boundp 'persp-hash)             ; Check if hash table variable exists
-               persp-hash                       ; Check if hash table is initialized
-               (hash-table-p persp-hash)        ; Verify it's actually a hash table
-               (> (hash-table-count persp-hash) 0)) ; Check if there's data to save
+  ;; === Defensive Save Strategy ===
+  (defun ar/persp-save-safely ()
+    "Save perspectives, ignoring errors if the terminal is detached."
+    (interactive)
+    (when (bound-and-true-p persp-mode)
       (condition-case err
           (persp-save-state-to-file)
-        (error (message "Error saving perspectives: %s" err)))))
+        (error
+         ;; Only log the error, do not abort exit
+         (message "Perspective save skipped: %s" err)))))
 
-  (add-hook 'kill-emacs-hook #'ar/persp-save-state-quietly)
-
-  ;; Create default perspectives
-  (with-eval-after-load 'persp-mode
-    (persp-def-auto-persp "org"
-      :mode 'org-mode
-      :dyn-env '(org-directory my/org-directory)
-      :hooks '(after-switch-to-buffer-functions)
-      :switch 'window)
-
-    (persp-def-auto-persp "code"
-      :mode '(prog-mode)
-      :hooks '(after-switch-to-buffer-functions)
-      :switch 'window)))
+  (add-hook 'kill-emacs-hook #'ar/persp-save-safely))
 #+end_src
 
-** Treemacs: Project Explorer
-#+begin_src emacs-lisp
-(defvar +treemacs-git-mode 'simple
-  "Type of git integration for treemacs.
-Options: 'simple (default), 'extended, or 'deferred.
-Extended and deferred require python3.")
+** Dirvish: The File Operator
+Replaces Dired for file operations.
 
+#+begin_src emacs-lisp
+(use-package dirvish
+  :init
+  (dirvish-override-dired-mode)
+  :custom
+  (dirvish-cache-dir (expand-file-name "dirvish/" user-emacs-directory))
+  (dirvish-attributes
+   '(nerd-icons file-time file-size collapse subtree-state vc-state git-msg))
+  (dirvish-mode-line-format
+   '(:left (sort symlink) :right (omit yank index)))
+  (dirvish-use-header-line t)
+  (dirvish-use-mode-line t)
+  :config
+  (setq dired-mouse-drag-files t)
+  (setq mouse-drag-and-drop-region-cross-program t)
+  (setq dired-kill-when-opening-new-dired-buffer t)
+  (setq dired-recursive-deletes 'always)
+  (setq dired-recursive-copies 'always)
+
+  (general-define-key
+   :keymaps 'dirvish-mode-map
+   :states 'normal
+   "TAB" #'dirvish-subtree-toggle
+   "q"   #'dirvish-quit
+   "h"   #'dired-up-directory
+   "l"   #'dired-find-file
+   "a"   #'dirvish-quick-access
+   "y"   #'dirvish-yank-menu
+   "s"   #'dirvish-quicksort
+   "?"   #'dirvish-dispatch))
+#+end_src
+
+** Treemacs: The Visual Sidebar
+Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mode conflicts.
+
+#+begin_src emacs-lisp
 (use-package treemacs
   :defer t
-  :init
-  (setq treemacs-follow-after-init t
-        treemacs-is-never-other-window t
-        treemacs-sorting 'alphabetic-case-insensitive-asc
-        treemacs-persist-file (expand-file-name "treemacs-persist" user-emacs-directory)
-        treemacs-last-error-persist-file (expand-file-name "treemacs-last-error-persist" user-emacs-directory)
-        treemacs-width 35
-        treemacs-width-is-initially-locked t
-        treemacs-display-in-side-window t
-        treemacs-position 'left
-        treemacs-no-delete-other-windows t
-        treemacs-show-hidden-files t
-        treemacs-expand-after-init t
-        treemacs-space-between-root-nodes t
-        treemacs-silent-refresh t
-        treemacs-silent-filewatch t
-        treemacs-file-event-delay 2000
-        treemacs-file-follow-delay 0.2)
-
+  :custom
+  (treemacs-width 30)
+  (treemacs-position 'left)
+  (treemacs-is-never-other-window t)
+  (treemacs-space-between-root-nodes t)
+  (treemacs-silent-refresh t)
+  (treemacs-silent-filewatch t)
+  (treemacs-file-follow-delay 0.2)
   :config
-  (treemacs-follow-mode -1)
+  (treemacs-follow-mode t)
   (treemacs-filewatch-mode t)
   (treemacs-fringe-indicator-mode 'always)
 
-  ;; Auto-add current project when opening treemacs
-  (defun my/treemacs-projectile-setup ()
-    "Automatically add current projectile project to treemacs."
-    (when (and (projectile-project-p)
-               (projectile-project-root))
-      (let ((root (projectile-project-root)))
-        (unless (treemacs-is-path root :in-workspace)
-          (treemacs-do-add-project-to-workspace
-           root
-           (projectile-project-name))))))
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null (executable-find "python3"))))
+    (`(t . t) (treemacs-git-mode 'deferred))
+    (`(t . _) (treemacs-git-mode 'simple))))
 
-  (add-hook 'treemacs-mode-hook #'my/treemacs-projectile-setup)
-
-  (when +treemacs-git-mode
-    (when (and (memq +treemacs-git-mode '(deferred extended))
-               (not treemacs-python-executable)
-               (not (executable-find "python3")))
-      (setq +treemacs-git-mode 'simple))
-    (treemacs-git-mode +treemacs-git-mode)
-    (setq treemacs-collapse-dirs
-          (if (memq +treemacs-git-mode '(extended deferred)) 3 0))))
-
-(use-package treemacs-nerd-icons
-  :after treemacs
+(use-package treemacs-projectile :after (treemacs projectile))
+(use-package treemacs-persp :after (treemacs persp-mode)
+  :config (treemacs-set-scope-type 'Perspectives))
+(use-package treemacs-nerd-icons :after (treemacs nerd-icons)
+  :config (treemacs-load-theme "nerd-icons"))
+(use-package treemacs-evil :after (treemacs evil)
   :config
-  (treemacs-load-theme "nerd-icons"))
-
-(use-package treemacs-evil
-  :after (treemacs evil)
-  :config
-  (evil-define-key 'normal treemacs-mode-map (kbd "TAB") 'treemacs-TAB-action))
-
-(use-package treemacs-projectile
-  :after (treemacs projectile)
-  :commands (treemacs-projectile))
-
-(use-package treemacs-magit
-  :after (treemacs magit))
-
-(use-package treemacs-persp
-  :after (treemacs persp-mode)
-  :config
-  (treemacs-set-scope-type 'Perspectives))
+  (evil-define-key 'normal treemacs-mode-map
+    (kbd "TAB") #'treemacs-TAB-action
+    (kbd "o")   #'treemacs-visit-node-ace
+    (kbd "q")   #'treemacs-quit))
 #+end_src
 
-** Dired: File Manager
+** Buffer Management
 #+begin_src emacs-lisp
-(use-package fd-dired
-  :defer t
-  :config
-  (setq fd-dired-use-gnu-find-syntax t))
-
-(use-package dired-open
-  :defer t
-  :config
-  (setq dired-open-extensions '(("png" . "imv")
-                                ("jpg" . "imv")
-                                ("mp4" . "mpv")
-                                ("mkv" . "mpv")
-                                ("pdf" . "zathura"))))
-
-(use-package dired
+(use-package ibuffer
   :straight (:type built-in)
-  :commands (dired dired-jump)
-  :hook (dired-mode . dired-hide-dotfiles-mode)
-  :custom
-  (dired-listing-switches "-agho --group-directories-first")
-  (dired-auto-revert-buffer t)
-  (dired-dwim-target t)
-  (dired-recursive-deletes 'always)
-  (dired-recursive-copies 'always)
-  (dired-kill-when-opening-new-dired-buffer t)
-
+  :commands ibuffer
   :config
-  ;; Evil keybindings for dired
-  (evil-define-key 'normal dired-mode-map
-    (kbd "h") 'dired-up-directory
-    (kbd "l") 'dired-find-file
-    (kbd "j") 'dired-next-line
-    (kbd "k") 'dired-previous-line
-    (kbd "G") 'dired-goto-file
-    (kbd "gg") 'beginning-of-buffer
-    (kbd "^") 'dired-up-directory
-    (kbd "~") (lambda () (interactive) (dired "~"))
-    (kbd "RET") 'dired-find-file
-    (kbd "i") 'dired-maybe-insert-subdir
-    (kbd "m") 'dired-mark
-    (kbd "u") 'dired-unmark
-    (kbd "U") 'dired-unmark-all-marks
-    (kbd "t") 'dired-toggle-marks
-    (kbd "C-n") 'dired-create-empty-file
-    (kbd "C-d") 'dired-create-directory
-    (kbd "R") 'dired-do-rename
-    (kbd "D") 'dired-do-delete
-    (kbd "C") 'dired-do-copy
-    (kbd "X") 'dired-open-file
-    (kbd "M") 'dired-do-chmod
-    (kbd "O") 'dired-do-chown
-    (kbd "s") 'dired-sort-toggle-or-edit
-    (kbd "gh") 'dired-hide-dotfiles-mode
-    (kbd "gr") 'revert-buffer))
+  (setq ibuffer-expert t)
+  (setq ibuffer-show-empty-filter-groups nil))
 
-(use-package dired-x
-  :straight (:type built-in)
-  :after dired
-  :custom
-  (dired-x-hands-off-my-keys nil)
-  :config
-  (setq dired-omit-files "^\\.[^.]\\|^#\\|^\\.$\\|^\\.\\.$\\|\\.pyc$\\|\\.o$")
-  (setq dired-omit-verbose nil))
-
-(use-package dired-git-info
-  :after dired
-  :hook (dired-mode . dired-git-info-mode)
-  :config
-  (setq dgi-auto-hide-details-p nil))
-
-(use-package nerd-icons-dired
-  :hook (dired-mode . nerd-icons-dired-mode))
-
-(use-package dired-ranger
-  :after dired
-  :config
-  (define-key dired-mode-map (kbd "y") 'dired-ranger-copy)
-  (define-key dired-mode-map (kbd "p") 'dired-ranger-paste)
-  (define-key dired-mode-map (kbd "x") 'dired-ranger-move))
+(use-package ibuffer-projectile
+  :after (ibuffer projectile)
+  :hook (ibuffer . (lambda ()
+                     (ibuffer-projectile-set-filter-groups)
+                     (unless (eq ibuffer-sorting-mode 'alphabetic)
+                       (ibuffer-do-sort-by-alphabetic)))))
 #+end_src
 
-** Projectile: Enhanced Project Management
-#+begin_src emacs-lisp
-;; Projects directory
-(defcustom my/projects-directory (expand-file-name "~/Projects/")
-  "Base directory for all projects."
-  :type 'directory
-  :group 'project)
+** Workflow Keybindings
+*Correction:* We now use `SPC f t` for Treemacs to respect the existing `SPC o` (Org) bindings.
 
-(unless (file-directory-p my/projects-directory)
-  (make-directory my/projects-directory t))
-
-(use-package projectile
-  :defer t
-  :init
-  (setq projectile-project-search-path (list my/projects-directory)
-        projectile-known-projects-file (expand-file-name "projectile-bookmarks.eld" user-emacs-directory)
-        projectile-cache-file (expand-file-name "projectile.cache" user-emacs-directory))
-
-  :custom
-  ;; === Performance Settings ===
-  (projectile-enable-caching t)
-  (projectile-indexing-method 'alien)  ; Use external tools (faster)
-  (projectile-sort-order 'recentf)
-  (projectile-file-exists-remote-cache-expire nil)
-
-  ;; === Project Detection ===
-  (projectile-project-root-files '(".projectile" "flake.nix" ".envrc"))
-  (projectile-project-root-files-bottom-up '(".git" ".hg" ".svn" ".bzr" "_darcs"))
-  (projectile-require-project-root t)
-
-  ;; === Completion System ===
-  (projectile-completion-system 'default)  ; Works with vertico/consult
-
-  ;; === Behavior ===
-  (projectile-auto-discover t)
-  (projectile-switch-project-action 'projectile-dired)
-  (projectile-per-project-compilation-buffer t)
-
-  :config
-  (projectile-mode +1)
-
-  ;; === Projects Directory Setup ===
-  (unless (file-directory-p my/projects-directory)
-    (make-directory my/projects-directory t))
-
-  ;; === Auto-discover Projects ===
-  (defun my/projectile-discover-projects ()
-    "Discover all projects in search path."
-    (interactive)
-    (projectile-discover-projects-in-search-path))
-
-  (add-hook 'after-init-hook #'my/projectile-discover-projects)
-
-  ;; === Helper Functions ===
-  (defun my/projectile-bibliography-files ()
-    "Get bibliography files for current project."
-    (when-let ((root (projectile-project-root)))
-      (let ((bib-files '()))
-        ;; Search in project root
-        (dolist (file (directory-files root t "\\.bib\\'"))
-          (push file bib-files))
-        ;; Search in common bibliography directories
-        (dolist (subdir '("references/" "bib/" "bibliography/"))
-          (let ((dir (expand-file-name subdir root)))
-            (when (file-directory-p dir)
-              (dolist (file (directory-files dir t "\\.bib\\'"))
-                (push file bib-files)))))
-        (delete-dups (nreverse bib-files)))))
-
-  (defun my/projectile-find-file-by-extension (ext)
-    "Find files with extension EXT in current project."
-    (when (projectile-project-p)
-      (let* ((files (projectile-current-project-files))
-             (filtered (seq-filter (lambda (f) (string-suffix-p ext f)) files)))
-        (find-file (expand-file-name
-                   (completing-read (format "Select %s file: " ext) filtered)
-                   (projectile-project-root))))))
-
-  (defun my/projectile-find-bib-file ()
-    "Open a .bib file in current project."
-    (interactive)
-    (if-let ((bib-files (my/projectile-bibliography-files)))
-        (find-file (completing-read "Select bibliography: " bib-files))
-      (message "No .bib files found in project")))
-
-  (defun my/projectile-find-tex-file ()
-    "Open a .tex file in current project."
-    (interactive)
-    (my/projectile-find-file-by-extension ".tex"))
-
-  (defun my/projectile-find-py-file ()
-    "Open a .py file in current project."
-    (interactive)
-    (my/projectile-find-file-by-extension ".py"))
-
-  (defun my/setup-project-bibliography ()
-    "Setup bibliography infrastructure for current project."
-    (interactive)
-    (if-let ((root (and (projectile-project-p) (projectile-project-root))))
-        (let* ((bib-dir (expand-file-name "references/" root))
-               (bib-file (expand-file-name "references.bib" bib-dir)))
-          (unless (file-directory-p bib-dir)
-            (make-directory bib-dir t))
-          (unless (file-exists-p bib-file)
-            (with-temp-file bib-file
-              (insert "% Bibliography for "
-                      (projectile-project-name) "\n")
-              (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n")))
-          (message "Bibliography setup complete: %s" bib-file)
-          bib-file)
-      (message "Not in a project"))))
-#+end_src
-
-** Persp-Mode + Projectile Integration
-#+begin_src emacs-lisp
-(use-package proj-persp-extras
-  :straight (:host github
-           :repo "brandonwillard/proj-persp-extras")
-  :after (persp-mode projectile)
-  :config
-  ;; Enable automatic project-perspective correspondence
-  (proj-persp-tracking-mode +1)
-
-  ;; Configure perspective naming
-  (setq proj-persp-extras-project-name-function
-        (lambda ()
-          (when (projectile-project-p)
-            (file-name-as-directory (expand-file-name (projectile-project-root))))))
-
-  ;; Auto-switch to project's perspective when switching projects
-  (defun my/proj-persp-switch-project-advice (orig-fun &rest args)
-    "Switch to project's perspective before switching projects."
-    (when (and (projectile-project-p)
-               (bound-and-true-p persp-mode))
-      (let* ((project-root (projectile-project-root))
-             (persp-name (file-name-as-directory (expand-file-name project-root))))
-        (unless (member persp-name (persp-names))
-          (persp-switch persp-name))))
-    (apply orig-fun args))
-
-  (advice-add 'projectile-switch-project :around #'my/proj-persp-switch-project-advice))
-#+end_src
-
-** Bookmarks Enhancement
-#+begin_src emacs-lisp
-(use-package bookmark
-  :straight (:type built-in)
-  :defer t
-  :custom
-  (bookmark-default-file (expand-file-name "bookmarks" user-emacs-directory))
-  (bookmark-save-flag 1))
-#+end_src
-
-** Workspace & Project Utilities
-#+begin_src emacs-lisp
-(defun ar/kill-other-buffers ()
-  "Kill all buffers except the current one."
-  (interactive)
-  (let ((current (current-buffer)))
-    (dolist (buf (buffer-list))
-      (unless (or (eq buf current)
-                  (string-prefix-p " " (buffer-name buf))
-                  (string-prefix-p "*" (buffer-name buf)))
-        (kill-buffer buf)))))
-
-(defun ar/save-all-buffers ()
-  "Save all file-visiting buffers without prompting."
-  (interactive)
-  (save-some-buffers t))
-
-(defun ar/switch-to-scratch ()
-  "Switch to *scratch* buffer, creating if needed."
-  (interactive)
-  (switch-to-buffer "*scratch*"))
-
-(defun ar/treemacs-toggle-and-follow ()
-  "Toggle treemacs and follow current file."
-  (interactive)
-  (if (treemacs-is-treemacs-window-selected?)
-      (delete-window)
-    (progn
-      (if (projectile-project-p)
-          (treemacs-projectile)
-        (treemacs))
-      (treemacs-find-file))))
-#+end_src
-
-** Keybindings
 #+begin_src emacs-lisp
 (ar/global-leader
- ;; File operations
- "f" '(:ignore t :wk "file")
- "f f" '(find-file :wk "find file")
- "f F" '(find-file-other-window :wk "find file (other window)")
- "f e" '(dired :wk "dired")
- "f E" '(dired-jump :wk "dired (jump to file)")
- "f r" '(consult-recent-file :wk "recent files")
- "f R" '(rename-file :wk "rename file")
- "f s" '(save-buffer :wk "save file")
- "f S" '(ar/save-all-buffers :wk "save all files")
- "f y" '((lambda () (interactive) (kill-new (buffer-file-name))) :wk "yank file path")
- "f t" '(treemacs :wk "toggle treemacs")
- "f T" '(ar/treemacs-toggle-and-follow :wk "treemacs find file")
+  ;; --- Project ---
+  "p" '(:ignore t :wk "project")
+  "p p" '(projectile-switch-project :wk "Switch Project")
+  "p f" '(projectile-find-file :wk "Find File")
+  "p r" '(projectile-ripgrep :wk "Ripgrep Project")
+  "p b" '(projectile-switch-to-buffer :wk "Switch Buffer")
+  "p d" '(projectile-dired :wk "Root (Dirvish)")
+  "p k" '(projectile-kill-buffers :wk "Kill Project Buffers")
+  "p I" '(projectile-invalidate-cache :wk "Invalidate Cache")
+  "p t" '(treemacs-projectile :wk "Treemacs Project")
 
- ;; Buffer operations
- "b" '(:ignore t :wk "buffers")
- "b b" '(consult-buffer :wk "switch buffer")
- "b B" '(switch-to-buffer-other-window :wk "switch (other window)")
- "b i" '(ibuffer :wk "ibuffer")
- "b k" '(kill-current-buffer :wk "kill buffer")
- "b K" '(ar/kill-other-buffers :wk "kill other buffers")
- "b n" '(next-buffer :wk "next buffer")
- "b p" '(previous-buffer :wk "previous buffer")
- "b r" '(revert-buffer :wk "revert buffer")
- "b R" '(rename-buffer :wk "rename buffer")
- "b s" '(ar/switch-to-scratch :wk "scratch buffer")
- "b S" '(save-buffer :wk "save buffer")
- "b m" '(bookmark-set :wk "set bookmark")
- "b M" '(consult-bookmark :wk "jump to bookmark")
+  ;; --- Files ---
+  "f" '(:ignore t :wk "file")
+  "f f" '(find-file :wk "Find File")
+  "f r" '(consult-recent-file :wk "Recent Files")
+  "f d" '(dirvish :wk "Dirvish (Current)")
+  "f j" '(dirvish-fd :wk "FD Search")
+  "f s" '(save-buffer :wk "Save")
+  "f t" '(treemacs :wk "Treemacs Toggle")
+  "f T" '(treemacs-select-window :wk "Treemacs Focus")
 
- ;; Project operations
- "p" '(:ignore t :wk "project")
- "p p" '(projectile-switch-project :wk "switch project")
- "p f" '(projectile-find-file :wk "find file")
- "p F" '(projectile-find-file-in-known-projects :wk "find in all projects")
- "p d" '(projectile-find-dir :wk "find directory")
- "p D" '(projectile-dired :wk "dired root")
- "p b" '(projectile-switch-to-buffer :wk "switch buffer")
- "p k" '(projectile-kill-buffers :wk "kill buffers")
- "p c" '(projectile-compile-project :wk "compile")
- "p e" '(projectile-run-eshell :wk "eshell")
- "p s" '(projectile-grep :wk "grep")
- "p r" '(projectile-ripgrep :wk "ripgrep")
- "p R" '(projectile-replace :wk "replace")
- "p i" '(projectile-invalidate-cache :wk "invalidate cache")
- "p +" '(my/projectile-discover-projects :wk "discover projects")
- "p t" '(treemacs-projectile :wk "treemacs project")
- "p B" '(my/projectile-find-bib-file :wk "find .bib")
- "p T" '(my/projectile-find-tex-file :wk "find .tex")
- "p y" '(my/projectile-find-py-file :wk "find .py")
- "p !" '(projectile-run-async-shell-command-in-root :wk "async shell cmd")
- "p &" '(projectile-run-command-in-root :wk "shell cmd")
+  ;; --- Workspaces ---
+  "TAB" '(:ignore t :wk "workspace")
+  "TAB TAB" '(persp-switch :wk "Switch Workspace")
+  "TAB n"   '(persp-next :wk "Next Workspace")
+  "TAB p"   '(persp-prev :wk "Prev Workspace")
+  "TAB d"   '(persp-kill :wk "Kill Workspace")
+  "TAB r"   '(persp-rename :wk "Rename Workspace")
+  "TAB 1"   '((lambda () (interactive) (persp-switch "main")) :wk "Main Workspace")
 
- ;; Workspace (Perspective) operations
- "TAB" '(:ignore t :wk "workspace")
- "TAB TAB" '(persp-switch :wk "switch workspace")
- "TAB n" '(persp-next :wk "next workspace")
- "TAB p" '(persp-prev :wk "previous workspace")
- "TAB d" '(persp-kill :wk "delete workspace")
- "TAB r" '(persp-rename :wk "rename workspace")
- "TAB s" '(persp-save-state-to-file :wk "save workspaces")
- "TAB l" '(persp-load-state-from-file :wk "load workspaces")
- "TAB b" '(persp-switch-to-buffer :wk "switch to workspace buffer")
- "TAB k" '(persp-kill-buffer :wk "kill buffer from workspace")
- "TAB a" '(persp-add-buffer :wk "add buffer to workspace")
- "TAB A" '(persp-set-buffer :wk "move buffer to workspace")
- "TAB i" '(persp-import-buffers :wk "import buffers")
- "TAB 0" '((lambda () (interactive) (persp-switch "main")) :wk "switch to main"))
+  ;; --- Buffers ---
+  "b" '(:ignore t :wk "buffer")
+  "b b" '(consult-buffer :wk "Switch Buffer")
+  "b i" '(ibuffer :wk "IBuffer")
+  "b k" '(kill-current-buffer :wk "Kill Buffer"))
 #+end_src
 
 * Version Control
@@ -3322,20 +2463,7 @@ Extended and deferred require python3.")
   ;; For a focused view, display the Magit status buffer in its own frame.
   (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
   ;; Automatically save file-visiting buffers before staging changes.
-  (magit-save-repository-buffers 'dont-confirmk)
-  :config
-  ;; When quitting Magit, this ensures the previous window configuration is restored.
-  ;; The `magit-display-buffer-fullframe-status-v1` function saves the layout
-  ;; to the `:magit-fullscreen` register, which we jump back to.
-  (defun ar/magit-quit-and-restore-windows ()
-    "Kill the Magit buffer and restore the previous window configuration."
-    (interactive)
-    (kill-buffer (current-buffer))
-    (when (get-register :magit-fullscreen)
-      (jump-to-register :magit-fullscreen)))
-
-  ;; Bind "q" in the status buffer to our custom quitting function.
-  (define-key magit-status-mode-map (kbd "q") #'ar/magit-quit-and-restore-windows))
+  (magit-save-repository-buffers 'dont-confirmk))
 #+end_src
 
 ** Forge: Git Forge Integration
@@ -3353,27 +2481,14 @@ Extended and deferred require python3.")
 ** Git Timemachine
 #+begin_src emacs-lisp
 (use-package git-timemachine
-  :after magit
-  :config
-  (evil-define-key 'normal git-timemachine-mode-map (kbd "C-j") 'git-timemachine-show-previous-revision)
-  (evil-define-key 'normal git-timemachine-mode-map (kbd "C-k") 'git-timemachine-show-next-revision))
+  :after magit)
 #+end_src
 
 ** Git Gutter: Live Diff Highlighting
 #+begin_src emacs-lisp
 (use-package git-gutter
   :defer t
-  :hook (prog-mode . git-gutter-mode)
-  :custom
-  ;; Only update the gutter when the buffer is saved, for performance.
-  (git-gutter:update-on-save t)
-  ;; Use a lighter touch for updates; avoids refreshing on every change.
-  (git-gutter:update-method "idle")
-  :config
-  ;; Define keybindings for evil-mode for navigating between hunks.
-  (with-eval-after-load 'evil
-    (define-key evil-normal-state-map (kbd "]g") 'git-gutter:next-hunk)
-    (define-key evil-normal-state-map (kbd "[g") 'git-gutter:previous-hunk)))
+  :hook (prog-mode . git-gutter-mode))
 #+end_src
 
 ** Keybindings
@@ -3398,16 +2513,7 @@ Extended and deferred require python3.")
 #+end_src
 
 * LaTeX Writing Environment
-This section configures a complete LaTeX writing system with:
-- AUCTeX + Tectonic for compilation
-- Citar + org-cite for bibliography management
-- CDLaTeX + LAAS for fast LaTeX input
-- PDF viewing and synchronization
-- Project-aware bibliography detection
-
 ** Core AUCTeX Backend
-AUCTeX provides the fundamental LaTeX editing environment. We configure it to use Tectonic as the compilation engine.
-
 #+begin_src emacs-lisp
 (use-package tex
   :straight auctex
@@ -3416,12 +2522,10 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
          (LaTeX-mode . prettify-symbols-mode)
          (LaTeX-mode . TeX-fold-mode))
   :custom
-  ;; === Tectonic Configuration (V2 CLI) ===
-  ;; Based on: https://tectonic-typesetting.github.io/book/latest/howto/auctex-setup/
-  (TeX-engine 'tectonic)
+  (TeX-engine 'luatex)
   (TeX-process-asynchronous t)  ; Don't hang Emacs during compilation
   (TeX-check-TeX nil)            ; Don't look for traditional TeX distributions
-
+  (TeX-clean-confirm nil)
   ;; === Viewer Configuration ===
   (TeX-view-program-selection '((output-pdf "PDF Tools")))
   (TeX-source-correlate-mode t)  ; Enable forward/inverse search
@@ -3437,52 +2541,34 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
   (LaTeX-item-indent 0)
 
   :config
-  ;; === Register Tectonic Engine ===
-  (add-to-list 'TeX-engine-alist
-               '(tectonic
-                 "Tectonic"
-                 "tectonic -X compile -f plain %T"
-                 "tectonic -X watch"
-                 nil))
+  (add-to-list 'TeX-command-list
+               '("LuaLaTeXmk" "latexmk -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk with LuaLaTeX") t)
+
+  ;; Add continuous preview mode (watch mode)
+  (add-to-list 'TeX-command-list
+               '("LaTeXmk-Watch" "latexmk -pvc -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk in continuous preview mode") t)
+
+  (setq-default TeX-command-default
+                (cond ((eq TeX-engine 'luatex) "LuaLaTeXmk")
+                      ((eq TeX-engine 'xetex) "XeLaTeXmk")
+                      (t "LaTeXmk")))
+
+  ;; Auxiliary files to clean
+  (setq LaTeX-clean-intermediate-suffixes
+        '("\\.aux" "\\.bbl" "\\.blg" "\\.brf" "\\.fot"
+          "\\.glo" "\\.gls" "\\.idx" "\\.ilg" "\\.ind"
+          "\\.lof" "\\.log" "\\.lot" "\\.nav" "\\.out"
+          "\\.snm" "\\.toc" "\\.url" "\\.synctex\\.gz"
+          "\\.fdb_latexmk" "\\.fls" "\\.xdv"
+          "-blx\\.bib" "\\.run\\.xml"))
 
   ;; === Simplify LaTeX command style for Tectonic ===
-  (setq LaTeX-command-style '(("" "%(latex)")))
+  (setq LaTeX-command-style '(("" "%(latex)"))))
 
-  ;; === Define Tectonic Commands ===
-  (setq TeX-command-list
-        (append TeX-command-list
-                '(("Tectonic" "tectonic -X compile %s" TeX-run-TeX nil
-                   (latex-mode LaTeX-mode) :help "Compile with Tectonic")
-                  ("Tectonic Watch" "tectonic -X watch %s" TeX-run-TeX nil
-                   (latex-mode LaTeX-mode) :help "Watch mode")
-                  ("ChkTeX" "chktex -v0 -q -I %s" TeX-run-compile nil
-                   (latex-mode LaTeX-mode) :help "Check with ChkTeX"))))
-
-  ;; === Modify TeX and LaTeX commands for Tectonic ===
-  (let ((tex-list (assoc "TeX" TeX-command-list))
-        (latex-list (assoc "LaTeX" TeX-command-list)))
-    (setf (cadr tex-list) "%(tex)"
-          (cadr latex-list) "%l"))
-
-  ;; === Project-aware output directory ===
-  ;; For Tectonic projects (with Tectonic.toml)
-  (add-hook 'after-change-major-mode-hook
-            (lambda ()
-              (when-let ((project (project-current))
-                         (proot (project-root project)))
-                (when (file-exists-p (expand-file-name "Tectonic.toml" proot))
-                  (setq-local TeX-output-dir (expand-file-name "build/index" proot))))))
-
-  ;; === Keybindings ===
-  ;; Note: Most keybindings are set via :bind below to avoid loading issues
-  )
-
-;; LaTeX mode keybindings (set after mode is defined)
-(with-eval-after-load 'latex
-  (define-key LaTeX-mode-map (kbd "C-c C-c") #'TeX-command-master)
-  (define-key LaTeX-mode-map (kbd "C-c C-v") #'TeX-view)
-  (define-key LaTeX-mode-map (kbd "C-c C-k")
-              (lambda () (interactive) (TeX-command "ChkTeX" 'TeX-master-file))))
 #+end_src
 
 ** Evil Integration for LaTeX
@@ -3493,91 +2579,32 @@ AUCTeX provides the fundamental LaTeX editing environment. We configure it to us
 #+end_src
 
 ** Bibliography Management
-*** Project-Aware Bibliography System
-This configuration implements intelligent bibliography detection that automatically finds .bib files in your project hierarchy.
-
-#+begin_src emacs-lisp
-(defun my/find-project-bibliographies ()
-  "Find all .bib files in project (root, references/, bib/, bibliography/)."
-  (when (and (fboundp 'projectile-project-p)
-             (projectile-project-p))
-    (when-let ((root (projectile-project-root)))
-      (let ((bib-files '())
-            (search-dirs (list root
-                              (expand-file-name "references/" root)
-                              (expand-file-name "bib/" root)
-                              (expand-file-name "bibliography/" root))))
-        (dolist (dir search-dirs)
-          (when (file-directory-p dir)
-            (dolist (file (directory-files dir t "\\.bib\\'"))
-              (push file bib-files))))
-        (delete-dups (nreverse bib-files))))))
-#+end_src
-
 *** Citar: Modern Citation Management
-Citar provides a completion-based interface for managing bibliographies, notes, and citations.
+We configure Citar to use our project-aware helper function via buffer-local variables, which prevents conflicts with global state.
 
 #+begin_src emacs-lisp
 (use-package citar
   :defer t
   :after oc
   :custom
-  ;; === Global Fallback Bibliography ===
   (citar-bibliography '("~/references.bib"))
   (citar-library-paths '("~/Zotero/storage"))
   (citar-notes-paths (list my/org-roam-directory))
-
-  ;; === Display Configuration ===
   (citar-symbols
    `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
      (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
      (link ,(nerd-icons-mdicon "nf-md-link") . " ")))
-
   :config
-  ;; === Dynamic Bibliography Function with Projectile Guard ===
-  (defun my/citar-bibliography ()
-    "Return project bibliography or global fallback."
-    (or (my/find-project-bibliographies) citar-bibliography))
+  ;; === Dynamic Bibliography Strategy ===
+  (defun ar/citar-set-local-bibliography ()
+    "Set buffer-local bibliography variables if in a project."
+    (when-let ((bibs (ar/get-project-bibliographies)))
+      (setq-local citar-bibliography bibs)
+      (setq-local org-cite-global-bibliography bibs)))
 
-  ;; Override citar's bibliography detection
-  (advice-add 'citar--bibliography-files :override #'my/citar-bibliography)
+  (add-hook 'LaTeX-mode-hook #'ar/citar-set-local-bibliography)
+  (add-hook 'org-mode-hook #'ar/citar-set-local-bibliography))
 
-  ;; === Set Buffer-Local Bibliography with Projectile Guard ===
-  (defun my/citar-set-local-bibliography ()
-    "Set buffer-local bibliography for current buffer."
-    (when (and (buffer-file-name)
-               (or (derived-mode-p 'org-mode)
-                   (derived-mode-p 'LaTeX-mode)))
-      (setq-local citar-bibliography (my/citar-bibliography))
-      ;; Also update org-cite
-      (when (derived-mode-p 'org-mode)
-        (setq-local org-cite-global-bibliography (my/citar-bibliography)))))
-
-  ;; Apply to hooks - DEFERRED until after projectile is available
-  ;; This prevents errors during startup before projectile is loaded
-  (if (fboundp 'projectile-project-p)
-      ;; Projectile already loaded, add hooks immediately
-      (progn
-        (add-hook 'org-mode-hook #'my/citar-set-local-bibliography)
-        (add-hook 'LaTeX-mode-hook #'my/citar-set-local-bibliography)
-        (add-hook 'buffer-list-update-hook
-                  (lambda ()
-                    (when (and (buffer-file-name)
-                               (or (derived-mode-p 'org-mode)
-                                   (derived-mode-p 'LaTeX-mode)))
-                      (my/citar-set-local-bibliography)))))
-    ;; Projectile not loaded yet, defer hooks
-    (with-eval-after-load 'projectile
-      (add-hook 'org-mode-hook #'my/citar-set-local-bibliography)
-      (add-hook 'LaTeX-mode-hook #'my/citar-set-local-bibliography)
-      (add-hook 'buffer-list-update-hook
-                (lambda ()
-                  (when (and (buffer-file-name)
-                             (or (derived-mode-p 'org-mode)
-                                 (derived-mode-p 'LaTeX-mode)))
-                    (my/citar-set-local-bibliography)))))))
-
-;; Citar keybindings (set after modes are loaded)
 (with-eval-after-load 'latex
   (define-key LaTeX-mode-map (kbd "C-c b") #'citar-insert-citation)
   (define-key LaTeX-mode-map (kbd "C-c o") #'citar-open))
@@ -3585,7 +2612,6 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
 
 *** Citar Extensions
 #+begin_src emacs-lisp
-;; === Embark Integration ===
 (use-package citar-embark
   :after (citar embark)
   :config
@@ -3593,7 +2619,6 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
   (with-eval-after-load 'embark
     (add-to-list 'embark-keymap-alist '(citar-reference . citar-embark-map))))
 
-;; === Org-Roam Literature Notes ===
 (use-package citar-org-roam
   :after (citar org-roam)
   :config
@@ -3602,76 +2627,62 @@ Citar provides a completion-based interface for managing bibliographies, notes, 
 #+end_src
 
 *** Org-Cite Integration
-Org-cite is the native citation system in Org mode 9.5+. We configure it to use citar as its processor.
-
 #+begin_src emacs-lisp
 (with-eval-after-load 'oc
   (require 'citar)
-
-  ;; === Set Citar as Processor ===
   (setq org-cite-insert-processor 'citar
         org-cite-follow-processor 'citar
         org-cite-activate-processor 'citar)
 
-  ;; === Org-Cite Bibliography Function ===
-  (defun my/org-cite-list-bibliography-files ()
-    "List bibliography files for org-cite."
-    (my/citar-bibliography))
-
+  ;; Ensure org-cite sees project files by defaulting to the helper function
   (advice-add 'org-cite-list-bibliography-files
-              :override #'my/org-cite-list-bibliography-files)
+              :override #'ar/get-project-bibliographies)
 
-  ;; === Org-Mode Citation Functions ===
-  (defun my/org-insert-citation ()
+  (defun ar/org-insert-citation ()
     "Insert citation using citar in org-mode."
     (interactive)
     (if (fboundp 'citar-insert-citation)
         (citar-insert-citation)
       (message "Citar not available")))
 
-  (defun my/org-verify-bibliography ()
-    "Check if bibliography files exist and are readable."
+  (defun ar/verify-bibliography ()
+    "Debug: Check which bibliography files are currently active."
     (interactive)
-    (let ((bib-files (my/citar-bibliography)))
+    (let ((bib-files (if (listp citar-bibliography)
+                         citar-bibliography
+                       (funcall citar-bibliography))))
       (if bib-files
           (progn
             (message "Found %d bibliography file(s):" (length bib-files))
             (dolist (file bib-files)
-              (message "  %s %s"
-                      (if (file-readable-p file) "✓" "✗")
-                      file)))
-        (message "No bibliography files found. Using global fallback.")))))
+              (message "  %s %s" (if (file-readable-p file) "✓" "✗") file)))
+        (message "No bibliography files found.")))))
 
-;; Org-mode citation keybindings (set after org is loaded)
 (with-eval-after-load 'org
-  (define-key org-mode-map (kbd "C-c b") #'my/org-insert-citation)
+  (define-key org-mode-map (kbd "C-c b") #'ar/org-insert-citation)
   (define-key org-mode-map (kbd "C-c o") #'citar-open))
 #+end_src
 
 *** Bibliography Utilities
 #+begin_src emacs-lisp
-(defun my/setup-project-bibliography ()
-  "Setup bibliography infrastructure for current project."
+(defun ar/setup-project-bibliography ()
+  "Create a references.bib file in the project root."
   (interactive)
-  (if-let* ((project (project-current))
-            (root (project-root project)))
-      (let* ((bib-dir (expand-file-name "references/" root))
-             (bib-file (expand-file-name "references.bib" bib-dir)))
-        (unless (file-directory-p bib-dir)
-          (make-directory bib-dir t))
-        (unless (file-exists-p bib-file)
-          (with-temp-file bib-file
-            (insert "% Bibliography for "
-                    (file-name-nondirectory (directory-file-name root)) "\n")
-            (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n")))
-        (message "Bibliography setup complete: %s" bib-file)
-        bib-file)
-    (message "Not in a project")))
+  (if (not (projectile-project-p))
+      (message "Not in a project.")
+    (let* ((root (projectile-project-root))
+           (bib-dir (expand-file-name "references/" root))
+           (bib-file (expand-file-name "references.bib" bib-dir)))
+      (unless (file-directory-p bib-dir) (make-directory bib-dir t))
+      (if (file-exists-p bib-file)
+          (message "Bibliography already exists: %s" bib-file)
+        (with-temp-file bib-file
+          (insert "% Bibliography for " (projectile-project-name) "\n")
+          (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n"))
+        (message "Bibliography setup complete: %s" bib-file)))))
 #+end_src
 
-*** RefTeX for Cross-References
-RefTeX provides powerful cross-referencing capabilities. We use it only for references, not citations (citar handles those).
-
+*** RefTeX
 #+begin_src emacs-lisp
 (use-package reftex
   :straight (:type built-in)
@@ -3679,13 +2690,10 @@ RefTeX provides powerful cross-referencing capabilities. We use it only for refe
   :hook (LaTeX-mode . reftex-mode)
   :custom
   (reftex-plug-into-AUCTeX t)
-  (reftex-default-bibliography nil))  ; Let citar handle citations
+  (reftex-default-bibliography nil))
 #+end_src
 
 ** Fast LaTeX Input
-*** CDLaTeX: Core Input System
-CDLaTeX provides fast insertion of environments and math constructs with minimal keystrokes.
-
 #+begin_src emacs-lisp
 (use-package cdlatex
   :defer t
@@ -3707,91 +2715,6 @@ CDLaTeX provides fast insertion of environments and math constructs with minimal
   :config
   ;; Ensure CDLaTeX tab works correctly
   (define-key cdlatex-mode-map (kbd "TAB") #'cdlatex-tab))
-#+end_src
-
-*** LAAS: Auto-Activating Snippets
-LAAS provides intelligent, context-aware snippet expansion as you type.
-
-#+begin_src emacs-lisp
-(use-package laas
-  :defer t
-  :hook ((LaTeX-mode . laas-mode)
-         (org-mode . laas-mode))
-  :config
-  (aas-set-snippets 'laas-mode
-    ;; === Math-only snippets ===
-    :cond #'texmathp
-
-    ;; Common operations
-    "supp" "\\supp"
-    "inf" "\\infty"
-    "lim" "\\lim"
-
-    ;; Big O notation
-    "On" "O(n)"
-    "O1" "O(1)"
-    "Olog" "O(\\log n)"
-
-    ;; Functions with yasnippet integration
-    "Sum" (lambda () (interactive)
-            (yas-expand-snippet "\\sum_{${1:i=1}}^{${2:n}} $0"))
-    "Prod" (lambda () (interactive)
-             (yas-expand-snippet "\\prod_{${1:i=1}}^{${2:n}} $0"))
-    "Int" (lambda () (interactive)
-            (yas-expand-snippet "\\int_{${1:a}}^{${2:b}} $0"))
-    "Lim" (lambda () (interactive)
-            (yas-expand-snippet "\\lim_{${1:x \\to \\infty}} $0"))
-
-    ;; === Accent snippets (work on preceding object) ===
-    :cond #'laas-object-on-left-condition
-    "qq" (lambda () (interactive) (laas-wrap-previous-object "sqrt"))
-    "vv" (lambda () (interactive) (laas-wrap-previous-object "vec"))
-    ".." (lambda () (interactive) (laas-wrap-previous-object "dot"))
-    "::" (lambda () (interactive) (laas-wrap-previous-object "ddot"))
-    "~~" (lambda () (interactive) (laas-wrap-previous-object "tilde"))
-    "^^" (lambda () (interactive) (laas-wrap-previous-object "hat"))
-    "--" (lambda () (interactive) (laas-wrap-previous-object "bar"))))
-#+end_src
-
-*** YaSnippet LaTeX Snippets
-#+begin_src emacs-lisp
-(with-eval-after-load 'yasnippet
-  (yas-define-snippets 'latex-mode
-    '(;; === Environments ===
-      ("beg" "\\begin{${1:env}}\n  $0\n\\end{$1}" "begin-end")
-
-      ("eq" "\\begin{equation}\n  ${1:equation}\n  \\label{eq:${2:label}}\n\\end{equation}\n$0"
-       "equation")
-
-      ("eq*" "\\begin{equation*}\n  $0\n\\end{equation*}" "equation*")
-
-      ("ali" "\\begin{align}\n  ${1:a} &= ${2:b} \\\\\n  ${3:c} &= ${4:d}\n  \\label{eq:${5:label}}\n\\end{align}\n$0"
-       "align")
-
-      ("ali*" "\\begin{align*}\n  ${1:a} &= ${2:b} \\\\\n  $0\n\\end{align*}" "align*")
-
-      ;; === Figures ===
-      ("fig" "\\begin{figure}[${1:htbp}]\n  \\centering\n  \\includegraphics[width=${2:0.8}\\textwidth]{${3:path}}\n  \\caption{${4:caption}}\n  \\label{fig:${5:label}}\n\\end{figure}\n$0"
-       "figure")
-
-      ;; === Tables ===
-      ("tab" "\\begin{table}[${1:htbp}]\n  \\centering\n  \\caption{${2:caption}}\n  \\label{tab:${3:label}}\n  \\begin{tabular}{${4:lll}}\n    \\toprule\n    ${5:header} \\\\\n    \\midrule\n    ${6:data} \\\\\n    \\bottomrule\n  \\end{tabular}\n\\end{table}\n$0"
-       "table")
-
-      ;; === Math ===
-      ("frac" "\\frac{${1:num}}{${2:denom}}$0" "fraction")
-      ("pdv" "\\frac{\\partial ${1:f}}{\\partial ${2:x}}$0" "partial derivative")
-      ("dv" "\\frac{d ${1:f}}{d ${2:x}}$0" "derivative")
-
-      ;; === Citations & References ===
-      ("cite" "\\cite{${1:key}}$0" "cite")
-      ("ref" "\\ref{${1:label}}$0" "reference")
-      ("eqref" "\\eqref{${1:eq:label}}$0" "equation reference")
-
-      ;; === Sectioning ===
-      ("sec" "\\section{${1:title}}\n\\label{sec:${2:label}}\n$0" "section")
-      ("sub" "\\subsection{${1:title}}\n\\label{sub:${2:label}}\n$0" "subsection")
-      ("ssub" "\\subsubsection{${1:title}}\n\\label{ssub:${2:label}}\n$0" "subsubsection"))))
 #+end_src
 
 ** Prettification & Visual Enhancements
@@ -3832,70 +2755,91 @@ LAAS provides intelligent, context-aware snippet expansion as you type.
 #+end_src
 
 ** Org Mode LaTeX Integration
-*** LaTeX Export Configuration
-Configure Org mode to use Tectonic for LaTeX exports and previews.
-
 #+begin_src emacs-lisp
 (with-eval-after-load 'org
-  (require 'ox-latex)
+  (setq org-latex-compiler "lualatex")
+  (setq org-pretty-entities-include-sub-superscripts nil)
 
-  ;; === Use Tectonic for Exports ===
-  (setq org-latex-compiler "tectonic")
-  (setq org-latex-pdf-process '("tectonic -X compile %f"))
+  (plist-put org-format-latex-options :scale 3.5)
 
-  ;; === Preview Configuration ===
+  (let ((png-process (cdr (assoc 'dvipng org-preview-latex-process-alist))))
+    (when png-process
+      (plist-put png-process :image-size-adjust '(3.5 . 3.5))))
+
+  ;; Set transparent background for dark theme compatibility
+  (plist-put org-format-latex-options :background "Transparent")
+  (plist-put org-format-latex-options :foreground "#a9b1d6")
+
   (add-to-list 'org-preview-latex-process-alist
-               '(tectonic
-                 :programs ("tectonic" "convert")
-                 :description "pdf > png"
-                 :message "you need to install: tectonic and imagemagick"
+               '(lualatex-png
+                 :programs ("lualatex" "magick")
+                 :description "pdf > png (LuaLaTeX with proper transparency)"
+                 :message "Install lualatex and imagemagick v7+"
                  :image-input-type "pdf"
                  :image-output-type "png"
                  :image-size-adjust (1.0 . 1.0)
-                 :latex-compiler
-                 ("tectonic -Z shell-escape-cwd=%o --outfmt pdf --outdir %o %f")
-                 :image-converter
-                 ("convert -density %D -trim -antialias %f -quality 100 %O")))
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("magick %f -density 600 -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
 
-  (setq org-preview-latex-default-process 'tectonic)
+  (add-to-list 'org-preview-latex-process-alist
+               '(lualatex-svg
+                 :programs ("lualatex" "pdfcrop" "dvisvgm")
+                 :description "pdf > cropped pdf > svg (LuaLaTeX - RECOMMENDED)"
+                 :message "Install lualatex, pdfcrop (texlive-extra-utils), and dvisvgm"
+                 :image-input-type "pdf"
+                 :image-output-type "svg"
+                 :image-size-adjust (1.0 . 1.0)
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("pdfcrop %f %B-crop.pdf && dvisvgm --pdf --no-fonts --exact-bbox --output=%O %B-crop.pdf")))
 
-  ;; === LaTeX Classes ===
-  (add-to-list 'org-latex-classes
-               '("article"
-                 "\\documentclass[11pt,a4paper]{article}"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")
-                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")) t)
+  ;; Use LuaLaTeX for previews
+  (setq org-preview-latex-default-process 'lualatex-png)
 
-  (add-to-list 'org-latex-classes
-               '("report"
-                 "\\documentclass[11pt,a4paper]{report}"
-                 ("\\chapter{%s}" . "\\chapter*{%s}")
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")) t)
+  (setq org-format-latex-header
+        "\\documentclass{article}
+\\usepackage[usenames]{color}
+[PACKAGES]
+[DEFAULT-PACKAGES]
+\\pagestyle{empty}             % do not remove
+% The settings below are copied from fullpage.sty
+\\setlength{\\textwidth}{\\paperwidth}
+\\addtolength{\\textwidth}{-3cm}
+\\setlength{\\oddsidemargin}{1.5cm}
+\\addtolength{\\oddsidemargin}{-2.54cm}
+\\setlength{\\evensidemargin}{\\oddsidemargin}
+\\setlength{\\textheight}{\\paperheight}
+\\addtolength{\\textheight}{-\\headheight}
+\\addtolength{\\textheight}{-\\headsep}
+\\addtolength{\\textheight}{-\\footskip}
+\\addtolength{\\textheight}{-3cm}
+\\setlength{\\topmargin}{1.5cm}
+\\addtolength{\\topmargin}{-2.54cm}
+% Modern font configuration with unicode-math
+\\usepackage{fontspec}
+\\usepackage{unicode-math}
+\\usepackage{amsmath}
+\\usepackage{physics}
+\\usepackage{siunitx}
+\\usepackage{xcolor}
+% Match doom-tokyo-night theme colors
+\\definecolor{fgcolor}{HTML}{a9b1d6}
+\\color{fgcolor}
+% Set modern math font (choose ONE of the following):
+\\setmathfont{STIX Two Math}      % RECOMMENDED: Professional, comprehensive
+% \\setmathfont{Libertinus Math}  % Alternative: Elegant, Times-like
+% \\setmathfont{Fira Math}        % Alternative: Clean, modern")
 
-  (add-to-list 'org-latex-classes
-               '("beamer"
-                 "\\documentclass{beamer}"
-                 ("\\section{%s}" . "\\section*{%s}")
-                 ("\\subsection{%s}" . "\\subsection*{%s}")) t))
-#+end_src
+  (add-to-list 'org-latex-packages-alist '("" "fontspec" nil ("lualatex" "xelatex")))
+  (add-to-list 'org-latex-packages-alist '("" "unicode-math" nil ("lualatex" "xelatex")))
+  (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
+  (add-to-list 'org-latex-packages-alist '("" "physics" t))
+  (add-to-list 'org-latex-packages-alist '("" "siunitx" t))
+  (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
+)
 
-*** Org-Fragtog & Org-Appear
-#+begin_src emacs-lisp
-;; === Toggle LaTeX fragment previews automatically ===
 (use-package org-fragtog
   :defer t
   :hook (org-mode . org-fragtog-mode))
-
-;; === Show markup when cursor is on it ===
-(use-package org-appear
-  :defer t
-  :hook (org-mode . org-appear-mode)
-  :custom
-  (org-appear-autolinks t)
-  (org-appear-autosubmarkers t)
-  (org-appear-autoentities t))
 #+end_src
 
 ** Global Keybindings
@@ -3940,9 +2884,6 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
 
 ** Flycheck with Ruff
 #+begin_src emacs-lisp
-;; Flycheck 35.0+ has built-in ruff support
-;; Simply ensure ruff is installed: pip install ruff
-
 (with-eval-after-load 'flycheck
   ;; Add python-ruff to the list of checkers for python-ts-mode
   (add-to-list 'flycheck-checkers 'python-ruff)
@@ -3953,25 +2894,6 @@ Configure Org mode to use Tectonic for LaTeX exports and previews.
     (flycheck-select-checker 'python-ruff))
 
   (add-hook 'python-ts-mode-hook #'my/flycheck-python-setup))
-
-;; For older flycheck versions without built-in ruff, use this:
-;; (with-eval-after-load 'flycheck
-;;   (flycheck-define-checker python-ruff
-;;     "A Python syntax and style checker using Ruff."
-;;     :command ("ruff" "check"
-;;               "--output-format=concise"
-;;               "--stdin-filename" source-original
-;;               "-")
-;;     :standard-input t
-;;     :error-patterns
-;;     ((error line-start
-;;             (or "-" (file-name)) ":" line ":" (optional column ":") " "
-;;             (id (one-or-more (any alpha digit))) " "
-;;             (message (one-or-more not-newline))
-;;             line-end))
-;;     :modes (python-mode python-ts-mode))
-;;
-;;   (add-to-list 'flycheck-checkers 'python-ruff))
 #+end_src
 
 ** Apheleia with Ruff
