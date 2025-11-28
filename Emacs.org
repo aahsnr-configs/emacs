@@ -1575,7 +1575,8 @@ Only tangles if the file has been modified and saved."
   (org-highlight-latex-and-related nil)  ;; MAJOR performance killer
 
   ;; Startup optimization
-  (org-startup-folded 'showeverything)  ;; CHANGED: Fastest startup
+  (org-startup-with-latex-preview t)
+  (org-startup-folded 'overview)  ;; CHANGED: Fastest startup
   ;;(org-startup-indented nil)  ;; CHANGED: org-indent-mode is slow
   (org-startup-with-inline-images nil)  ;; CHANGED: Load images on demand
   (org-startup-with-latex-preview nil)  ;; CHANGED: Preview on demand
