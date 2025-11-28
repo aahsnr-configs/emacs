@@ -1594,9 +1594,6 @@ Only tangles if the file has been modified and saved."
   (org-agenda-ignore-properties '(effort appt category))
   (org-agenda-span 'day)  ;; Show only today by default
 
-  ;; Image settings
-  (org-image-actual-width 600)
-
   ;; Babel settings
   (org-confirm-babel-evaluate nil)
   (org-src-tab-acts-natively t)
@@ -2521,15 +2518,23 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   :defer t
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
-	 (LaTeX-mode . TeX-source-correlate-mode) ; Enable forward/inverse search
+         (LaTeX-mode . TeX-source-correlate-mode)
          (LaTeX-mode . TeX-fold-mode))
   :custom
   (TeX-engine 'luatex)
-  (TeX-process-asynchronous t)  ; Don't hang Emacs during compilation
-  (TeX-check-TeX nil)            ; Don't look for traditional TeX distributions
+  (TeX-process-asynchronous t)
+  (TeX-check-TeX nil)
   (TeX-clean-confirm nil)
   (TeX-electric-math nil)
   (TeX-display-help nil)
+
+  ;; === Doom Integration: Master File ===
+  (TeX-master t) ;; Do not prompt for master file.
+
+  ;; === Fontification Settings ===
+  ;; These MUST be in :custom so they are set before font-latex loads.
+  (font-latex-fontify-script 'multi-level) ;; Correctly handles superscripts^2
+  (font-latex-fontify-sectioning 1.2)      ;; Scale section headings by 1.2x
 
   ;; === Viewer Configuration ===
   (TeX-view-program-selection '((output-pdf "PDF Tools")))
@@ -2541,7 +2546,7 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   ;; === Parsing and Auto-save ===
   (TeX-auto-save t)
   (TeX-parse-self t)
-  (TeX-save-query nil)           ; Don't ask to save before compiling
+  (TeX-save-query nil)
 
   ;; === Indentation ===
   (LaTeX-indent-level 2)
@@ -2552,14 +2557,35 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   (TeX-auto-local ".auctex-auto")
   (TeX-style-local ".auctex-style")
 
-
   :config
+  ;; === Doom Integration: ChkTeX Setup ===
+  ;; Modify the "Check" command to use specific flags (-v6 suppresses verbose messages, -H header)
+  (let ((check-cmd (assoc "Check" TeX-command-list)))
+    (when check-cmd
+      (setcar (cdr check-cmd) "chktex -v6 -H %s")))
+
+  ;; === Doom Integration: Hooks ===
+  (add-hook 'TeX-mode-hook
+            (lambda ()
+              ;; Tell Emacs how to parse TeX files for spell checking
+              (setq-local ispell-parser 'tex)
+
+              ;; Enable word wrapping (visual-line-mode)
+              (visual-line-mode 1)
+
+              ;; Don't auto-fill in math blocks
+              ;; This prevents breaking equations like $1 + 1 = 2$ across lines.
+              ;; We check if texmathp is loaded (it usually is by AUCTeX).
+              (when (fboundp 'texmathp)
+                (setq-local fill-nobreak-predicate
+                            (cons #'texmathp fill-nobreak-predicate)))))
+
+  ;; Standard Command configurations
   (add-to-list 'TeX-command-list
                '("LuaLaTeXmk" "latexmk -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
                  TeX-run-TeX nil t
                  :help "Run latexmk with LuaLaTeX") t)
 
-  ;; Add continuous preview mode (watch mode)
   (add-to-list 'TeX-command-list
                '("LaTeXmk-Watch" "latexmk -pvc -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -outdir=%o %S"
                  TeX-run-TeX nil t
@@ -2570,7 +2596,7 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
                       ((eq TeX-engine 'xetex) "XeLaTeXmk")
                       (t "LaTeXmk")))
 
-  ;; Auxiliary files to clean
+  ;; Intermediate files to clean
   (setq LaTeX-clean-intermediate-suffixes
         '("\\.aux" "\\.bbl" "\\.blg" "\\.brf" "\\.fot"
           "\\.glo" "\\.gls" "\\.idx" "\\.ilg" "\\.ind"
@@ -2580,14 +2606,8 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
           "-blx\\.bib" "\\.run\\.xml"))
 
   (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
-
   (add-to-list 'auto-mode-alist '("\\.map\\'" . TeX-mode))
-  ;; === Simplify LaTeX command style for Tectonic ===
   (setq LaTeX-command-style '(("" "%(latex)"))))
-
-(custom-set-variables
- '(font-latex-fontify-script 'multi-level)
- '(font-latex-fontify-sectioning '1.2))
 #+end_src
 
 ** Evil Integration for LaTeX
@@ -2782,11 +2802,11 @@ We configure Citar to use our project-aware helper function via buffer-local var
   (setq org-latex-compiler "lualatex")
   (setq org-pretty-entities-include-sub-superscripts nil)
 
-  (plist-put org-format-latex-options :scale 3.5)
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :scale 2.5))
 
-  (let ((png-process (cdr (assoc 'dvipng org-preview-latex-process-alist))))
-    (when png-process
-      (plist-put png-process :image-size-adjust '(3.5 . 3.5))))
+  (setq org-image-actual-width nil)
+
 
   ;; Set transparent background for dark theme compatibility
   (plist-put org-format-latex-options :background "Transparent")
@@ -2859,6 +2879,11 @@ We configure Citar to use our project-aware helper function via buffer-local var
   (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
 )
 
+(add-hook 'org-mode-hook
+          (lambda ()
+            (setq org-format-latex-options
+                  (plist-put org-format-latex-options :scale 2.5))))
+
 (use-package org-fragtog
   :defer t
   :hook (org-mode . org-fragtog-mode))
@@ -2881,92 +2906,50 @@ We configure Citar to use our project-aware helper function via buffer-local var
 
 ** Fontification
 #+begin_src emacs-lisp
-;; Fontification taken from https://tex.stackexchange.com/a/86119/81279.
-(setq font-latex-match-reference-keywords
-      '(;; BibLaTeX.
-        ("printbibliography" "[{")
-        ("addbibresource" "[{")
-        ;; Standard commands.
-        ("cite" "[{")
-        ("citep" "[{")
-        ("citet" "[{")
-        ("Cite" "[{")
-        ("parencite" "[{")
-        ("Parencite" "[{")
-        ("footcite" "[{")
-        ("footcitetext" "[{")
-        ;; Style-specific commands.
-        ("textcite" "[{")
-        ("Textcite" "[{")
-        ("smartcite" "[{")
-        ("Smartcite" "[{")
-        ("cite*" "[{")
-        ("parencite*" "[{")
-        ("supercite" "[{")
-        ;; Qualified citation lists.
-        ("cites" "[{")
-        ("Cites" "[{")
-        ("parencites" "[{")
-        ("Parencites" "[{")
-        ("footcites" "[{")
-        ("footcitetexts" "[{")
-        ("smartcites" "[{")
-        ("Smartcites" "[{")
-        ("textcites" "[{")
-        ("Textcites" "[{")
-        ("supercites" "[{")
-        ;; Style-independent commands.
-        ("autocite" "[{")
-        ("Autocite" "[{")
-        ("autocite*" "[{")
-        ("Autocite*" "[{")
-        ("autocites" "[{")
-        ("Autocites" "[{")
-        ;; Text commands.
-        ("citeauthor" "[{")
-        ("Citeauthor" "[{")
-        ("citetitle" "[{")
-        ("citetitle*" "[{")
-        ("citeyear" "[{")
-        ("citedate" "[{")
-        ("citeurl" "[{")
-        ;; Special commands.
-        ("fullcite" "[{")
-        ;; Cleveref.
-        ("cref" "{")
-        ("Cref" "{")
-        ("cpageref" "{")
-        ("Cpageref" "{")
-        ("cpagerefrange" "{")
-        ("Cpagerefrange" "{")
-        ("crefrange" "{")
-        ("Crefrange" "{")
-        ("labelcref" "{")))
+(with-eval-after-load 'font-latex
+  (let ((reference-keywords
+         '(;; BibLaTeX.
+           ("printbibliography" "[{") ("addbibresource" "[{")
+           ;; Standard commands.
+           ("cite" "[{") ("citep" "[{") ("citet" "[{") ("Cite" "[{")
+           ("parencite" "[{") ("Parencite" "[{") ("footcite" "[{") ("footcitetext" "[{")
+           ;; Style-specific commands.
+           ("textcite" "[{") ("Textcite" "[{") ("smartcite" "[{") ("Smartcite" "[{")
+           ("cite*" "[{") ("parencite*" "[{") ("supercite" "[{")
+           ;; Qualified citation lists.
+           ("cites" "[{") ("Cites" "[{") ("parencites" "[{") ("Parencites" "[{")
+           ("footcites" "[{") ("footcitetexts" "[{") ("smartcites" "[{") ("Smartcites" "[{")
+           ("textcites" "[{") ("Textcites" "[{") ("supercites" "[{")
+           ;; Style-independent commands.
+           ("autocite" "[{") ("Autocite" "[{") ("autocite*" "[{") ("Autocite*" "[{")
+           ("autocites" "[{") ("Autocites" "[{")
+           ;; Text commands.
+           ("citeauthor" "[{") ("Citeauthor" "[{") ("citetitle" "[{") ("citetitle*" "[{")
+           ("citeyear" "[{") ("citedate" "[{") ("citeurl" "[{")
+           ;; Special commands.
+           ("fullcite" "[{")
+           ;; Cleveref.
+           ("cref" "{") ("Cref" "{") ("cpageref" "{") ("Cpageref" "{")
+           ("cpagerefrange" "{") ("Cpagerefrange" "{") ("crefrange" "{") ("Crefrange" "{")
+           ("labelcref" "{")))
+        (textual-keywords
+         '(;; BibLaTeX brackets.
+           ("parentext" "{") ("brackettext" "{") ("hybridblockquote" "[{")
+           ;; Auxiliary commands.
+           ("textelp" "{") ("textelp*" "{") ("textins" "{") ("textins*" "{")
+           ;; Subcaption.
+           ("subcaption" "[{")))
+        (variable-keywords
+         '(;; Amsmath.
+           ("numberwithin" "{")
+           ;; Enumitem.
+           ("setlist" "[{") ("setlist*" "[{") ("newlist" "{") ("renewlist" "{")
+           ("setlistdepth" "{") ("restartlist" "{") ("crefname" "{"))))
 
-(setq font-latex-match-textual-keywords
-      '(;; BibLaTeX brackets.
-        ("parentext" "{")
-        ("brackettext" "{")
-        ("hybridblockquote" "[{")
-        ;; Auxiliary commands.
-        ("textelp" "{")
-        ("textelp*" "{")
-        ("textins" "{")
-        ("textins*" "{")
-        ;; Subcaption.
-        ("subcaption" "[{")))
-
-(setq font-latex-match-variable-keywords
-      '(;; Amsmath.
-        ("numberwithin" "{")
-        ;; Enumitem.
-        ("setlist" "[{")
-        ("setlist*" "[{")
-        ("newlist" "{")
-        ("renewlist" "{")
-        ("setlistdepth" "{")
-        ("restartlist" "{")
-        ("crefname" "{")))
+    ;; Register the keywords with font-latex
+    (font-latex-add-keywords reference-keywords 'reference)
+    (font-latex-add-keywords textual-keywords 'textual)
+    (font-latex-add-keywords variable-keywords 'variable)))
 #+end_src
 
 ** Smartparens LaTeX Integration
@@ -3357,10 +3340,7 @@ My org files will:
         popwin:popup-window-position 'bottom)
 
   :config
-  ;; Enable popwin mode
   (popwin-mode 1)
-
-  ;; Set display-buffer to use popwin
   (setq display-buffer-function 'popwin:display-buffer)
 
   ;; Define popup rules
@@ -3402,6 +3382,15 @@ My org files will:
           ;; === Debugger (dape) ===
           ("^\\*dape-repl" :regexp t :height 0.35 :position bottom :noselect t)
           ("^\\*dape-info" :regexp t :width 0.35 :position right :noselect t)
+
+        ;; === Doom Integration: LaTeX Output ===
+        ;; Matches output buffers like "output.pdf" or "output.log".
+        ;; Doom uses :size 15 (lines)
+        (" output\\*$" :regexp t :height 15 :position bottom :noselect nil)
+
+        ;; Matches TeX Help and Error buffers.
+        ;; Doom uses :size 0.3 (30% height), select t (focus), ttl nil (don't auto-close immediately)
+        ("^\\*TeX \\(?:Help\\|errors\\)" :regexp t :height 0.3 :position bottom :noselect nil :stick t)
 
           ;; === Grep, Occur, Search ===
           ("*grep*" :height 0.4 :position bottom :noselect nil)
