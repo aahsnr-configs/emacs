@@ -2520,7 +2520,7 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
          (LaTeX-mode . TeX-source-correlate-mode)
-         (LaTeX-mode . TeX-fold-mode))
+         (LaTeX-mode . TeX-fold-mode)) ; Enable folding mode
   :custom
   (TeX-engine 'luatex)
   (TeX-process-asynchronous t)
@@ -2532,8 +2532,8 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   ;; === Doom Integration: Master File ===
   (TeX-master t) ;; Do not prompt for master file.
 
-  ;; === Fontification Settings ===
-  ;; These MUST be in :custom so they are set before font-latex loads.
+  ;; === Folding & Prettification (Issue #1 Fix) ===
+  (TeX-fold-auto t)                        ;; Automatically fold macros on file open
   (font-latex-fontify-script 'multi-level) ;; Correctly handles superscripts^2
   (font-latex-fontify-sectioning 1.2)      ;; Scale section headings by 1.2x
 
@@ -2560,7 +2560,6 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
 
   :config
   ;; === Doom Integration: ChkTeX Setup ===
-  ;; Modify the "Check" command to use specific flags (-v6 suppresses verbose messages, -H header)
   (let ((check-cmd (assoc "Check" TeX-command-list)))
     (when check-cmd
       (setcar (cdr check-cmd) "chktex -v6 -H %s")))
@@ -2568,15 +2567,8 @@ Used strictly for visualization. Keybindings moved to `SPC f t` to avoid Org mod
   ;; === Doom Integration: Hooks ===
   (add-hook 'TeX-mode-hook
             (lambda ()
-              ;; Tell Emacs how to parse TeX files for spell checking
               (setq-local ispell-parser 'tex)
-
-              ;; Enable word wrapping (visual-line-mode)
               (visual-line-mode 1)
-
-              ;; Don't auto-fill in math blocks
-              ;; This prevents breaking equations like $1 + 1 = 2$ across lines.
-              ;; We check if texmathp is loaded (it usually is by AUCTeX).
               (when (fboundp 'texmathp)
                 (setq-local fill-nobreak-predicate
                             (cons #'texmathp fill-nobreak-predicate)))))
@@ -2803,16 +2795,29 @@ We configure Citar to use our project-aware helper function via buffer-local var
   (setq org-latex-compiler "lualatex")
   (setq org-pretty-entities-include-sub-superscripts nil)
 
-  (setq org-format-latex-options
-        (plist-put org-format-latex-options :scale 2.5))
-
+  ;; === CRITICAL FIX FOR SIZE ===
+  ;; 1. Force images to respect the scale attribute, not their pixel width
   (setq org-image-actual-width nil)
 
+  ;; 2. Define a function to force the scale
+  (defun my/org-latex-preview-scale ()
+    "Force the scale of latex previews to a specific value."
+    (setq org-format-latex-options
+          (plist-put org-format-latex-options :scale 2.5))) ;; Try 2.5 or 3.0 here
 
+  ;; 3. Add it to the hook so it runs every time you open an org file
+  (add-hook 'org-mode-hook #'my/org-latex-preview-scale)
+
+  ;; === Visual Settings ===
   ;; Set transparent background for dark theme compatibility
-  (plist-put org-format-latex-options :background "Transparent")
-  (plist-put org-format-latex-options :foreground "#a9b1d6")
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :background "Transparent"))
 
+  ;; Auto-detect foreground color (matches text color)
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :foreground "Auto"))
+
+  ;; === Preview Generation Backends ===
   (add-to-list 'org-preview-latex-process-alist
                '(lualatex-png
                  :programs ("lualatex" "magick")
@@ -2822,7 +2827,7 @@ We configure Citar to use our project-aware helper function via buffer-local var
                  :image-output-type "png"
                  :image-size-adjust (1.0 . 1.0)
                  :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
-                 :image-converter ("magick %f -density 600 -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
+                 :image-converter ("magick %f -density %D -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
 
   (add-to-list 'org-preview-latex-process-alist
                '(lualatex-svg
@@ -2838,52 +2843,47 @@ We configure Citar to use our project-aware helper function via buffer-local var
   ;; Use LuaLaTeX for previews
   (setq org-preview-latex-default-process 'lualatex-png)
 
-  (setq org-format-latex-header
-        "\\documentclass{article}
-\\usepackage[usenames]{color}
-[PACKAGES]
-[DEFAULT-PACKAGES]
-\\pagestyle{empty}             % do not remove
-% The settings below are copied from fullpage.sty
-\\setlength{\\textwidth}{\\paperwidth}
-\\addtolength{\\textwidth}{-3cm}
-\\setlength{\\oddsidemargin}{1.5cm}
-\\addtolength{\\oddsidemargin}{-2.54cm}
-\\setlength{\\evensidemargin}{\\oddsidemargin}
-\\setlength{\\textheight}{\\paperheight}
-\\addtolength{\\textheight}{-\\headheight}
-\\addtolength{\\textheight}{-\\headsep}
-\\addtolength{\\textheight}{-\\footskip}
-\\addtolength{\\textheight}{-3cm}
-\\setlength{\\topmargin}{1.5cm}
-\\addtolength{\\topmargin}{-2.54cm}
-% Modern font configuration with unicode-math
-\\usepackage{fontspec}
-\\usepackage{unicode-math}
-\\usepackage{amsmath}
-\\usepackage{physics}
-\\usepackage{siunitx}
-\\usepackage{xcolor}
-% Match doom-tokyo-night theme colors
-\\definecolor{fgcolor}{HTML}{a9b1d6}
-\\color{fgcolor}
-% Set modern math font (choose ONE of the following):
-\\setmathfont{STIX Two Math}      % RECOMMENDED: Professional, comprehensive
-% \\setmathfont{Libertinus Math}  % Alternative: Elegant, Times-like
-% \\setmathfont{Fira Math}        % Alternative: Clean, modern")
+  ;; Header Configuration
+;;   (setq org-format-latex-header
+;;         "\\documentclass{article}
+;; \\usepackage[usenames]{color}
+;; [PACKAGES]
+;; [DEFAULT-PACKAGES]
+;; \\pagestyle{empty}             % do not remove
+;; % The settings below are copied from fullpage.sty
+;; \\setlength{\\textwidth}{\\paperwidth}
+;; \\addtolength{\\textwidth}{-3cm}
+;; \\setlength{\\oddsidemargin}{1.5cm}
+;; \\addtolength{\\oddsidemargin}{-2.54cm}
+;; \\setlength{\\evensidemargin}{\\oddsidemargin}
+;; \\setlength{\\textheight}{\\paperheight}
+;; \\addtolength{\\textheight}{-\\headheight}
+;; \\addtolength{\\textheight}{-\\headsep}
+;; \\addtolength{\\textheight}{-\\footskip}
+;; \\addtolength{\\textheight}{-3cm}
+;; \\setlength{\\topmargin}{1.5cm}
+;; \\addtolength{\\topmargin}{-2.54cm}
+;; % Modern font configuration with unicode-math
+;; \\usepackage{fontspec}
+;; \\usepackage{unicode-math}
+;; \\usepackage{amsmath}
+;; \\usepackage{physics}
+;; \\usepackage{siunitx}
+;; \\usepackage{xcolor}
+;; % Match doom-tokyo-night theme colors
+;; \\definecolor{fgcolor}{HTML}{a9b1d6}
+;; \\color{fgcolor}
+;; % Set modern math font
+;; \\setmathfont{STIX Two Math}")
 
-  (add-to-list 'org-latex-packages-alist '("" "fontspec" nil ("lualatex" "xelatex")))
-  (add-to-list 'org-latex-packages-alist '("" "unicode-math" nil ("lualatex" "xelatex")))
-  (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
-  (add-to-list 'org-latex-packages-alist '("" "physics" t))
-  (add-to-list 'org-latex-packages-alist '("" "siunitx" t))
-  (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
-)
+;;   (add-to-list 'org-latex-packages-alist '("" "fontspec" nil ("lualatex" "xelatex")))
+;;   (add-to-list 'org-latex-packages-alist '("" "unicode-math" nil ("lualatex" "xelatex")))
+;;   (add-to-list 'org-latex-packages-alist '("" "amsmath" t))
+;;   (add-to-list 'org-latex-packages-alist '("" "physics" t))
+;;   (add-to-list 'org-latex-packages-alist '("" "siunitx" t))
+;;   (add-to-list 'org-latex-packages-alist '("authoryear,longnamesfirst" "natbib" t))
 
-(add-hook 'org-mode-hook
-          (lambda ()
-            (setq org-format-latex-options
-                  (plist-put org-format-latex-options :scale 2.5))))
+  )
 
 (use-package org-fragtog
   :defer t
