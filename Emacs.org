@@ -1754,7 +1754,7 @@ targets."
   :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
   :autoload (cape-wrap-silent cape-wrap-purify)
   :init
-  ;; (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
   (add-to-list 'completion-at-point-functions #'cape-file)
   (add-to-list 'completion-at-point-functions #'cape-elisp-block)
   (add-to-list 'completion-at-point-functions #'cape-keyword)
@@ -1769,8 +1769,34 @@ targets."
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
 #+end_src
 
-
 * Snippet Engine
+#+begin_src emacs-lisp
+(defvar my/snippets-directory (expand-file-name "snippets" user-emacs-directory)
+  "Directory for personal yasnippet snippets.")
+
+;; Create the custom snippets directory if it doesn't exist.
+(unless (file-directory-p my/snippets-directory)
+  (make-directory my/snippets-directory t))
+
+(use-package yasnippet
+  :defer t
+  :diminish yas-minor-mode
+  :hook (after-init . yas-global-mode)
+  :config
+  (add-to-list 'yas-snippet-dirs my/snippets-directory))
+
+;; Collection of yasnippet snippets
+(use-package yasnippet-snippets)
+
+;; Yasnippet Completion At Point Function
+(use-package yasnippet-capf
+  :after cape
+  :commands yasnippet-capf
+  ;; TODO: Replace this with lsp-mode completions
+  ;;:functions cape-capf-super eglot-completion-at-point my-eglot-capf-with-yasnippet
+  :init
+  (add-to-list 'completion-at-point-functions #'yasnippet-capf))
+#+end_src
 
 * Bookmarks
 

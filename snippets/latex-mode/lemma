@@ -1,7 +1,8 @@
 # -*- mode: snippet -*-
 # name: lemma
-# key: lemma
+# key: lmm
+# group: theorems
 # --
 \begin{lemma}
-  $0
+`%`$0
 \end{lemma}

@@ -16,7 +16,7 @@
   - [x] init-ui.el
   - [x] init-edit.el
   - [x] init-completion.el
-  - [ ] init-snippet.el
+  - [x] init-snippet.el
 
   - [ ] init-bookmark.el
   - [ ] init-calendar.el

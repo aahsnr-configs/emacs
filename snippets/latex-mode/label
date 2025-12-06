@@ -1,5 +1,6 @@
 # -*- mode: snippet -*-
 # name: label
-# key: label
+# key: lab
+# uuid: lab
 # --
-\\label{${1:label}}
+\label{$0}

@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
 # name: println
-# key: sout
+# key: println
+# uuid: println
 # --
-System.out.println("${1:text}");
-$0
+System.out.println("`%`$0");

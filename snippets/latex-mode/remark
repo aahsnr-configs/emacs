@@ -1,7 +1,8 @@
 # -*- mode: snippet -*-
 # name: remark
-# key: remark
+# key: rmk
+# group: theorems
 # --
 \begin{remark}
-  $0
+`%`$0
 \end{remark}
