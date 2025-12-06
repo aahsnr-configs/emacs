@@ -22,11 +22,11 @@
   - [x] init-dashboard.el
   - [x] init-dired.el
   - [x] init-highlight.el
-  - [ ] init-ibuffer.el
-  - [ ] init-kill-ring.el
-  - [ ] init-workspace.el
-  - [ ] init-window.el
-  - [ ] init-treemacs.el
+  - [x] init-ibuffer.el
+  - [x] init-kill-ring.el
+  - [x] init-workspace.el
+  - [x] init-window.el
+  - [x] init-treemacs.el
 
   - [ ] init-eshell.el
   - [ ] init-shell.el

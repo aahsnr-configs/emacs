@@ -2480,17 +2480,20 @@ FACE defaults to inheriting from default and highlight."
 * iBuffer
 #+begin_src emacs-lisp
 (use-package ibuffer
+  :defer t
   :ensure nil
   :bind ("C-x C-b" . ibuffer)
   :init (setq ibuffer-filter-group-name-face '(:inherit (font-lock-string-face bold))))
 
 ;; Display icons for buffers
 (use-package nerd-icons-ibuffer
+  :defer t
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode)
   :init (setq nerd-icons-ibuffer-icon centaur-icon))
 
 ;; Group ibuffer's list by project
 (use-package ibuffer-project
+  :defer t
   :autoload (ibuffer-project-generate-filter-groups ibuffer-do-sort-by-project-file-relative)
   :functions icons-displayable-p
   :hook (ibuffer . (lambda ()
@@ -2517,4 +2520,367 @@ FACE defaults to inheriting from default and highlight."
         (setq ibuffer-project-root-functions
               '((ibuffer-project-project-root . "Project")
                 (file-remote-p . "Remote")))))))
+#+end_src
+
+** Kill Ring
+#+begin_src emacs-lisp
+(setq kill-ring-max 200)
+
+;; Save clipboard contents into kill-ring before replace them
+(setq save-interprogram-paste-before-kill t)
+
+;; Kill & Mark things easily
+(use-package easy-kill
+  :defer t
+  :bind (([remap kill-ring-save] . easy-kill)
+         ([remap mark-sexp] . easy-mark)))
+
+;; Interactively insert and edit items from kill-ring
+(use-package browse-kill-ring
+  :bind ("C-c k" . browse-kill-ring)
+  :hook (after-init . browse-kill-ring-default-keybindings)
+  :init (setq browse-kill-ring-separator "────────────────"
+              browse-kill-ring-separator-face 'shadow))
+#+end_src
+
+* Workspace
+#+begin_src emacs-lisp
+(defvar centaur-dashboard nil
+  "Display dashboard at startup or not.
+This variable is typically defined in init-custom.el.
+If you have init-custom.el, this defvar won't override your setting.")
+
+(use-package tabspaces
+  :functions tabspaces-mode
+  :hook (after-init . (lambda() (unless centaur-dashboard (tabspaces-mode t))))
+  :custom
+  (tab-bar-show nil)
+  (tabspaces-use-filtered-buffers-as-default t)
+  (tabspaces-default-tab "Default")
+  (tabspaces-remove-to-default t)
+  (tabspaces-include-buffers '("*scratch*" "*Messages*"))
+  (tabspaces-exclude-buffers '("*eat*" "*vterm*" "*shell*" "*eshell*"))
+
+  ;; Session management settings
+  (tabspaces-session t)
+  (tabspaces-session-auto-restore (not centaur-dashboard))
+
+  :config
+  (with-no-warnings
+    (with-eval-after-load 'consult
+      (consult-customize consult--source-buffer :hidden t :default nil)
+      (defvar consult--source-workspace
+        (list :name     "Workspace Buffer"
+              :narrow   ?w
+              :history  'buffer-name-history
+              :category 'buffer
+              :state    #'consult--buffer-state
+              :default  t
+              :items    (lambda () (consult--buffer-query
+                               :predicate #'tabspaces--local-buffer-p
+                               :sort 'visibility
+                               :as #'buffer-name)))
+        "Set workspace buffer list for consult-buffer.")
+      (add-to-list 'consult-buffer-sources 'consult--source-workspace))
+
+    (defun my-tabspaces-delete-childframe (&rest _)
+      "Delete all child frames before saving tabspaces session.
+This prevents issues with posframe popups being saved in the session."
+      (when (fboundp 'posframe-delete-all)
+        (ignore-errors
+          (posframe-delete-all))))
+    (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
+
+    ;; Helper function to bury Messages buffer after restoring session
+    (defun my-tabspaces-bury-window (&rest _)
+      "Bury *Messages* buffer after restoring tabspaces session.
+This provides a cleaner workspace after session restoration."
+      (ignore-errors
+        ;; Use the standard messages buffer name
+        (let ((msg-buf (get-buffer "*Messages*")))
+          (when msg-buf
+            (quit-windows-on msg-buf)))))
+
+    ;; Advice to clean up Messages buffer after session restore
+    (advice-add #'tabspaces-restore-session :after #'my-tabspaces-bury-window)))
+#+end_src
+
+* Window
+** Windmove
+Directional window-selection routines
+#+begin_src emacs-lisp
+(use-package windmove
+  :ensure nil
+  :hook (after-init . (lambda ()
+                        (windmove-default-keybindings 'super))))
+#+end_src
+
+** Winner
+Restore old window configurations
+#+begin_src emacs-lisp
+(use-package winner
+  :ensure nil
+  :commands (winner-undo winner-redo)
+  :hook (after-init . winner-mode)
+  :init (setq winner-boring-buffers '("*Completions*"
+                                      "*Compile-Log*"
+                                      "*inferior-lisp*"
+                                      "*Fuzzy Completions*"
+                                      "*Apropos*"
+                                      "*Help*"
+                                      "*cvs*"
+                                      "*Buffer List*"
+                                      "*Ibuffer*"
+                                      "*esh command on file*")))
+#+end_src
+
+** Ace Window
+Quickly switch windows
+#+begin_src emacs-lisp
+(use-package ace-window
+  :defer t
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Window Management" 'faicon "nf-fa-th")
+    :foreign-keys warn :quit-key ("q" "C-g"))
+   ("Actions"
+    (("TAB" other-window "switch")
+     ("x" ace-delete-window "delete")
+     ("X" ace-delete-other-windows "delete other" :exit t)
+     ("s" ace-swap-window "swap")
+     ("a" ace-select-window "select" :exit t)
+     ("m" toggle-frame-maximized "maximize" :exit t)
+     ("u" toggle-frame-fullscreen "fullscreen" :exit t))
+    "Resize"
+    (("h" shrink-window-horizontally "←")
+     ("j" enlarge-window "↓")
+     ("k" shrink-window "↑")
+     ("l" enlarge-window-horizontally "→")
+     ("n" balance-windows "balance"))
+    "Split"
+    (("r" split-window-right "horizontally")
+     ("R" split-window-horizontally-instead "horizontally instead")
+     ("v" split-window-below "vertically")
+     ("V" split-window-vertically-instead "vertically instead")
+     ("t" toggle-window-split "toggle"))
+    "Zoom"
+    (("+" text-scale-increase "in")
+     ("=" text-scale-increase "in")
+     ("-" text-scale-decrease "out")
+     ("0" (text-scale-increase 0) "reset"))
+    "Misc"
+    (("o" set-frame-font "frame font")
+     ("f" make-frame-command "new frame")
+     ("d" delete-frame "delete frame")
+     ("<left>" winner-undo "winner undo")
+     ("<right>" winner-redo "winner redo"))))
+  :custom-face
+  (aw-leading-char-face ((t (:inherit font-lock-keyword-face :foreground unspecified :bold t :height 3.0))))
+  (aw-minibuffer-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 1.0))))
+  (aw-mode-line-face ((t (:inherit mode-line-emphasis :bold t))))
+  :bind (([remap other-window] . ace-window)
+         ("C-c w" . ace-window-hydra/body)
+         ("C-x |" . split-window-horizontally-instead)
+         ("C-x _" . split-window-vertically-instead))
+  :hook (emacs-startup . ace-window-display-mode)
+  :config
+  (defun toggle-window-split ()
+    (interactive)
+    (if (= (count-windows) 2)
+        (let* ((this-win-buffer (window-buffer))
+               (next-win-buffer (window-buffer (next-window)))
+               (this-win-edges (window-edges (selected-window)))
+               (next-win-edges (window-edges (next-window)))
+               (this-win-2nd (not (and (<= (car this-win-edges)
+                                           (car next-win-edges))
+                                       (<= (cadr this-win-edges)
+                                           (cadr next-win-edges)))))
+               (splitter
+                (if (= (car this-win-edges)
+                       (car (window-edges (next-window))))
+                    'split-window-horizontally
+                  'split-window-vertically)))
+          (delete-other-windows)
+          (let ((first-win (selected-window)))
+            (funcall splitter)
+            (if this-win-2nd (other-window 1))
+            (set-window-buffer (selected-window) this-win-buffer)
+            (set-window-buffer (next-window) next-win-buffer)
+            (select-window first-win)
+            (if this-win-2nd (other-window 1))))
+      (user-error "`toggle-window-split' only supports two windows")))
+
+  ;; Bind hydra to dispatch list
+  (add-to-list 'aw-dispatch-alist '(?w ace-window-hydra/body) t)
+
+  ;; Select widnow via `M-1'...`M-9'
+  (defun aw--select-window (number)
+    "Slecet the specified window."
+    (when (numberp number)
+      (let ((found nil))
+        (dolist (win (aw-window-list))
+          (when (and (window-live-p win)
+                     (eq number
+                         (string-to-number
+                          (window-parameter win 'ace-window-path))))
+            (setq found t)
+            (aw-switch-to-window win)))
+        (unless found
+          (message "No specified window: %d" number)))))
+  (dotimes (n 9)
+    (bind-key (format "M-%d" (1+ n))
+              (lambda ()
+                (interactive)
+                (aw--select-window (1+ n))))))
+#+end_src
+
+** Popper
+Enforce rules for popups
+#+begin_src emacs-lisp
+(use-package popper
+  :custom
+  (popper-group-function #'popper-group-by-directory)
+  (popper-echo-dispatch-actions t)
+  :bind (:map popper-mode-map
+         ("C-h z"       . popper-toggle)
+         ("C-<tab>"     . popper-cycle)
+         ("C-M-<tab>"   . popper-toggle-type))
+  :hook (emacs-startup . popper-echo-mode)
+  :init
+  (setq popper-mode-line ""
+        popper-reference-buffers
+        '("\\*Messages\\*$"
+          "Output\\*$" "\\*Pp Eval Output\\*$"
+          "^\\*eldoc.*\\*$"
+          "\\*Compile-Log\\*$"
+          "\\*Completions\\*$"
+          "\\*Warnings\\*$"
+          "\\*Async Shell Command\\*$"
+          "\\*Apropos\\*$"
+          "\\*Backtrace\\*$"
+          "\\*Calendar\\*$"
+          "\\*Fd\\*$" "\\*Find\\*$" "\\*Finder\\*$"
+          "\\*Kill Ring\\*$"
+          "\\*Embark \\(Collect\\|Live\\):.*\\*$"
+
+          bookmark-bmenu-mode
+          comint-mode
+          compilation-mode
+          help-mode helpful-mode
+          tabulated-list-mode
+          Buffer-menu-mode
+
+          flymake-diagnostics-buffer-mode
+          flycheck-error-list-mode flycheck-verify-mode
+
+          gnus-article-mode devdocs-mode
+          grep-mode occur-mode rg-mode deadgrep-mode ag-mode pt-mode
+          youdao-dictionary-mode osx-dictionary-mode fanyi-mode
+          "^\\*gt-result\\*$" "^\\*gt-log\\*$"
+
+          "^\\*Process List\\*$" process-menu-mode
+          list-environment-mode cargo-process-mode
+
+          "^\\*.*eat.*\\*.*$"
+          "^\\*.*eshell.*\\*.*$"
+          "^\\*.*shell.*\\*.*$"
+          "^\\*.*terminal.*\\*.*$"
+          "^\\*.*vterm[inal]*.*\\*.*$"
+
+          "\\*DAP Templates\\*$" dap-server-log-mode
+          "\\*ELP Profiling Restuls\\*" profiler-report-mode
+          "\\*package update results\\*$" "\\*Package-Lint\\*$"
+          "\\*[Wo]*Man.*\\*$"
+          "\\*ert\\*$" overseer-buffer-mode
+          "\\*gud-debug\\*$"
+          "\\*lsp-help\\*$" "\\*lsp session\\*$"
+          "\\*quickrun\\*$"
+          "\\*tldr\\*$"
+          "\\*vc-.*\\**"
+          "\\*diff-hl\\**"
+          "^\\*macro expansion\\**"
+
+          "\\*Agenda Commands\\*" "\\*Org Select\\*" "\\*Capture\\*" "^CAPTURE-.*\\.org*"
+          "\\*Gofmt Errors\\*$" "\\*Go Test\\*$" godoc-mode
+          "\\*docker-.+\\*"
+          "\\*prolog\\*" inferior-python-mode inf-ruby-mode swift-repl-mode
+          "\\*rustfmt\\*$" rustic-compilation-mode rustic-cargo-clippy-mode
+          rustic-cargo-outdated-mode rustic-cargo-run-mode rustic-cargo-test-mode))
+  :config
+  (with-no-warnings
+    (defun my-popper-fit-window-height (win)
+      "Adjust the height of popup window WIN to fit the buffer's content."
+      (let ((desired-height (floor (/ (frame-height) 3))))
+        (fit-window-to-buffer win desired-height desired-height)))
+    (setq popper-window-height #'my-popper-fit-window-height)
+
+    (defun popper-close-window-hack (&rest _args)
+      "Close popper window via `C-g'."
+      (when (and ; (called-interactively-p 'interactive)
+             (not (region-active-p))
+             popper-open-popup-alist)
+        (let ((window (caar popper-open-popup-alist))
+              (buffer (cdar popper-open-popup-alist)))
+          (when (and (window-live-p window)
+                     (buffer-live-p buffer)
+                     (not (with-current-buffer buffer
+                            (derived-mode-p 'eshell-mode
+                                            'shell-mode
+                                            'term-mode
+                                            'vterm-mode))))
+            (delete-window window)))))
+    (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
+#+end_src
+
+* Treemacs
+A tree layout file explorer
+#+begin_src emacs-lisp
+(use-package treemacs
+  :commands (treemacs-follow-mode
+             treemacs-filewatch-mode
+             treemacs-git-mode)
+  :custom-face
+  (cfrs-border-color ((t (:inherit posframe-border))))
+  :bind (([f8]        . treemacs)
+         ("M-0"       . treemacs-select-window)
+         ("C-x t 1"   . treemacs-delete-other-windows)
+         ("C-x t t"   . treemacs)
+         ("C-x t b"   . treemacs-bookmark)
+         ("C-x t C-t" . treemacs-find-file)
+         ("C-x t M-t" . treemacs-find-tag)
+         :map treemacs-mode-map
+         ([mouse-1]   . treemacs-single-click-expand-action))
+  :config
+  (setq treemacs-collapse-dirs           (if treemacs-python-executable 3 0)
+        treemacs-missing-project-action  'remove
+        treemacs-user-mode-line-format   'none
+        treemacs-sorting                 'alphabetic-asc
+        treemacs-follow-after-init       t
+        treemacs-width                   30
+        treemacs-no-png-images           (not centaur-icon))
+
+  (treemacs-follow-mode t)
+  (treemacs-filewatch-mode t)
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null (executable-find "python3"))))
+    (`(t . t)
+     (treemacs-git-mode 'deferred))
+    (`(t . _)
+     (treemacs-git-mode 'simple)))
+
+  (use-package treemacs-nerd-icons
+    :demand t
+    :functions treemacs-load-theme
+    :config (treemacs-load-theme "nerd-icons"))
+
+  (use-package treemacs-magit
+    :hook ((magit-post-commit
+            git-commit-post-finish
+            magit-post-stage
+            magit-post-unstage)
+           . treemacs-magit--schedule-update))
+
+  (use-package treemacs-tab-bar
+    :demand t
+    :functions treemacs-set-scope-type
+    :config (treemacs-set-scope-type 'Tabs)))
 #+end_src
