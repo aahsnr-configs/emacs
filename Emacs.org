@@ -480,7 +480,6 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
            ("C-c C-l" . reload-init-file))
 #+end_src
 
-
 * Hydra Setup
 #+begin_src emacs-lisp
  (use-package hydra
@@ -1006,7 +1005,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 ;; (declare-function refresh-ns-appearance "init-ui")
 #+end_src
 
-
 * TODO Editor Behaviour
 =Needs more refractoring=
 ** Delete selection if you insert
@@ -1409,7 +1407,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 (use-package so-long
   :hook (after-init . global-so-long-mode))
 #+end_src
-
 
 * Completion Framework
 ** Orderless
