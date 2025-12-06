@@ -1785,6 +1785,12 @@ targets."
 ;; Collection of yasnippet snippets
 (use-package yasnippet-snippets)
 
+;; Doom Snippets
+(use-package doom-snippets
+  :ensure nil
+  :load-path "doom-snippets"
+  :after yasnippet)
+
 ;; Yasnippet Completion At Point Function
 (use-package yasnippet-capf
   :after cape
