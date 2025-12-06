@@ -18,11 +18,10 @@
   - [x] init-completion.el
   - [x] init-snippet.el
 
-  - [ ] init-bookmark.el
-  - [ ] init-calendar.el
-  - [ ] init-dashboard.el
-  - [ ] init-dired.el
-  - [ ] init-highlight.el
+  - [x] init-bookmark.el
+  - [x] init-dashboard.el
+  - [x] init-dired.el
+  - [x] init-highlight.el
   - [ ] init-ibuffer.el
   - [ ] init-kill-ring.el
   - [ ] init-workspace.el

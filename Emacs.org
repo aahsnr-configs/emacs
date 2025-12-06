@@ -1802,9 +1802,677 @@ targets."
 #+end_src
 
 * Bookmarks
+#+begin_src emacs-lisp
+(use-package bookmark
+  :ensure nil
+  :config
+  (with-no-warnings
+    ;; Display icons for bookmarks
+    (defun my-bookmark-bmenu--revert ()
+      "Re-populate `tabulated-list-entries'."
+      (let (entries)
+        (dolist (full-record (bookmark-maybe-sort-alist))
+          (let* ((name       (bookmark-name-from-full-record full-record))
+                 (annotation (bookmark-get-annotation full-record))
+                 (location   (bookmark-location full-record))
+                 (file       (file-name-nondirectory location))
+                 (type       (let ((fmt "%-8.8s"))
+                               (cond ((null location)
+                                      (propertize (format fmt "NOFILE") 'face 'warning))
+                                     ((file-remote-p location)
+                                      (propertize (format fmt "REMOTE") 'face 'mode-line-buffer-id))
+                                     ((not (file-exists-p location))
+                                      (propertize (format fmt "NOTFOUND") 'face 'error))
+                                     ((file-directory-p location)
+                                      (propertize (format fmt "DIRED") 'face 'warning))
+                                     (t (propertize (format fmt "FILE") 'face 'success)))))
+                 (icon       (if (icons-displayable-p)
+                                 (cond
+                                  ((file-remote-p location)
+                                   (nerd-icons-codicon "nf-cod-radio_tower"))
+                                  ((file-directory-p location)
+                                   (nerd-icons-icon-for-dir location))
+                                  ((not (string-empty-p file))
+                                   (nerd-icons-icon-for-file file)))
+                               "")))
+            (push (list
+                   full-record
+                   `[,(if (and annotation (not (string-equal annotation "")))
+                          "*" "")
+                     ,icon
+                     ,(if (display-mouse-p)
+                          (propertize name
+                                      'font-lock-face 'bookmark-menu-bookmark
+                                      'mouse-face 'highlight
+                                      'follow-link t
+                                      'help-echo "mouse-2: go to this bookmark in other window")
+                        name)
+                     ,type
+                     ,@(if bookmark-bmenu-toggle-filenames
+                           (list (propertize location 'face 'completions-annotations)))])
+                  entries)))
+        (tabulated-list-init-header)
+        (setq tabulated-list-entries entries))
+      (tabulated-list-print t))
+    (advice-add #'bookmark-bmenu--revert :override #'my-bookmark-bmenu--revert)
+
+    (defun my-bookmark-bmenu-list ()
+      "Display a list of existing bookmarks.
+The list is displayed in a buffer named `*Bookmark List*'.
+The leftmost column displays a D if the bookmark is flagged for
+deletion, or > if it is flagged for displaying."
+      (interactive)
+      (bookmark-maybe-load-default-file)
+      (let ((buf (get-buffer-create bookmark-bmenu-buffer)))
+        (if (called-interactively-p 'interactive)
+            (pop-to-buffer buf)
+          (set-buffer buf)))
+      (bookmark-bmenu-mode)
+      (bookmark-bmenu--revert))
+    (advice-add #'bookmark-bmenu-list :override #'my-bookmark-bmenu-list)
+
+    (define-derived-mode bookmark-bmenu-mode tabulated-list-mode "Bookmark Menu"
+      (setq truncate-lines t)
+      (setq buffer-read-only t)
+      (setq tabulated-list-format
+            `[("" 1) ;; Space to add "*" for bookmark with annotation
+              ("" ,(if (icons-displayable-p) 2 0)) ;; Icons
+              ("Bookmark" ,bookmark-bmenu-file-column bookmark-bmenu--name-predicate)
+              ("Type" 9)
+              ,@(if bookmark-bmenu-toggle-filenames
+                    '(("File" 0 bookmark-bmenu--file-predicate)))])
+      (setq tabulated-list-padding bookmark-bmenu-marks-width)
+      (setq tabulated-list-sort-key '("Bookmark" . nil))
+      (add-hook 'tabulated-list-revert-hook #'bookmark-bmenu--revert nil t)'
+      (setq revert-buffer-function #'bookmark-bmenu--revert)
+      (tabulated-list-init-header))))
+#+end_src
 
 * Calendar
 
 * Dashboard
+#+begin_src emacs-lisp
+  (use-package dashboard
+    :diminish dashboard-mode
+    :custom-face
+    (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
+    (dashboard-items-face ((t (:weight normal))))
+    (dashboard-no-items-face ((t (:weight normal))))
+    :pretty-hydra
+    ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
+      :color pink :quit-key ("q" "C-g"))
+     ("Navigator"
+      (("U" update-config-and-packages "update" :exit t)
+       ("H" browse-homepage "homepage" :exit t)
+       ("R" restore-session "recover session" :exit t)
+       ("S" find-custom-file "settings" :exit t))
+      "Section"
+      (("}" dashboard-next-section "next")
+       ("{" dashboard-previous-section "previous")
+       ("r" dashboard-goto-recent-files "recent files")
+       ("m" dashboard-goto-bookmarks "bookmarks")
+       ("p" dashboard-goto-projects "projects"))
+      "Item"
+      (("RET" widget-button-press "open" :exit t)
+       ("<tab>" widget-forward "next")
+       ("C-i" widget-forward "next")
+       ("<backtab>" widget-backward "previous")
+       ("C-n" next-line "next line")
+       ("C-p" previous-line "previous  line"))
+      "Misc"
+      (("<f2>" open-dashboard "open" :exit t)
+       ("g" dashboard-refresh-buffer "refresh" :exit t)
+       ("Q" quit-dashboard "quit" :exit t))))
+    :bind (("<f2>" . open-dashboard)
+           :map dashboard-mode-map
+           ("H" . browse-homepage)
+           ("R" . restore-session)
+           ("S" . find-custom-file)
+           ("U" . update-config-and-packages)
+           ("q" . quit-dashboard)
+           ("h" . dashboard-hydra/body)
+           ("?" . dashboard-hydra/body))
+    :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
+    :init
+    (setq ;;dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
+          ;;dashboard-startup-banner (or centaur-logo 'official)
+          dashboard-page-separator "\n\f\n"
+          dashboard-projects-backend 'project-el
+          dashboard-path-style 'truncate-middle
+          dashboard-path-max-length 60
+          dashboard-center-content t
+          dashboard-vertically-center-content t
+          dashboard-show-shortcuts nil
+          dashboard-items '((recents  . 10)
+                            (bookmarks . 5)
+                            (projects . 5))
+
+          dashboard-startupify-list '(dashboard-insert-banner
+                                      dashboard-insert-newline
+                                      dashboard-insert-banner-title
+                                      dashboard-insert-newline
+                                      dashboard-insert-navigator
+                                      dashboard-insert-newline
+                                      dashboard-insert-init-info
+                                      dashboard-insert-items
+                                      dashboard-insert-newline
+                                      dashboard-insert-footer)
+
+          dashboard-display-icons-p #'icons-displayable-p
+          dashboard-set-file-icons centaur-icon
+          dashboard-set-heading-icons centaur-icon
+          dashboard-heading-icons '((recents   . "nf-oct-history")
+                                    (bookmarks . "nf-oct-bookmark")
+                                    (agenda    . "nf-oct-calendar")
+                                    (projects  . "nf-oct-briefcase")
+                                    (registers . "nf-oct-database"))
+
+          dashboard-navigator-buttons
+          `(((,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-github" :height 1.1))
+              "Homepage" "Browse homepage"
+              (lambda (&rest _) (browse-url centaur-homepage)))
+             (,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
+              "Restore" "Restore previous session"
+              (lambda (&rest _) (restore-session)))
+             (,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-tools" :height 1.1))
+              "Settings" "Open custom file"
+              (lambda (&rest _) (find-file custom-file)))
+             (,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-update" :height 1.1))
+              "Update" "Update Centaur Emacs"
+              (lambda (&rest _) (centaur-update)))
+             (,(if (icons-displayable-p)
+                   (nerd-icons-mdicon "nf-md-help" :height 1.1)
+                 "?")
+              "" "Help (?/h)"
+              (lambda (&rest _) (dashboard-hydra/body)))))
+
+          dashboard-footer-icon
+          (if (icons-displayable-p)
+              (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
+            (propertize ">" 'face 'dashboard-footer)))
+
+    (dashboard-setup-startup-hook)
+    :config
+    ;; Insert copyright
+    ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
+    (defun my-dashboard-insert-copyright ()
+      "Insert copyright in the footer."
+      (dashboard-insert-center
+       (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
+                   'face 'font-lock-comment-face)))
+    (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
+
+    (defun restore-session ()
+      "Restore the previous session."
+      (interactive)
+      (message "Restoring previous session...")
+      (quit-window t)
+
+      (when (fboundp 'tabspaces-mode)
+        (unless tabspaces-mode
+          (tabspaces-mode t))
+        (tabspaces-restore-session))
+
+      (message "Restoring previous session...done"))
+
+    (defun dashboard-goto-recent-files ()
+      "Go to recent files."
+      (interactive)
+      (let ((func (local-key-binding "r")))
+        (and func (funcall func))))
+
+    (defun dashboard-goto-projects ()
+      "Go to projects."
+      (interactive)
+      (let ((func (local-key-binding "p")))
+        (and func (funcall func))))
+
+    (defun dashboard-goto-bookmarks ()
+      "Go to bookmarks."
+      (interactive)
+      (let ((func (local-key-binding "m")))
+        (and func (funcall func))))
+
+    (defvar dashboard-recover-layout-p nil
+      "Wether recovers the layout.")
+
+    (defun open-dashboard ()
+      "Open the *dashboard* buffer and jump to the first widget."
+      (interactive)
+      ;; Check if need to recover layout
+      (if (length> (window-list-1)
+                   ;; exclude `treemacs' window
+                   (if (and (fboundp 'treemacs-current-visibility)
+                            (eq (treemacs-current-visibility) 'visible))
+                       2
+                     1))
+          (setq dashboard-recover-layout-p t))
+
+      ;; Display dashboard in maximized window
+      (delete-other-windows)
+
+      ;; Refresh dashboard buffer
+      (dashboard-refresh-buffer)
+
+      ;; Jump to the first section
+      (dashboard-goto-recent-files))
+
+    (defun quit-dashboard ()
+      "Quit dashboard window."
+      (interactive)
+      (quit-window t)
+
+      ;; Create workspace
+      (when (fboundp 'tabspaces-mode)
+        (unless tabspaces-mode
+          (tabspaces-mode t)
+          (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
+
+      ;; Recover layout
+      (and dashboard-recover-layout-p
+           (and (bound-and-true-p winner-mode) (winner-undo))
+           (setq dashboard-recover-layout-p nil))))
+#+end_src
 
 * Dired
+#+begin_src emacs-lisp
+(use-package dired
+  :ensure nil
+  :bind (:map dired-mode-map
+         ("C-c C-p" . wdired-change-to-wdired-mode))
+  :config
+  ;; Guess a default target directory
+  (setq dired-dwim-target t)
+
+  ;; Always delete and copy recursively
+  (setq dired-recursive-deletes 'always
+        dired-recursive-copies 'always)
+
+  ;; Show directory first
+  (setq dired-listing-switches "-alh --group-directories-first")
+
+ ;; Quick sort dired buffers via hydra
+  (use-package dired-quick-sort
+    :bind (:map dired-mode-map
+           ("S" . hydra-dired-quick-sort/body)))
+
+  ;; Show git info in dired
+  (use-package dired-git-info
+    :bind (:map dired-mode-map
+           (")" . dired-git-info-mode)))
+
+  ;; Allow rsync from dired buffers
+  (use-package dired-rsync
+    :bind (:map dired-mode-map
+           ("C-c C-r" . dired-rsync)))
+
+  ;; Colorful dired
+  (use-package diredfl
+    :hook (dired-mode . diredfl-mode))
+
+  ;; Shows icons in dired
+  (use-package nerd-icons-dired
+    :diminish
+    :functions (nerd-icons-icon-for-dir my-nerd-icons-icon-for-dir)
+    :hook (dired-mode . nerd-icons-dired-mode)
+    :init
+    (defface nerd-icons-dired-dir-face
+      '((t (:inherit 'font-lock-doc-face)))
+      "Face for the directory icon."
+      :group 'nerd-icons-faces)
+    (defun my-nerd-icons-icon-for-dir (dir)
+      (nerd-icons-icon-for-dir dir :face 'nerd-icons-dired-dir-face))
+    (setq nerd-icons-dired-dir-icon-function #'my-nerd-icons-icon-for-dir))
+
+  ;; Extra Dired functionality
+  (use-package dired-aux :ensure nil)
+  (use-package dired-x
+    :ensure nil
+    :demand t
+    :config
+    (let ((cmd (cond (sys/mac-x-p "open")
+                     (sys/linux-x-p "xdg-open")
+                     (sys/win32p "start")
+                     (t ""))))
+      (setq dired-guess-shell-alist-user
+            `(("\\.pdf\\'" ,cmd)
+              ("\\.docx\\'" ,cmd)
+              ("\\.\\(?:djvu\\|eps\\)\\'" ,cmd)
+              ("\\.\\(?:jpg\\|jpeg\\|png\\|gif\\|xpm\\)\\'" ,cmd)
+              ("\\.\\(?:xcf\\)\\'" ,cmd)
+              ("\\.csv\\'" ,cmd)
+              ("\\.tex\\'" ,cmd)
+              ("\\.\\(?:mp4\\|mkv\\|avi\\|flv\\|rm\\|rmvb\\|ogv\\)\\(?:\\.part\\)?\\'" ,cmd)
+              ("\\.\\(?:mp3\\|flac\\)\\'" ,cmd)
+              ("\\.html?\\'" ,cmd)
+              ("\\.md\\'" ,cmd))))
+
+    (setq dired-omit-files
+          (concat dired-omit-files
+                  "\\|^.DS_Store$\\|^.projectile$\\|^.git*\\|^.svn$\\|^.vscode$\\|\\.js\\.meta$\\|\\.meta$\\|\\.elc$\\|^.emacs.*"))))
+#+end_src
+
+* Highlight
+** Highlight the current line
+#+begin_src emacs-lisp
+(use-package hl-line
+  :ensure nil
+  :hook ((after-init . global-hl-line-mode)
+         ((dashboard-mode eshell-mode shell-mode term-mode vterm-mode) .
+          (lambda () (setq-local global-hl-line-mode nil)))))
+#+end_src
+
+** Highlight matching parens
+#+begin_src emacs-lisp
+(use-package paren
+  :ensure nil
+  :functions childframe-workable-p
+  :custom-face
+  (show-paren-match ((((class color) (background light))
+                      (:box (:line-width (-1 . -1) :color "gray73")))
+                     (((class color) (background dark))
+                      (:box (:line-width (-1 . -1) :color "gray56")))))
+  :hook (after-init . show-paren-mode)
+  :init (setq show-paren-when-point-inside-paren t
+              show-paren-when-point-in-periphery t)
+  :config
+  (if emacs/>=29p
+      (setq blink-matching-paren-highlight-offscreen t
+            show-paren-context-when-offscreen
+            (if (childframe-workable-p) 'child-frame 'overlay))
+    (with-no-warnings
+      ;; Display matching line for off-screen paren.
+      (defun display-line-overlay (pos str &optional face)
+        "Display line at POS as STR with FACE.
+
+FACE defaults to inheriting from default and highlight."
+        (let ((ol (save-excursion
+                    (goto-char pos)
+                    (make-overlay (line-beginning-position)
+                                  (line-end-position)))))
+          (overlay-put ol 'display str)
+          (overlay-put ol 'face
+                       (or face '(:inherit highlight)))
+          ol))
+
+      (defvar-local show-paren--off-screen-overlay nil)
+      (defun show-paren-off-screen (&rest _args)
+        "Display matching line for off-screen paren."
+        (when (overlayp show-paren--off-screen-overlay)
+          (delete-overlay show-paren--off-screen-overlay))
+        ;; Check if it's appropriate to show match info,
+        (when (and (overlay-buffer show-paren--overlay)
+                   (not (or cursor-in-echo-area
+                            executing-kbd-macro
+                            noninteractive
+                            (minibufferp)
+                            this-command))
+                   (and (not (bobp))
+                        (memq (char-syntax (char-before)) '(?\) ?\$)))
+                   (= 1 (logand 1 (- (point)
+                                     (save-excursion
+                                       (forward-char -1)
+                                       (skip-syntax-backward "/\\")
+                                       (point))))))
+          ;; Rebind `minibuffer-message' called by `blink-matching-open'
+          ;; to handle the overlay display.
+          (cl-letf (((symbol-function #'minibuffer-message)
+                     (lambda (msg &rest args)
+                       (let ((msg (apply #'format-message msg args)))
+                         (setq show-paren--off-screen-overlay
+                               (display-line-overlay
+                                (window-start) msg ))))))
+            (blink-matching-open))))
+      (advice-add #'show-paren-function :after #'show-paren-off-screen))))
+#+end_src
+
+** Highlight Symbols
+#+begin_src emacs-lisp
+(use-package symbol-overlay
+  :defer t
+  :diminish
+  :custom-face
+  (symbol-overlay-default-face ((t (:inherit region :background unspecified :foreground unspecified))))
+  (symbol-overlay-face-1 ((t (:inherit nerd-icons-blue :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-2 ((t (:inherit nerd-icons-pink :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-3 ((t (:inherit nerd-icons-yellow :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-4 ((t (:inherit nerd-icons-purple :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-5 ((t (:inherit nerd-icons-red :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-6 ((t (:inherit nerd-icons-orange :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-7 ((t (:inherit nerd-icons-green :background unspecified :foreground unspecified :inverse-video t))))
+  (symbol-overlay-face-8 ((t (:inherit nerd-icons-cyan :background unspecified :foreground unspecified :inverse-video t))))
+  :bind (("M-i"  . symbol-overlay-put)
+         ("M-n"  . symbol-overlay-jump-next)
+         ("M-p"  . symbol-overlay-jump-prev)
+         ("M-N"  . symbol-overlay-switch-forward)
+         ("M-P"  . symbol-overlay-switch-backward)
+         ("M-C"  . symbol-overlay-remove-all)
+         ([M-f2] . symbol-overlay-mode)
+         ([M-f3] . symbol-overlay-put)
+         ([M-f4] . symbol-overlay-remove-all))
+  :bind-keymap ("M-s s"  . symbol-overlay-map)
+  :hook (((prog-mode yaml-mode yaml-ts-mode) . symbol-overlay-mode)
+         (iedit-mode     . turn-off-symbol-overlay)
+         (iedit-mode-end . turn-on-symbol-overlay))
+  :init (setq symbol-overlay-idle-time 0.3)
+  :config
+  (with-no-warnings
+    ;; Disable symbol highlighting while selecting
+    (defun turn-off-symbol-overlay (&rest _)
+      "Turn off symbol highlighting."
+      (interactive)
+      (symbol-overlay-mode -1))
+
+    (defun turn-on-symbol-overlay (&rest _)
+      "Turn on symbol highlighting."
+      (interactive)
+      (when (derived-mode-p 'prog-mode 'yaml-mode 'yaml-ts-mode)
+        (symbol-overlay-mode 1)))
+
+    (advice-add #'activate-mark :after #'turn-off-symbol-overlay)
+    (advice-add #'deactivate-mark :after #'turn-on-symbol-overlay)
+    (advice-add #'easy-kill :after #'turn-off-symbol-overlay)
+    (advice-add #'easy-kill-destroy-candidate :after #'turn-on-symbol-overlay)))
+#+end_src
+
+** Mark occurrences of current selection
+#+begin_src emacs-lisp
+(use-package region-occurrences-highlighter
+  :diminish
+  :bind (:map region-occurrences-highlighter-nav-mode-map
+         ("M-n" . region-occurrences-highlighter-next)
+         ("M-p" . region-occurrences-highlighter-prev))
+  :hook (after-init . global-region-occurrences-highlighter-mode))
+#+end_src
+
+** Highlight indentions
+
+#+begin_src emacs-lisp
+(use-package indent-bars
+  :defer t
+  :custom
+  (indent-bars-color '(highlight :face-bg t :blend 0.225))
+  (indent-bars-treesit-support centaur-tree-sitter)
+  (indent-bars-no-descend-string t)
+  (indent-bars-treesit-ignore-blank-lines-types '("module"))
+  (indent-bars-prefer-character t)
+  (indent-bars-treesit-scope '((python function_definition class_definition for_statement
+				                       if_statement with_statement while_statement)))
+  :hook ((prog-mode yaml-mode) . indent-bars-mode)
+  :config (require 'indent-bars-ts))
+#+end_src
+
+** Colorize color names in buffers
+#+begin_src emacs-lisp
+(use-package colorful-mode
+  :diminish
+  :hook (after-init . global-colorful-mode)
+  :init (setq colorful-use-prefix t)
+  :config (dolist (mode '(html-mode php-mode help-mode helpful-mode))
+            (add-to-list 'global-colorful-modes mode)))
+#+end_src
+
+** Highlight brackets according to their depth
+#+begin_src emacs-lisp
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+
+** TODO Highlight TODO and similar keywords in comments and strings
+=integrate with flycheck=
+=add more custom keyword=
+#+begin_src emacs-lisp
+(use-package hl-todo
+  :autoload hl-todo-flymake hl-todo-search-and-highlight
+  :functions rg rg-read-files rg-project
+  :custom-face
+  (hl-todo ((t (:inherit default :height 0.9 :width condensed :weight bold :underline nil :inverse-video t))))
+  :bind (:map hl-todo-mode-map
+         ([C-f3]    . hl-todo-occur)
+         ("C-c t o" . hl-todo-occur)
+         ("C-c t p" . hl-todo-previous)
+         ("C-c t n" . hl-todo-next)
+         ("C-c t i" . hl-todo-insert)
+         ("C-c t r" . hl-todo-rg-project)
+         ("C-c t R" . hl-todo-rg))
+  :hook (after-init . global-hl-todo-mode)
+  :init (setq hl-todo-require-punctuation t
+              hl-todo-highlight-punctuation ":")
+  :config
+  (dolist (keyword '("BUG" "DEFECT" "ISSUE"))
+    (add-to-list 'hl-todo-keyword-faces `(,keyword . "#e45649")))
+  (dolist (keyword '("TRICK" "WORKAROUND"))
+    (add-to-list 'hl-todo-keyword-faces `(,keyword . "#d0bf8f")))
+  (dolist (keyword '("DEBUG" "STUB"))
+    (add-to-list 'hl-todo-keyword-faces `(,keyword . "#7cb8bb")))
+
+  ;; Integrate into flymake
+  ;; (with-eval-after-load 'flymake
+  ;;   (add-hook 'flymake-diagnostic-functions #'hl-todo-flymake))
+
+  ;; Integrate into magit
+  (with-eval-after-load 'magit
+    (add-hook 'magit-log-wash-summary-hook
+              #'hl-todo-search-and-highlight t)
+    (add-hook 'magit-revision-wash-message-hook
+              #'hl-todo-search-and-highlight t))
+
+  (defun hl-todo-rg (regexp &optional files dir)
+    "Use `rg' to find all TODO or similar keywords."
+    (interactive
+     (progn
+       (unless (require 'rg nil t)
+         (error "`rg' is not installed"))
+       (let ((regexp (replace-regexp-in-string "\\\\[<>]*" "" (hl-todo--regexp))))
+         (list regexp
+               (rg-read-files)
+               (read-directory-name "Base directory: " nil default-directory t)))))
+    (rg regexp files dir))
+
+  (defun hl-todo-rg-project ()
+    "Use `rg' to find all TODO or similar keywords in current project."
+    (interactive)
+    (unless (require 'rg nil t)
+      (error "`rg' is not installed"))
+    (rg-project (replace-regexp-in-string "\\\\[<>]*" "" (hl-todo--regexp)) "everything")))
+#+end_src
+
+** Highlight uncommitted changes using VC
+#+begin_src emacs-lisp
+(use-package diff-hl
+  :custom (diff-hl-draw-borders nil)
+  :autoload diff-hl-flydiff-mode
+  :custom-face
+  (diff-hl-change ((t (:inherit custom-changed :foreground unspecified :background unspecified))))
+  (diff-hl-insert ((t (:inherit diff-added :background unspecified))))
+  (diff-hl-delete ((t (:inherit diff-removed :background unspecified))))
+  :bind (:map diff-hl-command-map
+         ("SPC" . diff-hl-mark-hunk))
+  :hook ((after-init . global-diff-hl-mode)
+         (after-init . global-diff-hl-show-hunk-mouse-mode)
+         (dired-mode . diff-hl-dired-mode))
+  :config
+  ;; Highlight on-the-fly
+  (diff-hl-flydiff-mode 1)
+
+  ;; Set fringe style
+  (setq-default fringes-outside-margins t)
+
+  (with-no-warnings
+    (defun my-diff-hl-fringe-bmp-function (_type _pos)
+      "Fringe bitmap function for use as `diff-hl-fringe-bmp-function'."
+      (define-fringe-bitmap 'my-diff-hl-bmp
+        (vector (if sys/linuxp #b11111100 #b11100000))
+        1 8
+        '(center t)))
+    (setq diff-hl-fringe-bmp-function #'my-diff-hl-fringe-bmp-function)
+
+    (unless (display-graphic-p)
+      ;; Fall back to the display margin since the fringe is unavailable in tty
+      (diff-hl-margin-mode 1)
+      ;; Avoid restoring `diff-hl-margin-mode'
+      (with-eval-after-load 'desktop
+        (add-to-list 'desktop-minor-mode-table
+                     '(diff-hl-margin-mode nil))))
+
+    ;; Integration with magit
+    (with-eval-after-load 'magit
+      (add-hook 'magit-pre-refresh-hook #'diff-hl-magit-pre-refresh)
+      (add-hook 'magit-post-refresh-hook #'diff-hl-magit-post-refresh))))
+#+end_src
+
+** Pulse current line
+#+begin_src emacs-lisp
+(use-package pulse
+  :ensure nil
+  :custom-face
+  (pulse-highlight-start-face ((t (:inherit region :background unspecified))))
+  (pulse-highlight-face ((t (:inherit region :background unspecified :extend t))))
+  :hook (((dumb-jump-after-jump imenu-after-jump) . my-recenter-and-pulse)
+         ((bookmark-after-jump magit-diff-visit-file next-error) . my-recenter-and-pulse-line))
+  :init
+  (with-no-warnings
+    (defun my-pulse-momentary-line (&rest _)
+      "Pulse the current line."
+      (pulse-momentary-highlight-one-line (point)))
+
+    (defun my-pulse-momentary (&rest _)
+      "Pulse the region or the current line."
+      (if (fboundp 'xref-pulse-momentarily)
+          (xref-pulse-momentarily)
+        (my-pulse-momentary-line)))
+
+    (defun my-recenter-and-pulse(&rest _)
+      "Recenter and pulse the region or the current line."
+      (recenter)
+      (my-pulse-momentary))
+
+    (defun my-recenter-and-pulse-line (&rest _)
+      "Recenter and pulse the current line."
+      (recenter)
+      (my-pulse-momentary-line))
+
+    (dolist (cmd '(recenter-top-bottom
+                   other-window switch-to-buffer
+                   aw-select toggle-window-split
+                   windmove-do-window-select
+                   pager-page-down pager-page-up
+                   treemacs-select-window))
+      (advice-add cmd :after #'my-pulse-momentary-line))
+
+    (dolist (cmd '(pop-to-mark-command
+                   pop-global-mark
+                   goto-last-change))
+      (advice-add cmd :after #'my-recenter-and-pulse))))
+#+end_src
+
+** Pulse modified region
+#+begin_src emacs-lisp
+(use-package goggles
+  :diminish
+  :hook ((prog-mode text-mode conf-mode) . goggles-mode))
+#+end_src
