@@ -10,7 +10,7 @@
 
 - [ ] The following files are being completely placed in `config.org`
       - [x] init-package
-      - [ ] init-base.el
+      - [x] init-base.el
       - [ ] init-hydra.el
 
       - [ ] init-ui.el
@@ -60,6 +60,7 @@
 - [ ] leaving out `(eval-when-compile)` from the following files.
       - [x] init-package.el
       - [x] init-base.el 
+      - [x] init-ui.el
 - [ ] Compare and contrast all the sections and subsections in `config.org` for the following commented out code:
 ```elisp
 (eval-when-compile
@@ -69,3 +70,5 @@
 
 - [ ] Set general and evil keybindings for centaur keybindings
 - [ ] Remove diminish from everywhere
+- [ ] Keep all the lisp files from original centaur emacs config to keep track of
+- [ ] Learn how to fork a project in github within a specific branch my repo
