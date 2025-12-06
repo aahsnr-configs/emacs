@@ -20,3 +20,4 @@ projectile-bookmarks.eld
 backup
 transient/
 .lsp-session-v1
+.mc-lists.el

@@ -183,7 +183,7 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 
 ;; Should set before loading `use-package'
 (setq use-package-always-ensure t
-      use-package-always-defer t
+      ;;use-package-always-defer t
       use-package-expand-minimally t
       use-package-enable-imenu-support t)
 
@@ -289,6 +289,7 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 ** Environment
 #+begin_src emacs-lisp
 (use-package exec-path-from-shell
+  :defer t
   :commands exec-path-from-shell-initialize
   :custom (exec-path-from-shell-arguments '("-l"))
   :init (exec-path-from-shell-initialize))
@@ -620,7 +621,36 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
         ("p T" (centaur-test-package-archives) "speed test" :exit t))))))
 #+end_src
 
-* UI and Theming
+* DONE UI and Theming
+CLOSED: [2025-12-06 Sat 08:37]
+:LOGBOOK:
+- State "DONE"       from              [2025-12-06 Sat 08:37]
+:END:
+** Fonts
+#+begin_src emacs-lisp
+(defun ar/set-fonts ()
+  "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
+  (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
+  ;; Apply italic slant to comments and keywords
+  (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
+  (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
+
+;; Set fonts on startup and for new frames in daemon mode
+(if (daemonp)
+    (add-hook 'after-make-frame-functions
+              (lambda (frame)
+                (with-selected-frame frame (ar/set-fonts))))
+  (ar/set-fonts))
+
+;; Line spacing
+(setq-default line-spacing 0.02)
+
+;; Font settings
+(setq font-lock-maximum-decoration t
+      inhibit-compacting-font-caches t)
+#+end_src
 
 ** Optimization
 #+begin_src emacs-lisp
@@ -635,7 +665,11 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 
 ** Frame
 #+begin_src emacs-lisp
- ;; Inhibit resizing frame
+;; Frame padding
+(setq-default internal-border-width 5)
+(add-to-list 'default-frame-alist '(internal-border-width . 5))
+
+;; Inhibit resizing frame
 (setq frame-inhibit-implied-resize t
       frame-resize-pixelwise t)
 
@@ -693,7 +727,7 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 
 ** Modeline
 #+begin_src emacs-lisp
- (use-package doom-modeline
+(use-package doom-modeline
   :hook (after-init . doom-modeline-mode)
   :hook (doom-modeline-mode . column-number-mode)
   :init
@@ -938,7 +972,7 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 ** Misc
 #+begin_src emacs-lisp
 ;; Use fixed pitch where it's sensible
-(use-package mixed-pitch :diminish)
+(use-package mixed-pitch :diminish :defer t)
 
 ;; Display ugly ^L page breaks as tidy horizontal lines
 (use-package page-break-lines
@@ -951,6 +985,7 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 ** Transient Posframe
 #+begin_src emacs-lisp
 (use-package transient-posframe
+  :defer t
   :diminish
   :defines posframe-border-width
   :custom-face
@@ -971,7 +1006,409 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 ;; (declare-function refresh-ns-appearance "init-ui")
 #+end_src
 
-* Editor Behaviour
+
+* TODO Editor Behaviour
+=Needs more refractoring=
+** Delete selection if you insert
+#+begin_src emacs-lisp
+(use-package delsel
+  :ensure nil
+  :hook (after-init . delete-selection-mode))
+#+end_src
+
+** Rectangle
+#+begin_src emacs-lisp
+(use-package rect
+  :defer t
+  :ensure nil
+  :bind (:map text-mode-map
+         ("<C-return>" . rect-hydra/body)
+         :map prog-mode-map
+         ("<C-return>" . rect-hydra/body))
+  :init
+  (with-eval-after-load 'org
+    (bind-key "<s-return>" #'rect-hydra/body org-mode-map))
+  (with-eval-after-load 'wgrep
+    (bind-key "<C-return>" #'rect-hydra/body wgrep-mode-map))
+  (with-eval-after-load 'wdired
+    (bind-key "<C-return>" #'rect-hydra/body wdired-mode-map))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Rectangle" 'mdicon "nf-md-border_all")
+    :color amaranth :body-pre (rectangle-mark-mode) :post (deactivate-mark) :quit-key ("q" "C-g"))
+   ("Move"
+    (("h" backward-char "←")
+     ("j" next-line "↓")
+     ("k" previous-line "↑")
+     ("l" forward-char "→"))
+    "Action"
+    (("w" copy-rectangle-as-kill "copy") ; C-x r M-w
+     ("y" yank-rectangle "yank")         ; C-x r y
+     ("t" string-rectangle "string")     ; C-x r t
+     ("d" kill-rectangle "kill")         ; C-x r d
+     ("c" clear-rectangle "clear")       ; C-x r c
+     ("o" open-rectangle "open"))        ; C-x r o
+    "Misc"
+    (("N" rectangle-number-lines "number lines")        ; C-x r N
+     ("e" rectangle-exchange-point-and-mark "exchange") ; C-x C-x
+     ("u" undo "undo")
+     ("r" (if (region-active-p)
+              (deactivate-mark)
+            (rectangle-mark-mode 1))
+      "reset")))))
+#+end_src
+
+** Automatically reload files was modified by external program
+#+begin_src emacs-lisp
+(use-package autorevert
+  :ensure nil
+  :diminish
+  :hook (after-init . global-auto-revert-mode))
+#+end_src
+
+** TODO Avy/Ace
+=Use doom emacs style keybindings=
+#+begin_src emacs-lisp
+;; Jump to things in Emacs tree-style
+(use-package avy
+  :bind (("C-:"   . avy-goto-char)
+         ("C-'"   . avy-goto-char-2)
+         ("M-g l" . avy-goto-line)
+         ("M-g w" . avy-goto-word-1)
+         ("M-g e" . avy-goto-word-0))
+  :hook (after-init . avy-setup-default)
+  :config (setq avy-all-windows nil
+                avy-all-windows-alt t
+                avy-background t
+                avy-style 'pre))
+
+;; Kill text between the point and the character CHAR
+(use-package avy-zap
+  :defer t
+  :bind (("M-z" . avy-zap-to-char-dwim)
+         ("M-Z" . avy-zap-up-to-char-dwim)))
+
+;; Quickly follow links
+(use-package ace-link
+  :bind ("M-o" . ace-link-addr)
+  :hook (after-init . ace-link-setup-default)
+  :config
+  (with-no-warnings
+    (bind-keys
+     :map package-menu-mode-map
+     ("o" . ace-link-help)
+     :map process-menu-mode-map
+     ("o" . ace-link-help))
+
+    (with-eval-after-load 'org
+      (bind-key "M-o" #'ace-link-org org-mode-map))
+
+    (with-eval-after-load 'gnus
+      (bind-keys
+       :map gnus-summary-mode-map
+       ("M-o" . ace-link-gnus)
+       :map gnus-article-mode-map
+       ("M-o" . ace-link-gnus)))))
+#+end_src
+
+** Aggressive Indent
+#+begin_src emacs-lisp
+(use-package aggressive-indent
+  :diminish
+  :autoload aggressive-indent-mode
+  :functions too-long-file-p
+  :hook ((after-init . global-aggressive-indent-mode)
+         ;; NOTE: Disable in large files due to the performance issues
+         ;; https://github.com/Malabarba/aggressive-indent-mode/issues/73
+         (find-file . (lambda ()
+                        (when (too-long-file-p)
+                          (aggressive-indent-mode -1)))))
+  :config
+  ;; Disable in some modes
+  (dolist (mode '(gitconfig-mode
+                  asm-mode web-mode html-mode
+                  css-mode css-ts-mode
+                  go-mode go-ts-mode
+                  python-ts-mode yaml-ts-mode
+                  scala-mode
+                  shell-mode term-mode vterm-mode
+                  prolog-inferior-mode))
+    (add-to-list 'aggressive-indent-excluded-modes mode))
+
+  ;; Disable in some commands
+  (add-to-list 'aggressive-indent-protected-commands #'delete-trailing-whitespace t)
+
+  ;; Be slightly less aggressive in C/C++/C#/Java/Go/Swift
+  (add-to-list 'aggressive-indent-dont-indent-if
+               '(and (derived-mode-p 'c-mode 'c++-mode 'csharp-mode
+                                     'java-mode 'go-mode 'swift-mode)
+                     (null (string-match "\\([;{}]\\|\\b\\(if\\|for\\|while\\)\\b\\)"
+                                         (thing-at-point 'line))))))
+
+
+#+end_src
+
+** Anzu
+#+begin_src emacs-lisp
+(use-package anzu
+  :diminish
+  :bind (([remap query-replace] . anzu-query-replace)
+         ([remap query-replace-regexp] . anzu-query-replace-regexp)
+         :map isearch-mode-map
+         ([remap isearch-query-replace] . anzu-isearch-query-replace)
+         ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
+  :hook (after-init . global-anzu-mode))
+#+end_src
+
+** Beginend
+#+begin_src emacs-lisp
+(use-package beginend
+  :diminish beginend-global-mode
+  :functions diminish
+  :hook (after-init . beginend-global-mode)
+  :config (mapc (lambda (pair)
+                  (diminish (cdr pair)))
+                beginend-modes))
+#+end_src
+
+** Drag stuff around
+#+begin_src emacs-lisp
+(use-package drag-stuff
+  :diminish
+  :autoload drag-stuff-define-keys
+  :hook (after-init . drag-stuff-global-mode)
+  :config
+  (add-to-list 'drag-stuff-except-modes 'org-mode)
+  (drag-stuff-define-keys))
+#+end_src
+
+** Ediff
+#+begin_src emacs-lisp
+(use-package ediff
+  :defer t
+  :ensure nil
+  :hook(;; show org ediffs unfolded
+        (ediff-prepare-buffer . outline-show-all)
+        ;; restore window layout when done
+        (ediff-quit . winner-undo))
+  :config
+  (setq ediff-window-setup-function 'ediff-setup-windows-plain
+        ediff-split-window-function 'split-window-horizontally
+        ediff-merge-split-window-function 'split-window-horizontally))
+#+end_src
+
+** Automatic parenthesis pairing
+#+begin_src emacs-lisp
+(use-package elec-pair
+  :ensure nil
+  :hook (after-init . electric-pair-mode)
+  :init (setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit))
+#+end_src
+
+** Visual `align-regexp'
+
+#+begin_src emacs-lisp
+(use-package ialign :defer t)
+#+end_src
+
+** Edit multiple regions simultaneously
+#+begin_src emacs-lisp
+(use-package iedit
+  :defer t
+  :defines desktop-minor-mode-table
+  :bind (("C-;" . iedit-mode)
+         ("C-x r RET" . iedit-rectangle-mode)
+         :map isearch-mode-map ("C-;" . iedit-mode-from-isearch)
+         :map esc-map ("C-;" . iedit-execute-last-modification)
+         :map help-map ("C-;" . iedit-mode-toggle-on-function))
+  :config
+  ;; Avoid restoring `iedit-mode'
+  (with-eval-after-load 'desktop
+    (add-to-list 'desktop-minor-mode-table
+                 '(iedit-mode nil))))
+#+end_src
+
+** TODO Expand Region: Increase selected region by semantic units
+=Add expand region when setting up treesit=
+#+begin_src emacs-lisp
+;; (use-package expand-region
+;;   :functions centaur-treesit-available-p treesit-buffer-root-node
+;;   :bind ("C-=" . er/expand-region)
+;;   :config
+;;   (when (centaur-treesit-available-p)
+;;     (defun treesit-mark-bigger-node ()
+;;       "Use tree-sitter to mark regions."
+;;       (let* ((root (treesit-buffer-root-node))
+;;              (node (treesit-node-descendant-for-range root (region-beginning) (region-end)))
+;;              (node-start (treesit-node-start node))
+;;              (node-end (treesit-node-end node)))
+;;         ;; Node fits the region exactly. Try its parent node instead.
+;;         (when (and (= (region-beginning) node-start) (= (region-end) node-end))
+;;           (when-let* ((node (treesit-node-parent node)))
+;;             (setq node-start (treesit-node-start node)
+;;                   node-end (treesit-node-end node))))
+;;         (set-mark node-end)
+;;         (goto-char node-start)))
+;;     (add-to-list 'er/try-expand-list 'treesit-mark-bigger-nod)))
+#+end_src
+
+** Multiple Cursors
+#+begin_src emacs-lisp
+(use-package multiple-cursors
+  :defer t
+  :bind (("C-c m" . multiple-cursors-hydra/body)
+         ("C-S-c C-S-c"   . mc/edit-lines)
+         ("C->"           . mc/mark-next-like-this)
+         ("C-<"           . mc/mark-previous-like-this)
+         ("C-c C-<"       . mc/mark-all-like-this)
+         ("C-M->"         . mc/skip-to-next-like-this)
+         ("C-M-<"         . mc/skip-to-previous-like-this)
+         ("s-<mouse-1>"   . mc/add-cursor-on-click)
+         ("C-S-<mouse-1>" . mc/add-cursor-on-click)
+         :map mc/keymap
+         ("C-|" . mc/vertical-align-with-space))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Multiple Cursors" 'mdicon "nf-md-cursor_move")
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Up"
+	(("p" mc/mark-previous-like-this "prev")
+	 ("P" mc/skip-to-previous-like-this "skip")
+	 ("M-p" mc/unmark-previous-like-this "unmark")
+	 ("|" mc/vertical-align "align with input CHAR"))
+    "Down"
+    (("n" mc/mark-next-like-this "next")
+	 ("N" mc/skip-to-next-like-this "skip")
+	 ("M-n" mc/unmark-next-like-this "unmark"))
+    "Misc"
+    (("l" mc/edit-lines "edit lines" :exit t)
+	 ("a" mc/mark-all-like-this "mark all" :exit t)
+	 ("s" mc/mark-all-in-region-regexp "search" :exit t)
+     ("<mouse-1>" mc/add-cursor-on-click "click"))
+    "% 2(mc/num-cursors) cursor%s(if (> (mc/num-cursors) 1) \"s\" \"\")"
+	(("0" mc/insert-numbers "insert numbers" :exit t)
+	 ("A" mc/insert-letters "insert letters" :exit t)))))
+#+end_src
+
+** Smart Region: Smartly select region, rectangle, multi cursors
+
+#+begin_src emacs-lisp
+(use-package smart-region
+  :hook (after-init . smart-region-on))
+#+end_src
+
+** Hungry deletion
+
+#+begin_src emacs-lisp
+(use-package hungry-delete
+  :diminish
+  :hook (after-init . global-hungry-delete-mode)
+  :init (setq hungry-delete-chars-to-skip " \t\f\v"
+              hungry-delete-except-modes
+              '(help-mode minibuffer-mode minibuffer-inactive-mode calc-mode)))
+#+end_src
+
+** Subword: Handling capitalized subwords in a nomenclature
+#+begin_src emacs-lisp
+(use-package subword
+  :ensure nil
+  :diminish
+  :hook ((prog-mode . subword-mode)
+         (minibuffer-setup . subword-mode)))
+#+end_src
+
+** Hideshow: Flexible text folding
+#+begin_src emacs-lisp
+(use-package hideshow
+  :ensure nil
+  :defer t
+  :diminish hs-minor-mode
+  :pretty-hydra
+  ((:title (pretty-hydra-title "HideShow" 'octicon "nf-oct-fold")
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Fold"
+    (("t" hs-toggle-all "toggle all")
+     ("a" hs-show-all "show all")
+     ("i" hs-hide-all "hide all")
+     ("g" hs-toggle-hiding "toggle hiding")
+     ("c" hs-cycle "cycle block")
+     ("s" hs-show-block "show block")
+     ("h" hs-hide-block "hide block")
+     ("l" hs-hide-level "hide level"))
+    "Move"
+    (("C-a" mwim-beginning-of-code-or-line "⭰")
+     ("C-e" mwim-end-of-code-or-line "⭲")
+     ("C-b" backward-char "←")
+     ("C-n" next-line "↓")
+     ("C-p" previous-line "↑")
+     ("C-f" forward-char "→")
+     ("C-v" pager-page-down "↘")
+     ("M-v" pager-page-up "↖")
+     ("M-<" beginning-of-buffer "⭶")
+     ("M->" end-of-buffer "⭸"))))
+  :bind (:map hs-minor-mode-map
+         ("C-~" . hideshow-hydra/body)
+         ("C-S-<escape>" . hideshow-hydra/body))
+  :hook (prog-mode . hs-minor-mode)
+  :config
+  ;; More functions
+  ;; @see https://karthinks.com/software/simple-folding-with-hideshow/
+  (defun hs-cycle (&optional level)
+    (interactive "p")
+    (let (message-log-max
+          (inhibit-message t))
+      (if (= level 1)
+          (pcase last-command
+            ('hs-cycle
+             (hs-hide-level 1)
+             (setq this-command 'hs-cycle-children))
+            ('hs-cycle-children
+             (save-excursion (hs-show-block))
+             (setq this-command 'hs-cycle-subtree))
+            ('hs-cycle-subtree
+             (hs-hide-block))
+            (_
+             (if (not (hs-already-hidden-p))
+                 (hs-hide-block)
+               (hs-hide-level 1)
+               (setq this-command 'hs-cycle-children))))
+        (hs-hide-level level)
+        (setq this-command 'hs-hide-level))))
+
+  (defun hs-toggle-all ()
+    "Toggle hide/show all."
+    (interactive)
+    (pcase last-command
+      ('hs-toggle-all
+       (save-excursion (hs-show-all))
+       (setq this-command 'hs-global-show))
+      (_ (hs-hide-all))))
+
+  ;; Display line counts
+  (defun hs-display-code-line-counts (ov)
+    "Display line counts when hiding codes."
+    (when (eq 'code (overlay-get ov 'hs))
+      (overlay-put ov 'display
+                   (concat
+                    " "
+                    (propertize
+                     (if (char-displayable-p ?⏷) "⏷" "...")
+                     'face 'shadow)
+                    (propertize
+                     (format " (%d lines)"
+                             (count-lines (overlay-start ov)
+                                          (overlay-end ov)))
+                     'face '(:inherit shadow :height 0.8))
+                    " "))))
+  (setq hs-set-up-overlay #'hs-display-code-line-counts))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+(use-package sudo-edit :defer t)
+
+;; Hanlde minified code
+(use-package so-long
+  :hook (after-init . global-so-long-mode))
+#+end_src
 
 * Completion Framework
 
