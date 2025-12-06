@@ -15,7 +15,7 @@
 
   - [x] init-ui.el
   - [x] init-edit.el
-  - [ ] init-completion.el
+  - [x] init-completion.el
   - [ ] init-snippet.el
 
   - [ ] init-bookmark.el
@@ -62,6 +62,7 @@
   - [x] init-base.el
   - [x] init-ui.el
   - [x] init-edit.el
+  - [x] init-completion.el
 - [ ] Compare and contrast all the sections and subsections in `config.org` for the following commented out code:
 ```elisp
 (eval-when-compile
