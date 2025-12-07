@@ -3064,7 +3064,7 @@ mermaid.initialize({
 =Disable large file optimizations for now=
 #+begin_src emacs-lisp
 (use-package org
-  ;;:ensure nil
+  :ensure nil
   :pretty-hydra
   ;; See `org-structure-template-alist'
   ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
