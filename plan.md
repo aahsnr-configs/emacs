@@ -33,7 +33,7 @@
 
   - [x] init-markdown.el
   - [x] init-org.el
-  - [ ] init-reader.el
+  - [x] init-reader.el
 
   - [ ] init-dict.el
   - [ ] init-docker.el

@@ -629,9 +629,9 @@ CLOSED: [2025-12-06 Sat 08:37]
 #+begin_src emacs-lisp
 (defun ar/set-fonts ()
   "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
-  (set-face-attribute 'default nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
-  (set-face-attribute 'fixed-pitch nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
-  (set-face-attribute 'variable-pitch nil :font "JetBrainsMono Nerd Font" :height 130 :weight 'medium)
+  (set-face-attribute 'default nil :font "JetBrains Mono" :height 130 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrains Mono" :height 130 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrains Mono" :height 130 :weight 'medium)
   ;; Apply italic slant to comments and keywords
   (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
   (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
@@ -3709,4 +3709,41 @@ A suite of opinionated Transient UIs
     (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice)))
 #+end_src
 
-**
+* TODO Version Control
+* Development Tools
+** envrc
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (after-init . envrc-global-mode))
+#+end_src
+
+** LSP
+** DAP
+** TODO Syntax Checking
+=Integrate with scimax=
+#+begin_src emacs-lisp
+(use-package flycheck
+  :defer t
+  :hook (prog-mode . flycheck-mode)
+  :config
+  (setq flycheck-emacs-lisp-load-path 'inherit)
+    ;; Rerunning checks on every newline is a mote excessive.
+  (delq 'new-line flycheck-check-syntax-automatically)
+  ;; And don't recheck on idle as often
+  (setq flycheck-idle-change-delay 1.0)
+  ;; For the above functionality, check syntax in a buffer that you switched to
+  ;; only briefly. This allows "refreshing" the syntax check state for several
+  ;; buffers quickly after e.g. changing a config file.
+  (setq flycheck-buffer-switch-check-intermediate-buffers t)
+
+  ;; Display errors a little quicker (default is 0.9s)
+  (setq flycheck-display-errors-delay 0.25))
+
+(use-package flycheck-posframe
+  :defer t
+  :after flycheck
+  :hook (flycheck-mode . flycheck-posframe-mode))
+#+end_src
+
+** Formatting
+** Tree-sitter
