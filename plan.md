@@ -38,7 +38,7 @@
   - [ ] init-dict.el
   - [ ] init-docker.el
   - [ ] init-player.el
-  - [ ] init-utils.el
+  - [x] init-utils.el
 
   - [ ] init-vcs.el
   - [ ] init-check.el

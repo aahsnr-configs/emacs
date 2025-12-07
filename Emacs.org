@@ -3476,3 +3476,188 @@ prepended to the element after the #+HEADER: tag."
         `((:foreground ,(face-attribute 'default :foreground) :weight bold :box (:line-width (1 . -1) :color "#3b4261")))
         org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☑") (priority . "⚑") (on . "◉") (off . "◯"))))
 #+end_src
+
+* Utils
+** Which Key
+#+begin_src emacs-lisp
+(use-package which-key
+  :defer 0.5
+  :hook (after-init . which-key-mode)
+  :custom
+  (which-key-idle-delay 0.1)
+  (which-key-separator " → ")
+  (which-key-popup-type 'minibuffer))
+#+end_src
+
+** Persistent Search
+Persistent the scratch buffer
+#+begin_src emacs-lisp
+(use-package persistent-scratch
+  :defer t
+  :bind (:map persistent-scratch-mode-map
+         ([remap kill-buffer] . (lambda (&rest _)
+                                  (interactive)
+                                  (user-error "Scratch buffer cannot be killed")))
+         ([remap revert-buffer] . persistent-scratch-restore)
+         ([remap revert-buffer-quick] . persistent-scratch-restore))
+  :hook ((after-init . persistent-scratch-autosave-mode)
+         (lisp-interaction-mode . persistent-scratch-mode))
+  :init (setq persistent-scratch-backup-file-name-format "%Y-%m-%d"
+              persistent-scratch-backup-directory
+              (expand-file-name "persistent-scratch" user-emacs-directory)))
+#+end_src
+
+** Grep
+Search tools
+#+begin_src emacs-lisp
+(use-package grep
+  :defer t
+  :ensure nil
+  :autoload grep-apply-setting
+  :init
+  (when (executable-find "rg")
+    (grep-apply-setting
+     'grep-command "rg --color=auto --null -nH --no-heading -e ")
+    (grep-apply-setting
+     'grep-template "rg --color=auto --null --no-heading -g '!*/' -e <R> <D>")
+    (grep-apply-setting
+     'grep-find-command '("rg --color=auto --null -nH --no-heading -e ''" . 38))
+    (grep-apply-setting
+     'grep-find-template "rg --color=auto --null -nH --no-heading -e <R> <D>")))
+#+end_src
+
+** Wgrep
+Writable `grep' buffer
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t
+  :init (setq wgrep-auto-save-buffer t
+              wgrep-change-readonly-file t))
+#+end_src
+
+** Rg
+Fast search tool `ripgrep'
+#+begin_src emacs-lisp
+(use-package rg
+  :defer t
+  :hook (after-init . rg-enable-default-bindings)
+  :bind (:map rg-global-map
+         ("c" . rg-dwim-current-dir)
+         ("f" . rg-dwim-current-file)
+         ("m" . rg-menu))
+  :init (setq rg-show-columns t)
+  :config (add-to-list 'rg-custom-type-aliases '("tmpl" . "*.tmpl")))
+#+end_src
+
+** Olivetti
+Nice writing
+#+begin_src emacs-lisp
+(use-package olivetti
+  :defer t
+  :bind ("<f7>" . olivetti-mode)
+  :init (setq olivetti-body-width 0.62))
+#+end_src
+
+** ztree
+text mode directory tree
+#+begin_src emacs-lisp
+(use-package ztree
+  :defer t
+  :custom-face
+  (ztreep-header-face ((t (:inherit diff-header :foreground unspecified))))
+  (ztreep-arrow-face ((t (:inherit font-lock-comment-face :foreground unspecified))))
+  (ztreep-leaf-face ((t (:inherit diff-index :foreground unspecified))))
+  (ztreep-node-face ((t (:inherit font-lock-variable-name-face :foreground unspecified))))
+  (ztreep-expand-sign-face ((t (:inherit font-lock-function-name-face))))
+  (ztreep-diff-header-face ((t (:inherit (diff-header bold :foreground unspecified)))))
+  (ztreep-diff-header-small-face ((t (:inherit diff-file-header :foreground unspecified))))
+  (ztreep-diff-model-normal-face ((t (:inherit font-lock-doc-face :foreground unspecified))))
+  (ztreep-diff-model-ignored-face ((t (:inherit font-lock-doc-face :strike-through t :foreground unspecified))))
+  (ztreep-diff-model-diff-face ((t (:inherit diff-removed :foreground unspecified))))
+  (ztreep-diff-model-add-face ((t (:inherit diff-nonexistent :foreground unspecified))))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Ztree" 'octicon "nf-oct-diff" :face 'nerd-icons-green)
+    :color pink :quit-key ("q" "C-g"))
+   ("Diff"
+    (("C" ztree-diff-copy "copy" :exit t)
+     ("h" ztree-diff-toggle-show-equal-files "show/hide equals" :exit t)
+     ("H" ztree-diff-toggle-show-filtered-files "show/hide ignores" :exit t)
+     ("D" ztree-diff-delete-file "delete" :exit t)
+     ("v" ztree-diff-view-file "view" :exit t)
+     ("d" ztree-diff-simple-diff-files "simple diff" :exit t)
+     ("r" ztree-diff-partial-rescan "partial rescan" :exit t)
+     ("R" ztree-diff-full-rescan "full rescan" :exit t))
+    "View"
+    (("RET" ztree-perform-action "expand/collapse or view" :exit t)
+     ("SPC" ztree-perform-soft-action "expand/collapse or view in other" :exit t)
+     ("TAB" ztree-jump-side "jump side" :exit t)
+     ("g" ztree-refresh-buffer "refresh" :exit t)
+     ("x" ztree-toggle-expand-subtree "expand/collapse" :exit t)
+     ("<backspace>" ztree-move-up-in-tree "go to parent" :exit t))))
+  :bind (:map ztreediff-mode-map
+         ("C-<f5>" . ztree-hydra/body))
+  :init (setq ztree-draw-unicode-lines t
+              ztree-show-number-of-children t))
+#+end_src
+
+** Casual Suite
+A suite of opinionated Transient UIs
+#+begin_src emacs-lisp
+(use-package casual-suite
+  :defer t
+  :bind ((:map global-map
+          ("C-'" . casual-avy-tmenu)
+          ("C-o" . casual-editkit-main-tmenu))
+         (:map bookmark-bmenu-mode-map
+          ("C-o" . casual-bookmarks-tmenu))
+         (:map calc-mode-map
+          ("C-o" . casual-calc-tmenu))
+         (:map dired-mode-map
+          ("C-o" . casual-dired-tmenu))
+         (:map isearch-mode-map
+          ("C-o" . casual-isearch-tmenu))
+         (:map Info-mode-map
+          ("C-o" . casual-info-tmenu)))
+  :init
+  (with-no-warnings
+    (with-eval-after-load 'ibuffer
+      (bind-keys :map ibuffer-mode-map
+        ("C-o" . casual-ibuffer-tmenu)
+        ("F" . casual-ibuffer-filter-tmenu)
+        ("s" . casual-ibuffer-sortby-tmenu)))
+
+    (with-eval-after-load 're-builder
+      (bind-keys :map reb-mode-map
+        ("C-o" . casual-re-builder-tmenu))
+      (bind-keys :map reb-lisp-mode-map
+        ("C-o" . casual-re-builder-tmenu)))
+
+    (with-eval-after-load 'symbol-overlay
+      (bind-keys :map symbol-overlay-map
+        ("C-o" . casual-symbol-overlay-tmenu)))
+
+    (with-eval-after-load 'org-agenda
+      (bind-keys :map org-agenda-mode-map
+        ("C-o" . casual-agenda-tmenu)))))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+(use-package reveal-in-folder :defer t)
+
+(use-package list-environment
+  :defer t
+  :init
+  (with-no-warnings
+    (defun my-list-environment-entries ()
+      "Generate environment variable entries list for tabulated-list."
+      (mapcar (lambda (env)
+                (let* ((kv (split-string env "="))
+                       (key (car kv))
+                       (val (mapconcat #'identity (cdr kv) "=")))
+                  (list key (vector
+                             `(,key face font-lock-keyword-face)
+                             `(,val face font-lock-string-face)))))
+              process-environment))
+    (advice-add #'list-environment-entries :override #'my-list-environment-entries)))
+#+end_src

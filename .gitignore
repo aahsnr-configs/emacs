@@ -22,3 +22,5 @@ transient/
 .lsp-session-v1
 .mc-lists.el
 org-roam.db
+persistent-scratch/
+.persistent-scratch
