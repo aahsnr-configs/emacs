@@ -3661,3 +3661,52 @@ A suite of opinionated Transient UIs
               process-environment))
     (advice-add #'list-environment-entries :override #'my-list-environment-entries)))
 #+end_src
+
+* Reader
+** PDF Tools
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  (use-package pdf-view
+    :ensure pdf-tools
+    :diminish (pdf-view-themed-minor-mode
+               pdf-view-midnight-minor-mode
+               pdf-view-printer-minor-mode)
+    :defines pdf-annot-activate-created-annotations
+    :functions pdf-tools-install
+    :hook ((pdf-tools-enabled . pdf-view-auto-slice-minor-mode)
+           (pdf-tools-enabled . pdf-isearch-minor-mode))
+    :mode ("\\.[pP][dD][fF]\\'" . pdf-view-mode)
+    :magic ("%PDF" . pdf-view-mode)
+    :bind (:map pdf-view-mode-map
+           ("C-s" . isearch-forward))
+    :init (setq pdf-view-use-scaling t
+                pdf-view-use-imagemagick nil
+                pdf-annot-activate-created-annotations t)
+    :config
+    ;; Activate the package
+    (pdf-tools-install t nil t nil)
+
+    (custom-set-faces
+     '(pdf-view-highlight-face ((t (:background "#f9e2af" :foreground "#1e1e2e"))))
+     '(pdf-view-link-face ((t (:foreground "#89b4fa"))))
+     '(pdf-view-active-link-face ((t (:foreground "#cba6f7")))))
+
+    ;; Ensure Org mode integration is set up after Org itself is loaded.
+    (with-eval-after-load 'org
+      (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
+      (setq org-pdftools-link-prefix "pdf"))))
+#+end_src
+
+** Save PDF View
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  (use-package saveplace-pdf-view
+    :when (ignore-errors (pdf-info-check-epdfinfo) t)
+    :autoload (saveplace-pdf-view-find-file-advice saveplace-pdf-view-to-alist-advice)
+    :functions pdf-info-check-epdfinfo
+    :init
+    (advice-add 'save-place-find-file-hook :around #'saveplace-pdf-view-find-file-advice)
+    (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice)))
+#+end_src
+
+**
