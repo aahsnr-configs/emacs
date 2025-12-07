@@ -31,8 +31,8 @@
   - [ ] init-eshell.el
   - [ ] init-shell.el
 
-  - [ ] init-markdown.el
-  - [ ] init-org.el
+  - [x] init-markdown.el
+  - [x] init-org.el
   - [ ] init-reader.el
 
   - [ ] init-dict.el

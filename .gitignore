@@ -21,3 +21,4 @@ backup
 transient/
 .lsp-session-v1
 .mc-lists.el
+org-roam.db
