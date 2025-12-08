@@ -41,13 +41,13 @@
   - [x] init-utils.el
 
   - [ ] init-vcs.el
-  - [ ] init-check.el
-  - [ ] init-lsp.el
-  - [ ] init-dap.el
+  - [x] init-check.el
+  - [x] init-lsp.el
+  - [x] init-dap.el
   - [ ] init-ai.el
 
-  - [ ] init-prog.el
-  - [ ] init-elisp.el
+  - [x] init-prog.el
+  - [x] init-elisp.el
   - [ ] init-c.el
   - [ ] init-go.el
   - [ ] init-rust.el
@@ -73,3 +73,11 @@
 - [ ] Remove diminish from everywhere
 - [ ] Keep all the lisp files from original centaur emacs config to keep track of
 - [ ] Learn how to fork a project in github within a specific branch my repo
+- [ ] Repeat the init-lsp.el integration with init-lsp-modified.el
+
+## Integrating scimax modules
+- [ ] scimax-autoformat-abbrev.el [Provides some flyspell stuff] - Also determine is flyspell is needed if jinx from below is used.
+- [ ] scimax-ob.el
+- [ ] scimax-jinx.el [Remove ivy and avy integrations]
+- [ ] scimax-jupyter.el [Remove hydra stuff for now]
+- [ ] scimax-latex.el
