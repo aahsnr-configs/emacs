@@ -31,54 +31,107 @@
 
 ;;; Code:
 
-;; Defer garbage collection further back in the startup process
-(setq gc-cons-threshold most-positive-fixnum)
+(let ((file-name-handler-alist-original file-name-handler-alist))
 
-;; Prevent unwanted runtime compilation for gccemacs (native-comp) users;
-;; packages are compiled ahead-of-time when they are installed and site files
-;; are compiled when gccemacs is installed.
-(setq native-comp-jit-compilation nil)
+  ;; ====================
+  ;; MAXIMUM GC DEFERRAL (Doom Strategy)
+  ;; ====================
+  (setq gc-cons-threshold most-positive-fixnum
+        gc-cons-percentage 0.8)
 
-;; To speedup the Emacs windows, reducing the count on searching `load-path'
-(when (eq system-type 'windows-nt)
-  (setq load-suffixes '(".elc" ".el")) ;; to avoid searching .so/.dll
-  (setq load-file-rep-suffixes '(""))) ;; to avoid searching *.gz
+  ;; Disable file name handlers completely during startup
+  (setq file-name-handler-alist nil)
 
-;; Package initialize occurs automatically, before `user-init-file' is
-;; loaded, but after `early-init-file'. We handle package
-;; initialization, so we must prevent Emacs from doing it early!
-(setq package-enable-at-startup nil)
+  ;; ====================
+  ;; REDISPLAY OPTIMIZATIONS (Doom's Secret Sauce)
+  ;; ====================
+  (setq redisplay-skip-fontification-on-input t)  ; Skip font-lock during fast input
+  (setq fast-but-imprecise-scrolling t)
+  (setq inhibit-compacting-font-caches t)
 
-;; `use-package' is builtin since 29.
-;; It must be set before loading `use-package'.
-(setq use-package-enable-imenu-support t)
+  ;; ====================
+  ;; FRAME OPTIMIZATION
+  ;; ====================
+  (setq frame-inhibit-implied-resize t)
+  (setq frame-resize-pixelwise t)
 
-;; In noninteractive sessions, prioritize non-byte-compiled source files to
-;; prevent the use of stale byte-code. Otherwise, it saves us a little IO time
-;; to skip the mtime checks on every *.elc file.
-(setq load-prefer-newer noninteractive)
+  ;; ====================
+  ;; PACKAGE SYSTEM
+  ;; ====================
+  ;; (setq package-enable-at-startup nil)
 
-;; Explicitly set the prefered coding systems to avoid annoying prompt
-;; from emacs (especially on Microsoft Windows)
-(prefer-coding-system 'utf-8)
+  ;; ====================
+  ;; NATIVE COMPILATION
+  ;; ====================
+  ;; (setq native-comp-async-query-on-exit t
+  ;;       native-comp-speed 2
+  ;;       native-comp-deferred-compilation t)
 
-;; Inhibit resizing frame
-(setq frame-inhibit-implied-resize t)
+  ;; (setq native-comp-jit-compilation nil)
 
-;; Faster to disable these here (before they've been initialized)
-(push '(menu-bar-lines . 0) default-frame-alist)
-(push '(tool-bar-lines . 0) default-frame-alist)
-(push '(vertical-scroll-bars) default-frame-alist)
-(when (featurep 'ns)
-  (push '(ns-transparent-titlebar . t) default-frame-alist)
-  (push '(ns-appearance . dark) default-frame-alist))
+  (setq byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local))
+  (setq use-package-enable-imenu-support t)
+  ;; ====================
+  ;; PROCESS COMMUNICATION (Critical for LSP)
+  ;; ====================
+  (setq read-process-output-max (* 3 1024 1024))  ; 3MB
 
-;; Prevent flash of unstyled mode line
-(setq mode-line-format nil)
+  ;; Prevent flash of unstyled mode line
+  (setq mode-line-format nil)
 
-;; For LSP performance
-;; @see https://emacs-lsp.github.io/lsp-mode/page/performance/
-(setenv "LSP_USE_PLISTS" "true")
+  ;; In noninteractive sessions, prioritize non-byte-compiled source files to
+  ;; prevent the use of stale byte-code. Otherwise, it saves us a little IO time
+  ;; to skip the mtime checks on every *.elc file.
+  (setq load-prefer-newer noninteractive)
 
+  ;; Explicitly set the prefered coding systems to avoid annoying prompt
+  ;; from emacs (especially on Microsoft Windows)
+  (prefer-coding-system 'utf-8)
+
+  ;; For LSP performance
+  ;; @see https://emacs-lsp.github.io/lsp-mode/page/performance/
+  (setenv "LSP_USE_PLISTS" "true")
+
+
+
+  ;; ====================
+  ;; UI INITIALIZATION
+  ;; ====================
+  (push '(menu-bar-lines . 0) default-frame-alist)
+  (push '(tool-bar-lines . 0) default-frame-alist)
+  (push '(vertical-scroll-bars) default-frame-alist)
+  (push '(mouse-color . "white") default-frame-alist)
+
+  (menu-bar-mode -1)
+  (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+
+  ;; ====================
+  ;; STARTUP SCREEN
+  ;; ====================
+  (setq inhibit-startup-screen t
+        inhibit-startup-echo-area-message user-login-name
+        inhibit-startup-buffer-menu t
+        inhibit-splash-screen t
+        initial-scratch-message nil)
+
+  ;; ====================
+  ;; WARNINGS
+  ;; ====================
+  (setq warning-suppress-types '((org-element) (comp)))
+  (setq warning-minimum-level :error)
+
+  ;; ====================
+  ;; SITE FILES
+  ;; ====================
+  (setq site-run-file nil)
+
+  ;; ====================
+  ;; RESTORE AFTER STARTUP
+  ;; ====================
+  (add-hook 'emacs-startup-hook
+            (lambda ()
+              (setq file-name-handler-alist file-name-handler-alist-original))
+            100))  ; Run late
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; early-init.el ends here

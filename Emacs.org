@@ -9,12 +9,6 @@
 ;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
 #+end_src
 
-** Warning for Lower Emacs
-#+begin_src emacs-lisp
-(when (version< emacs-version "28.1")
-  (error "This requires Emacs 28.1 and above!"))
-#+end_src
-
 ** Speed up Startup Process
 #+begin_src emacs-lisp
 ;; Optimize Garbage Collection for Startup
@@ -68,177 +62,60 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 
 ** Package Management
 #+begin_src emacs-lisp
-(eval-when-compile
-  (require 'init-const)
-  (require 'init-custom))
+  (eval-when-compile
+    (require 'init-const)
+    (require 'init-custom))
 
-(declare-function set-package-archives "init-funcs")
-(declare-function centaur-test-package-archives "init-funcs")
+  (declare-function set-package-archives "init-funcs")
+  (declare-function centaur-test-package-archives "init-funcs")
 
-;; At first startup
-(when (and (file-exists-p centaur-custom-example-file)
-           (not (file-exists-p custom-file)))
-  (copy-file centaur-custom-example-file custom-file)
+  ;; Set ELPA packages
+  (set-package-archives centaur-package-archives nil nil t)
 
-  ;; Test and select the fastest package archives
-  (message "Testing connection... Please wait a moment.")
-  (set-package-archives (centaur-test-package-archives 'no-chart)))
+  ;; Initialize packages
+  (unless (bound-and-true-p package--initialized) ; To avoid warnings in 27
+    (setq package-enable-at-startup nil)          ; To prevent initializing twice
+    (package-initialize))
 
-;; Load `custom-file'
-(and (file-readable-p custom-file) (load custom-file))
+  ;; More options
+  (setq package-install-upgrade-built-in t)
 
-;; HACK: DO NOT save `package-selected-packages' to `custom-file'
-;; @see https://github.com/jwiegley/use-package/issues/383#issuecomment-247801751
-(defun my-package--save-selected-packages (&optional value)
-  "Set `package-selected-packages' to VALUE but don't save to option `custom-file'."
-  (when value
-    (setq package-selected-packages value))
-  (unless after-init-time
-    (add-hook 'after-init-hook #'my-package--save-selected-packages)))
-(advice-add 'package--save-selected-packages :override #'my-package--save-selected-packages)
+  ;; Setup `use-package'
+  (unless (package-installed-p 'use-package)
+    (package-refresh-contents)
+    (package-install 'use-package))
 
-;; Set ELPA packages
-(set-package-archives centaur-package-archives nil nil t)
+  ;; Should set before loading `use-package'
+  (setq use-package-always-ensure t
+        use-package-always-defer t
+        use-package-expand-minimally t
+        use-package-enable-imenu-support t)
 
-;; To speedup the Emacs windows, reducing the count on searching `load-path'
-;; is significant, there're ways to do that:
-;;  1. Use the load-hints in https://mail.gnu.org/archive/html/bug-gnu-emacs/2024-10/msg00905.html
-;;  2. Combin the packages into one directory.
-;; This code slice can make the package.el to install packages in the package-user-dir/"all" to speedup Emacs:
-(when sys/win32p
-  (defun package-user-all-dir ()
-    (file-name-concat package-user-dir "all"))
+  ;; Update GPG keyring for GNU ELPA
+  (use-package gnu-elpa-keyring-update)
 
-  (define-advice package-unpack (:around (ofun pkg-desc) ADV)
-    (let ((pkg-dir (funcall ofun pkg-desc)))
-      (when-let* (pkg-dir
-                  (pkg-file (format "%s-pkg.el" (package-desc-name pkg-desc)))
-                  (files (seq-difference (directory-files pkg-dir)
-                                         '("." "..") 'string=))
-                  (target-dir (file-name-as-directory (package-user-all-dir))))
-        (make-directory target-dir t)
-        (unless (seq-intersection files (directory-files target-dir) #'string=)
-          (with-current-buffer (find-file-noselect (file-name-concat pkg-dir pkg-file))
-            (goto-char (point-max))
-            (when (re-search-backward ")" nil t)
-              (newline-and-indent)
-              (insert (format ":files '%S" (remove pkg-file files)))
-              (save-buffer))
-            (kill-buffer))
-          (dolist (file files)
-            (rename-file (expand-file-name file pkg-dir) target-dir))
-          (delete-directory pkg-dir)
-          (setf (package-desc-dir (car (alist-get (package-desc-name pkg-desc)
-                                                  package-alist)))
-                target-dir)
-          (setq pkg-dir target-dir)))
-      pkg-dir))
-
-  (define-advice package-load-all-descriptors (:after () ADV)
-    (when-let* ((pkg-dir (package-user-all-dir))
-                ((file-directory-p pkg-dir)))
-      (dolist (pkg-file (directory-files pkg-dir t ".*-pkg.el"))
-        (cl-letf (((symbol-function 'package--description-file)
-                   (lambda (_) pkg-file)))
-          (package-load-descriptor pkg-dir)))))
-
-  (define-advice package-delete (:around (ofun pkg-desc &optional force nosave) ADV)
-    (if (string-prefix-p (package-user-all-dir)
-                         (package-desc-dir pkg-desc))
-        (cl-letf* ((default-directory (package-user-all-dir))
-                   (pkg-file (format "%s-pkg.el" (package-desc-name pkg-desc)))
-                   ((symbol-function 'package--delete-directory)
-                    (lambda (x)
-                      (with-current-buffer (find-file-noselect pkg-file)
-                        (goto-char (point-min))
-                        (when (re-search-forward ":files '\\((.*)\\)" nil t)
-                          (dolist (file (read (match-string 1)))
-                            (delete-file file))))
-                      (delete-file pkg-file))))
-          (funcall ofun pkg-desc force nosave))
-      (funcall ofun pkg-desc force nosave))))
-
-;; Initialize packages
-(unless (bound-and-true-p package--initialized) ; To avoid warnings in 27
-  (setq package-enable-at-startup nil)          ; To prevent initializing twice
-  (package-initialize))
-
-;; More options
-(setq package-install-upgrade-built-in t)
-
-;; Setup `use-package'
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-
-;; Should set before loading `use-package'
-(setq use-package-always-ensure t
-      ;;use-package-always-defer t
-      use-package-expand-minimally t
-      use-package-enable-imenu-support t)
-
-;; Required by `use-package'
-(use-package diminish :ensure t)
-
-;; Update GPG keyring for GNU ELPA
-(use-package gnu-elpa-keyring-update)
-
-;; Update packages
-(unless (fboundp 'package-upgrade-all)
-  (use-package auto-package-update
-    :init
-    (setq auto-package-update-delete-old-versions t
-          auto-package-update-hide-results t)
-    (defalias 'package-upgrade-all #'auto-package-update-now)))
+  ;; Update packages
+  (unless (fboundp 'package-upgrade-all)
+    (use-package auto-package-update
+      :init
+      (setq auto-package-update-delete-old-versions t
+            auto-package-update-hide-results t)
+      (defalias 'package-upgrade-all #'auto-package-update-now)))
 #+end_src
 
 * Base Config
 ** Key Modifiers and Optimizations
 #+begin_src emacs-lisp
-(with-no-warnings
-  ;; Key Modifiers
-  (cond
-   (sys/win32p
-    ;; make PC keyboard's Win key or other to type Super or Hyper
-    ;; (setq w32-pass-lwindow-to-system nil)
-    (setq w32-lwindow-modifier 'super     ; Left Windows key
-          w32-apps-modifier 'hyper)       ; Menu/App key
-    (w32-register-hot-key [s-t]))
-   (sys/mac-port-p
-    ;; Compatible with Emacs Mac port
-    (setq mac-option-modifier 'meta
-          mac-command-modifier 'super)
-    (bind-keys ([(super a)] . mark-whole-buffer)
-               ([(super c)] . kill-ring-save)
-               ([(super l)] . goto-line)
-               ([(super q)] . save-buffers-kill-emacs)
-               ([(super s)] . save-buffer)
-               ([(super v)] . yank)
-               ([(super w)] . delete-frame)
-               ([(super z)] . undo))))
+  (with-no-warnings
+    (setq read-process-output-max #x100000)  ; 1MB
 
-  ;; Optimization
-  (when sys/win32p
-    (setq w32-get-true-file-attributes nil   ; decrease file IO workload
-          w32-use-native-image-API t         ; use native w32 API
-          w32-pipe-read-delay 0              ; faster IPC
-          w32-pipe-buffer-size 65536))       ; read more at a time (64K, was 4K)
-  (unless sys/macp
-    (setq command-line-ns-option-alist nil))
-  (unless sys/linuxp
-    (setq command-line-x-option-alist nil))
-
-  ;; Increase how much is read from processes in a single chunk (default is 4kb)
-  (setq read-process-output-max #x100000)  ; 1MB
-
-  ;; Don't ping things that look like domain names.
-  (setq ffap-machine-p-known 'reject))
+    ;; Don't ping things that look like domain names.
+    (setq ffap-machine-p-known 'reject))
   #+end_src
 
 ** Garbage Collector Magic Hack
 #+begin_src emacs-lisp
 (use-package gcmh
-  :diminish
   :hook (emacs-startup . gcmh-mode)
   :init
   (setq gcmh-idle-delay 'auto
@@ -269,11 +146,10 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 
 ** Environment
 #+begin_src emacs-lisp
-(use-package exec-path-from-shell
-  :defer t
-  :commands exec-path-from-shell-initialize
-  :custom (exec-path-from-shell-arguments '("-l"))
-  :init (exec-path-from-shell-initialize))
+  (use-package exec-path-from-shell
+    :commands exec-path-from-shell-initialize
+    :custom (exec-path-from-shell-arguments '("-l"))
+    :init (exec-path-from-shell-initialize))
 #+end_src
 
 ** Session Management
@@ -389,8 +265,7 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 (use-package async
   :functions (async-bytecomp-package-mode dired-async-mode)
   :init
-  (unless sys/win32p
-    (async-bytecomp-package-mode 1))
+  (async-bytecomp-package-mode 1)
   (dired-async-mode 1))
 #+end_src
 
@@ -600,18 +475,14 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
         ("p T" (centaur-test-package-archives) "speed test" :exit t))))))
 #+end_src
 
-* DONE UI and Theming
-CLOSED: [2025-12-06 Sat 08:37]
-:LOGBOOK:
-- State "DONE"       from              [2025-12-06 Sat 08:37]
-:END:
+* UI and Theming
 ** Fonts
 #+begin_src emacs-lisp
 (defun ar/set-fonts ()
   "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
-  (set-face-attribute 'default nil :font "JetBrains Mono" :height 130 :weight 'medium)
-  (set-face-attribute 'fixed-pitch nil :font "JetBrains Mono" :height 130 :weight 'medium)
-  (set-face-attribute 'variable-pitch nil :font "JetBrains Mono" :height 130 :weight 'medium)
+  (set-face-attribute 'default nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrains Mono" :height 125 :weight 'medium)
   ;; Apply italic slant to comments and keywords
   (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
   (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
@@ -633,7 +504,7 @@ CLOSED: [2025-12-06 Sat 08:37]
 
 ** Optimization
 #+begin_src emacs-lisp
-(setq idle-update-delay 1.0)
+(setq idle-update-delay 0.3)
 
 (setq-default cursor-in-non-selected-windows nil)
 (setq highlight-nonselected-windows nil)
@@ -644,7 +515,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 
 ** Frame
 #+begin_src emacs-lisp
-;; Frame padding
 (setq-default internal-border-width 5)
 (add-to-list 'default-frame-alist '(internal-border-width . 5))
 
@@ -675,23 +545,24 @@ CLOSED: [2025-12-06 Sat 08:37]
 ** Doom Themes
 
 #+begin_src emacs-lisp
-(use-package doom-themes
-  :custom
-  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
-  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  ;; for treemacs users
-  (doom-themes-treemacs-theme "doom-tokyo-night") ; use "doom-colors" for less minimal icon theme
-  :config
-  (load-theme 'doom-tokyo-night t)
+  (use-package doom-themes
+    :demand t
+    :custom
+    (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
+    (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+    ;; for treemacs users
+    (doom-themes-treemacs-theme "doom-colors") ; use "doom-colors" for less minimal icon theme
+    :config
+    (load-theme 'doom-tokyo-night t)
 
-  ;; Enable flashing mode-line on errors
-  (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (nerd-icons must be installed!)
-  (doom-themes-neotree-config)
-  ;; or for treemacs users
-  (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification.
-  (doom-themes-org-config))
+    ;; Enable flashing mode-line on errors
+    (doom-themes-visual-bell-config)
+    ;; Enable custom neotree theme (nerd-icons must be installed!)
+    (doom-themes-neotree-config)
+    ;; or for treemacs users
+    (doom-themes-treemacs-config)
+    ;; Corrects (and improves) org-mode's native fontification.
+    (doom-themes-org-config))
 #+end_src
 
 ** PLAN Minions
@@ -951,11 +822,10 @@ CLOSED: [2025-12-06 Sat 08:37]
 ** Misc
 #+begin_src emacs-lisp
 ;; Use fixed pitch where it's sensible
-(use-package mixed-pitch :diminish :defer t)
+(use-package mixed-pitch :defer t)
 
 ;; Display ugly ^L page breaks as tidy horizontal lines
 (use-package page-break-lines
-  :diminish
   :hook (after-init . global-page-break-lines-mode)
   :config (dolist (mode '(dashboard-mode emacs-news-mode))
             (add-to-list 'page-break-lines-modes mode)))
@@ -965,7 +835,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 #+begin_src emacs-lisp
 (use-package transient-posframe
   :defer t
-  :diminish
   :defines posframe-border-width
   :custom-face
   (transient-posframe ((t (:inherit tooltip))))
@@ -1039,7 +908,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 #+begin_src emacs-lisp
 (use-package autorevert
   :ensure nil
-  :diminish
   :hook (after-init . global-auto-revert-mode))
 #+end_src
 
@@ -1090,37 +958,36 @@ CLOSED: [2025-12-06 Sat 08:37]
 
 ** Aggressive Indent
 #+begin_src emacs-lisp
-(use-package aggressive-indent
-  :diminish
-  :autoload aggressive-indent-mode
-  :functions too-long-file-p
-  :hook ((after-init . global-aggressive-indent-mode)
-         ;; NOTE: Disable in large files due to the performance issues
-         ;; https://github.com/Malabarba/aggressive-indent-mode/issues/73
-         (find-file . (lambda ()
-                        (when (too-long-file-p)
-                          (aggressive-indent-mode -1)))))
-  :config
-  ;; Disable in some modes
-  (dolist (mode '(gitconfig-mode
-                  asm-mode web-mode html-mode
-                  css-mode css-ts-mode
-                  go-mode go-ts-mode
-                  python-ts-mode yaml-ts-mode
-                  scala-mode
-                  shell-mode term-mode vterm-mode
-                  prolog-inferior-mode))
-    (add-to-list 'aggressive-indent-excluded-modes mode))
+  (use-package aggressive-indent
+    :autoload aggressive-indent-mode
+    :functions too-long-file-p
+    :hook ((after-init . global-aggressive-indent-mode)
+           ;; NOTE: Disable in large files due to the performance issues
+           ;; https://github.com/Malabarba/aggressive-indent-mode/issues/73
+           (find-file . (lambda ()
+                          (when (too-long-file-p)
+                            (aggressive-indent-mode -1)))))
+    :config
+    ;; Disable in some modes
+    (dolist (mode '(gitconfig-mode
+                    asm-mode web-mode html-mode
+                    css-mode css-ts-mode
+                    go-mode go-ts-mode
+                    python-ts-mode yaml-ts-mode
+                    scala-mode
+                    shell-mode term-mode vterm-mode
+                    prolog-inferior-mode))
+      (add-to-list 'aggressive-indent-excluded-modes mode))
 
-  ;; Disable in some commands
-  (add-to-list 'aggressive-indent-protected-commands #'delete-trailing-whitespace t)
+    ;; Disable in some commands
+    (add-to-list 'aggressive-indent-protected-commands #'delete-trailing-whitespace t)
 
-  ;; Be slightly less aggressive in C/C++/C#/Java/Go/Swift
-  (add-to-list 'aggressive-indent-dont-indent-if
-               '(and (derived-mode-p 'c-mode 'c++-mode 'csharp-mode
-                                     'java-mode 'go-mode 'swift-mode)
-                     (null (string-match "\\([;{}]\\|\\b\\(if\\|for\\|while\\)\\b\\)"
-                                         (thing-at-point 'line))))))
+    ;; Be slightly less aggressive in C/C++/C#/Java/Go/Swift
+    (add-to-list 'aggressive-indent-dont-indent-if
+                 '(and (derived-mode-p 'c-mode 'c++-mode 'csharp-mode
+                                       'java-mode 'go-mode 'swift-mode)
+                       (null (string-match "\\([;{}]\\|\\b\\(if\\|for\\|while\\)\\b\\)"
+                                           (thing-at-point 'line))))))
 
 
 #+end_src
@@ -1128,7 +995,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 ** Anzu
 #+begin_src emacs-lisp
 (use-package anzu
-  :diminish
   :bind (([remap query-replace] . anzu-query-replace)
          ([remap query-replace-regexp] . anzu-query-replace-regexp)
          :map isearch-mode-map
@@ -1137,21 +1003,9 @@ CLOSED: [2025-12-06 Sat 08:37]
   :hook (after-init . global-anzu-mode))
 #+end_src
 
-** Beginend
-#+begin_src emacs-lisp
-(use-package beginend
-  :diminish beginend-global-mode
-  :functions diminish
-  :hook (after-init . beginend-global-mode)
-  :config (mapc (lambda (pair)
-                  (diminish (cdr pair)))
-                beginend-modes))
-#+end_src
-
 ** Drag stuff around
 #+begin_src emacs-lisp
 (use-package drag-stuff
-  :diminish
   :autoload drag-stuff-define-keys
   :hook (after-init . drag-stuff-global-mode)
   :config
@@ -1277,7 +1131,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 
 #+begin_src emacs-lisp
 (use-package hungry-delete
-  :diminish
   :hook (after-init . global-hungry-delete-mode)
   :init (setq hungry-delete-chars-to-skip " \t\f\v"
               hungry-delete-except-modes
@@ -1288,7 +1141,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 #+begin_src emacs-lisp
 (use-package subword
   :ensure nil
-  :diminish
   :hook ((prog-mode . subword-mode)
          (minibuffer-setup . subword-mode)))
 #+end_src
@@ -1298,7 +1150,6 @@ CLOSED: [2025-12-06 Sat 08:37]
 (use-package hideshow
   :ensure nil
   :defer t
-  :diminish hs-minor-mode
   :pretty-hydra
   ((:title (pretty-hydra-title "HideShow" 'octicon "nf-oct-fold")
     :color amaranth :quit-key ("q" "C-g"))
@@ -1752,19 +1603,12 @@ targets."
 
 (use-package yasnippet
   :defer t
-  :diminish yas-minor-mode
   :hook (after-init . yas-global-mode)
   :config
   (add-to-list 'yas-snippet-dirs my/snippets-directory))
 
 ;; Collection of yasnippet snippets
 (use-package yasnippet-snippets)
-
-;; Doom Snippets
-(use-package doom-snippets
-  :ensure nil
-  :load-path "doom-snippets"
-  :after yasnippet)
 
 ;; Yasnippet Completion At Point Function
 (use-package yasnippet-capf
@@ -1866,189 +1710,189 @@ deletion, or > if it is flagged for displaying."
 * Calendar
 * Dashboard
 #+begin_src emacs-lisp
-(use-package dashboard
-  :custom-face
-  (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
-  (dashboard-items-face ((t (:weight normal))))
-  (dashboard-no-items-face ((t (:weight normal))))
-  :pretty-hydra
-  ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
-    :color pink :quit-key ("q" "C-g"))
-   ("Navigator"
-    (("U" update-config-and-packages "update" :exit t)
-     ("H" browse-homepage "homepage" :exit t)
-     ("R" restore-session "recover session" :exit t)
-     ("S" find-custom-file "settings" :exit t))
-    "Section"
-    (("}" dashboard-next-section "next")
-     ("{" dashboard-previous-section "previous")
-     ("r" dashboard-goto-recent-files "recent files")
-     ("m" dashboard-goto-bookmarks "bookmarks")
-     ("p" dashboard-goto-projects "projects"))
-    "Item"
-    (("RET" widget-button-press "open" :exit t)
-     ("<tab>" widget-forward "next")
-     ("C-i" widget-forward "next")
-     ("<backtab>" widget-backward "previous")
-     ("C-n" next-line "next line")
-     ("C-p" previous-line "previous  line"))
-    "Misc"
-    (("<f2>" open-dashboard "open" :exit t)
-     ("g" dashboard-refresh-buffer "refresh" :exit t)
-     ("Q" quit-dashboard "quit" :exit t))))
-  :bind (("<f2>" . open-dashboard)
-         :map dashboard-mode-map
-         ("H" . browse-homepage)
-         ("R" . restore-session)
-         ("S" . find-custom-file)
-         ("U" . update-config-and-packages)
-         ("q" . quit-dashboard)
-         ("h" . dashboard-hydra/body)
-         ("?" . dashboard-hydra/body))
-  :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
-  :init
-  (setq ;;dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
-        ;;dashboard-startup-banner (or centaur-logo 'official)
-        dashboard-page-separator "\n\f\n"
-        dashboard-projects-backend 'project-el
-        dashboard-path-style 'truncate-middle
-        dashboard-path-max-length 60
-        dashboard-center-content t
-        dashboard-vertically-center-content t
-        dashboard-show-shortcuts nil
-        dashboard-items '((recents  . 10)
-                          (bookmarks . 5)
-                          (projects . 5))
+  (use-package dashboard
+    :custom-face
+    (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
+    (dashboard-items-face ((t (:weight normal))))
+    (dashboard-no-items-face ((t (:weight normal))))
+    :pretty-hydra
+    ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
+      :color pink :quit-key ("q" "C-g"))
+     ("Navigator"
+      (("U" update-config-and-packages "update" :exit t)
+       ("H" browse-homepage "homepage" :exit t)
+       ("R" restore-session "recover session" :exit t)
+       ("S" find-custom-file "settings" :exit t))
+      "Section"
+      (("}" dashboard-next-section "next")
+       ("{" dashboard-previous-section "previous")
+       ("r" dashboard-goto-recent-files "recent files")
+       ("m" dashboard-goto-bookmarks "bookmarks")
+       ("p" dashboard-goto-projects "projects"))
+      "Item"
+      (("RET" widget-button-press "open" :exit t)
+       ("<tab>" widget-forward "next")
+       ("C-i" widget-forward "next")
+       ("<backtab>" widget-backward "previous")
+       ("C-n" next-line "next line")
+       ("C-p" previous-line "previous  line"))
+      "Misc"
+      (("<f2>" open-dashboard "open" :exit t)
+       ("g" dashboard-refresh-buffer "refresh" :exit t)
+       ("Q" quit-dashboard "quit" :exit t))))
+    :bind (("<f2>" . open-dashboard)
+           :map dashboard-mode-map
+           ("H" . browse-homepage)
+           ("R" . restore-session)
+           ("S" . find-custom-file)
+           ("U" . update-config-and-packages)
+           ("q" . quit-dashboard)
+           ("h" . dashboard-hydra/body)
+           ("?" . dashboard-hydra/body))
+    :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
+    :init
+    (setq ;;dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
+          ;;dashboard-startup-banner (or centaur-logo 'official)
+          dashboard-page-separator "\n\f\n"
+          dashboard-projects-backend 'project-el
+          dashboard-path-style 'truncate-middle
+          dashboard-path-max-length 60
+          dashboard-center-content t
+          dashboard-vertically-center-content t
+          dashboard-show-shortcuts nil
+          dashboard-items '((recents  . 10)
+                            (bookmarks . 5)
+                            (projects . 5))
 
-        dashboard-startupify-list '(dashboard-insert-banner
-                                    dashboard-insert-newline
-                                    dashboard-insert-banner-title
-                                    dashboard-insert-newline
-                                    dashboard-insert-navigator
-                                    dashboard-insert-newline
-                                    dashboard-insert-init-info
-                                    dashboard-insert-items
-                                    dashboard-insert-newline
-                                    dashboard-insert-footer)
+          dashboard-startupify-list '(dashboard-insert-banner
+                                      dashboard-insert-newline
+                                      dashboard-insert-banner-title
+                                      dashboard-insert-newline
+                                      dashboard-insert-navigator
+                                      dashboard-insert-newline
+                                      dashboard-insert-init-info
+                                      dashboard-insert-items
+                                      dashboard-insert-newline
+                                      dashboard-insert-footer)
 
-        dashboard-display-icons-p #'icons-displayable-p
-        dashboard-set-file-icons centaur-icon
-        dashboard-set-heading-icons centaur-icon
-        dashboard-heading-icons '((recents   . "nf-oct-history")
-                                  (bookmarks . "nf-oct-bookmark")
-                                  (agenda    . "nf-oct-calendar")
-                                  (projects  . "nf-oct-briefcase")
-                                  (registers . "nf-oct-database"))
+          dashboard-display-icons-p #'icons-displayable-p
+          dashboard-set-file-icons centaur-icon
+          dashboard-set-heading-icons centaur-icon
+          dashboard-heading-icons '((recents   . "nf-oct-history")
+                                    (bookmarks . "nf-oct-bookmark")
+                                    (agenda    . "nf-oct-calendar")
+                                    (projects  . "nf-oct-briefcase")
+                                    (registers . "nf-oct-database"))
 
-        dashboard-navigator-buttons
-        `(((,(when (icons-displayable-p)
-               (nerd-icons-mdicon "nf-md-github" :height 1.1))
-            "Homepage" "Browse homepage"
-            (lambda (&rest _) (browse-url centaur-homepage)))
-           (,(when (icons-displayable-p)
-               (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
-            "Restore" "Restore previous session"
-            (lambda (&rest _) (restore-session)))
-           (,(when (icons-displayable-p)
-               (nerd-icons-mdicon "nf-md-tools" :height 1.1))
-            "Settings" "Open custom file"
-            (lambda (&rest _) (find-file custom-file)))
-           (,(when (icons-displayable-p)
-               (nerd-icons-mdicon "nf-md-update" :height 1.1))
-            "Update" "Update Centaur Emacs"
-            (lambda (&rest _) (centaur-update)))
-           (,(if (icons-displayable-p)
-                 (nerd-icons-mdicon "nf-md-help" :height 1.1)
-               "?")
-            "" "Help (?/h)"
-            (lambda (&rest _) (dashboard-hydra/body)))))
+          dashboard-navigator-buttons
+          `(((,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-github" :height 1.1))
+              "Homepage" "Browse homepage"
+              (lambda (&rest _) (browse-url centaur-homepage)))
+             (,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
+              "Restore" "Restore previous session"
+              (lambda (&rest _) (restore-session)))
+             (,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-tools" :height 1.1))
+              "Settings" "Open custom file"
+              (lambda (&rest _) (find-file custom-file)))
+             (,(when (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-update" :height 1.1))
+              "Update" "Update Centaur Emacs"
+              (lambda (&rest _) (centaur-update)))
+             (,(if (icons-displayable-p)
+                   (nerd-icons-mdicon "nf-md-help" :height 1.1)
+                 "?")
+              "" "Help (?/h)"
+              (lambda (&rest _) (dashboard-hydra/body)))))
 
-        dashboard-footer-icon
-        (if (icons-displayable-p)
-            (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
-          (propertize ">" 'face 'dashboard-footer)))
+          dashboard-footer-icon
+          (if (icons-displayable-p)
+              (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
+            (propertize ">" 'face 'dashboard-footer)))
 
-  (dashboard-setup-startup-hook)
-  :config
-  ;; Insert copyright
-  ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
-  (defun my-dashboard-insert-copyright ()
-    "Insert copyright in the footer."
-    (dashboard-insert-center
-     (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
-                 'face 'font-lock-comment-face)))
-  (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
+    (dashboard-setup-startup-hook)
+    :config
+    ;; Insert copyright
+    ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
+    (defun my-dashboard-insert-copyright ()
+      "Insert copyright in the footer."
+      (dashboard-insert-center
+       (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
+                   'face 'font-lock-comment-face)))
+    (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
 
-  (defun restore-session ()
-    "Restore the previous session."
-    (interactive)
-    (message "Restoring previous session...")
-    (quit-window t)
+    (defun restore-session ()
+      "Restore the previous session."
+      (interactive)
+      (message "Restoring previous session...")
+      (quit-window t)
 
-    (when (fboundp 'tabspaces-mode)
-      (unless tabspaces-mode
-        (tabspaces-mode t))
-      (tabspaces-restore-session))
+      (when (fboundp 'tabspaces-mode)
+        (unless tabspaces-mode
+          (tabspaces-mode t))
+        (tabspaces-restore-session))
 
-    (message "Restoring previous session...done"))
+      (message "Restoring previous session...done"))
 
-  (defun dashboard-goto-recent-files ()
-    "Go to recent files."
-    (interactive)
-    (let ((func (local-key-binding "r")))
-      (and func (funcall func))))
+    (defun dashboard-goto-recent-files ()
+      "Go to recent files."
+      (interactive)
+      (let ((func (local-key-binding "r")))
+        (and func (funcall func))))
 
-  (defun dashboard-goto-projects ()
-    "Go to projects."
-    (interactive)
-    (let ((func (local-key-binding "p")))
-      (and func (funcall func))))
+    (defun dashboard-goto-projects ()
+      "Go to projects."
+      (interactive)
+      (let ((func (local-key-binding "p")))
+        (and func (funcall func))))
 
-  (defun dashboard-goto-bookmarks ()
-    "Go to bookmarks."
-    (interactive)
-    (let ((func (local-key-binding "m")))
-      (and func (funcall func))))
+    (defun dashboard-goto-bookmarks ()
+      "Go to bookmarks."
+      (interactive)
+      (let ((func (local-key-binding "m")))
+        (and func (funcall func))))
 
-  (defvar dashboard-recover-layout-p nil
-    "Wether recovers the layout.")
+    (defvar dashboard-recover-layout-p nil
+      "Wether recovers the layout.")
 
-  (defun open-dashboard ()
-    "Open the *dashboard* buffer and jump to the first widget."
-    (interactive)
-    ;; Check if need to recover layout
-    (if (length> (window-list-1)
-                 ;; exclude `treemacs' window
-                 (if (and (fboundp 'treemacs-current-visibility)
-                          (eq (treemacs-current-visibility) 'visible))
-                     2
-                   1))
-        (setq dashboard-recover-layout-p t))
+    (defun open-dashboard ()
+      "Open the *dashboard* buffer and jump to the first widget."
+      (interactive)
+      ;; Check if need to recover layout
+      (if (length> (window-list-1)
+                   ;; exclude `treemacs' window
+                   (if (and (fboundp 'treemacs-current-visibility)
+                            (eq (treemacs-current-visibility) 'visible))
+                       2
+                     1))
+          (setq dashboard-recover-layout-p t))
 
-    ;; Display dashboard in maximized window
-    (delete-other-windows)
+      ;; Display dashboard in maximized window
+      (delete-other-windows)
 
-    ;; Refresh dashboard buffer
-    (dashboard-refresh-buffer)
+      ;; Refresh dashboard buffer
+      (dashboard-refresh-buffer)
 
-    ;; Jump to the first section
-    (dashboard-goto-recent-files))
+      ;; Jump to the first section
+      (dashboard-goto-recent-files))
 
-  (defun quit-dashboard ()
-    "Quit dashboard window."
-    (interactive)
-    (quit-window t)
+    (defun quit-dashboard ()
+      "Quit dashboard window."
+      (interactive)
+      (quit-window t)
 
-    ;; Create workspace
-    (when (fboundp 'tabspaces-mode)
-      (unless tabspaces-mode
-        (tabspaces-mode t)
-        (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
+      ;; Create workspace
+      (when (fboundp 'tabspaces-mode)
+        (unless tabspaces-mode
+          (tabspaces-mode t)
+          (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
 
-    ;; Recover layout
-    (and dashboard-recover-layout-p
-         (and (bound-and-true-p winner-mode) (winner-undo))
-         (setq dashboard-recover-layout-p nil))))
+      ;; Recover layout
+      (and dashboard-recover-layout-p
+           (and (bound-and-true-p winner-mode) (winner-undo))
+           (setq dashboard-recover-layout-p nil))))
 #+end_src
 
 * Dired
@@ -2089,7 +1933,6 @@ deletion, or > if it is flagged for displaying."
 
   ;; Shows icons in dired
   (use-package nerd-icons-dired
-    :diminish
     :functions (nerd-icons-icon-for-dir my-nerd-icons-icon-for-dir)
     :hook (dired-mode . nerd-icons-dired-mode)
     :init
@@ -2207,7 +2050,6 @@ FACE defaults to inheriting from default and highlight."
 #+begin_src emacs-lisp
 (use-package symbol-overlay
   :defer t
-  :diminish
   :custom-face
   (symbol-overlay-default-face ((t (:inherit region :background unspecified :foreground unspecified))))
   (symbol-overlay-face-1 ((t (:inherit nerd-icons-blue :background unspecified :foreground unspecified :inverse-video t))))
@@ -2255,7 +2097,6 @@ FACE defaults to inheriting from default and highlight."
 ** Mark occurrences of current selection
 #+begin_src emacs-lisp
 (use-package region-occurrences-highlighter
-  :diminish
   :bind (:map region-occurrences-highlighter-nav-mode-map
          ("M-n" . region-occurrences-highlighter-next)
          ("M-p" . region-occurrences-highlighter-prev))
@@ -2282,7 +2123,6 @@ FACE defaults to inheriting from default and highlight."
 ** Colorize color names in buffers
 #+begin_src emacs-lisp
 (use-package colorful-mode
-  :diminish
   :hook (after-init . global-colorful-mode)
   :init (setq colorful-use-prefix t)
   :config (dolist (mode '(html-mode php-mode help-mode helpful-mode))
@@ -2446,7 +2286,6 @@ FACE defaults to inheriting from default and highlight."
 ** Pulse modified region
 #+begin_src emacs-lisp
 (use-package goggles
-  :diminish
   :hook ((prog-mode text-mode conf-mode) . goggles-mode))
 #+end_src
 
@@ -2494,7 +2333,7 @@ FACE defaults to inheriting from default and highlight."
                   (file-remote-p . "Remote")))))))
 #+end_src
 
-** Kill Ring
+* Kill Ring
 #+begin_src emacs-lisp
 (setq kill-ring-max 200)
 
@@ -2509,6 +2348,7 @@ FACE defaults to inheriting from default and highlight."
 
 ;; Interactively insert and edit items from kill-ring
 (use-package browse-kill-ring
+  :defer t
   :bind ("C-c k" . browse-kill-ring)
   :hook (after-init . browse-kill-ring-default-keybindings)
   :init (setq browse-kill-ring-separator "────────────────"
@@ -2524,7 +2364,7 @@ If you have init-custom.el, this defvar won't override your setting.")
 
 (use-package tabspaces
   :functions tabspaces-mode
-  :hook (after-init . (lambda() (unless centaur-dashboard (tabspaces-mode t))))
+  ;; :hook (after-init . (lambda() (unless centaur-dashboard (tabspaces-mode t))))
   :custom
   (tab-bar-show nil)
   (tabspaces-use-filtered-buffers-as-default t)
@@ -2859,122 +2699,124 @@ A tree layout file explorer
 
 * Markdown
 #+begin_src emacs-lisp
-(use-package markdown-mode
-  :mode (("README\\.md\\'" . gfm-mode))
-  :init
-  (setq markdown-enable-wiki-links t
-        markdown-italic-underscore t
-        markdown-asymmetric-header t
-        markdown-make-gfm-checkboxes-buttons t
-        markdown-gfm-uppercase-checkbox t
-        markdown-fontify-code-blocks-natively t
+  (use-package markdown-mode
+    :defer t
+    :mode (("README\\.md\\'" . gfm-mode))
+    :init
+    (setq markdown-enable-wiki-links t
+          markdown-italic-underscore t
+          markdown-asymmetric-header t
+          markdown-make-gfm-checkboxes-buttons t
+          markdown-gfm-uppercase-checkbox t
+          markdown-fontify-code-blocks-natively t
 
-        markdown-content-type "application/xhtml+xml"
-        markdown-css-paths '("https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"
-                             "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css")
-        markdown-xhtml-header-content "
-<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
-<style>
-body {
-  box-sizing: border-box;
-  max-width: 740px;
-  width: 100%;
-  margin: 40px auto;
-  padding: 0 10px;
-}
-</style>
+          markdown-content-type "application/xhtml+xml"
+          markdown-css-paths '("https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"
+                               "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css")
+          markdown-xhtml-header-content "
+  <meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
+  <style>
+  body {
+    box-sizing: border-box;
+    max-width: 740px;
+    width: 100%;
+    margin: 40px auto;
+    padding: 0 10px;
+  }
+  </style>
 
-<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/default.min.css'>
-<script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  document.body.classList.add('markdown-body');
-  document.querySelectorAll('pre code').forEach((code) => {
-    if (code.className != 'mermaid') {
-      hljs.highlightBlock(code);
-    }
+  <link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/default.min.css'>
+  <script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.classList.add('markdown-body');
+    document.querySelectorAll('pre code').forEach((code) => {
+      if (code.className != 'mermaid') {
+        hljs.highlightBlock(code);
+      }
+    });
   });
-});
-</script>
+  </script>
 
-<script src='https://unpkg.com/mermaid@8.4.8/dist/mermaid.min.js'></script>
-<script>
-mermaid.initialize({
-  theme: 'default',  // default, forest, dark, neutral
-  startOnLoad: true
-});
-</script>
-"
-        markdown-gfm-additional-languages "Mermaid")
+  <script src='https://unpkg.com/mermaid@8.4.8/dist/mermaid.min.js'></script>
+  <script>
+  mermaid.initialize({
+    theme: 'default',  // default, forest, dark, neutral
+    startOnLoad: true
+  });
+  </script>
+  "
+          markdown-gfm-additional-languages "Mermaid")
 
-  ;; `multimarkdown' is necessary for `highlight.js' and `mermaid.js'
-  (when (executable-find "multimarkdown")
-    (setq markdown-command "multimarkdown"))
-  :config
-  ;; Support `mermaid'
-  (add-to-list 'markdown-code-lang-modes '("mermaid" . mermaid-mode))
+    ;; `multimarkdown' is necessary for `highlight.js' and `mermaid.js'
+    (when (executable-find "multimarkdown")
+      (setq markdown-command "multimarkdown"))
+    :config
+    ;; Support `mermaid'
+    (add-to-list 'markdown-code-lang-modes '("mermaid" . mermaid-mode))
 
-  (with-no-warnings
-    ;; Use `which-key' instead
-    (advice-add #'markdown--command-map-prompt :override #'ignore)
-    (advice-add #'markdown--style-map-prompt   :override #'ignore)
+    (with-no-warnings
+      ;; Use `which-key' instead
+      (advice-add #'markdown--command-map-prompt :override #'ignore)
+      (advice-add #'markdown--style-map-prompt   :override #'ignore)
 
-    ;; Preview with webkit
-    (defun my-markdown-export-and-preview ()
-      "Preview with `xwidget' if applicable, otherwise with the default browser."
-      (centaur-browse-url-of-file (markdown-export)))
-    (advice-add #'markdown-export-and-preview :override #'my-markdown-export-and-preview)))
+      ;; Preview with webkit
+      (defun my-markdown-export-and-preview ()
+        "Preview with `xwidget' if applicable, otherwise with the default browser."
+        (centaur-browse-url-of-file (markdown-export)))
+      (advice-add #'markdown-export-and-preview :override #'my-markdown-export-and-preview)))
 
-;; Table of contents
-(use-package markdown-toc
-  :diminish
-  :bind (:map markdown-mode-command-map
-         ("r" . markdown-toc-generate-or-refresh-toc))
-  :hook (markdown-mode . markdown-toc-mode)
-  :init (setq markdown-toc-indentation-space 2
-              markdown-toc-header-toc-title "\n## Table of Contents"
-              markdown-toc-user-toc-structure-manipulation-fn 'cdr)
-  :config
-  (with-no-warnings
-    (define-advice markdown-toc-generate-toc (:around (fn &rest args) lsp)
-      "Generate or refresh toc after disabling lsp."
-      (cond
-       ((bound-and-true-p lsp-managed-mode)
-        (lsp-managed-mode -1)
-        (apply fn args)
-        (lsp-managed-mode 1))
-       ((bound-and-true-p eglot--manage-mode)
-        (eglot--manage-mode -1)
-        (apply fn args)
-        (eglot--manage-mode 1))
-       (t
-        (apply fn args))))))
+  ;; Table of contents
+  (use-package markdown-toc
+    :defer t
+    :bind (:map markdown-mode-command-map
+           ("r" . markdown-toc-generate-or-refresh-toc))
+    :hook (markdown-mode . markdown-toc-mode)
+    :init (setq markdown-toc-indentation-space 2
+                markdown-toc-header-toc-title "\n## Table of Contents"
+                markdown-toc-user-toc-structure-manipulation-fn 'cdr)
+    :config
+    (with-no-warnings
+      (define-advice markdown-toc-generate-toc (:around (fn &rest args) lsp)
+        "Generate or refresh toc after disabling lsp."
+        (cond
+         ((bound-and-true-p lsp-managed-mode)
+          (lsp-managed-mode -1)
+          (apply fn args)
+          (lsp-managed-mode 1))
+         ((bound-and-true-p eglot--manage-mode)
+          (eglot--manage-mode -1)
+          (apply fn args)
+          (eglot--manage-mode 1))
+         (t
+          (apply fn args))))))
 
-;; Preview markdown files
-;; @see https://github.com/seagle0128/grip-mode?tab=readme-ov-file#prerequisite
-(use-package grip-mode
-  :defines markdown-mode-command-map org-mode-map grip-update-after-change grip-use-mdopen
-  :functions auth-source-user-and-password
-  :autoload grip-mode
-  :init
-  (with-eval-after-load 'markdown-mode
-    (bind-key "g" #'grip-mode markdown-mode-command-map))
+  ;; Preview markdown files
+  ;; @see https://github.com/seagle0128/grip-mode?tab=readme-ov-file#prerequisite
+  (use-package grip-mode
+    :defer t
+    :defines markdown-mode-command-map org-mode-map grip-update-after-change grip-use-mdopen
+    :functions auth-source-user-and-password
+    :autoload grip-mode
+    :init
+    (with-eval-after-load 'markdown-mode
+      (bind-key "g" #'grip-mode markdown-mode-command-map))
 
-  (with-eval-after-load 'org
-    (bind-key "C-c C-g" #'grip-mode org-mode-map))
+    (with-eval-after-load 'org
+      (bind-key "C-c C-g" #'grip-mode org-mode-map))
 
-  (setq grip-update-after-change nil)
+    (setq grip-update-after-change nil)
 
-  ;; mdopen doesn't need credentials, and only support external browsers
-  (if (executable-find "mdopen")
-      (setq grip-use-mdopen t)
-    (when-let* ((credential (and (require 'auth-source nil t)
-                                 (auth-source-user-and-password "api.github.com"))))
-      (setq grip-github-user (car credential)
-            grip-github-password (cadr credential)))))
+    ;; mdopen doesn't need credentials, and only support external browsers
+    (if (executable-find "mdopen")
+        (setq grip-use-mdopen t)
+      (when-let* ((credential (and (require 'auth-source nil t)
+                                   (auth-source-user-and-password "api.github.com"))))
+        (setq grip-github-user (car credential)
+              grip-github-password (cadr credential)))))
 #+end_src
 
-* Org Mode
+* TODO Org Mode
 *Integrate with evil*
 ** Dynamic Directory Structure
 #+begin_src emacs-lisp
@@ -3034,6 +2876,7 @@ mermaid.initialize({
 
 ** Core Configuration
 =Disable large file optimizations for now=
+=add redisplay inline images=
 #+begin_src emacs-lisp
   (use-package org
     :ensure nil
@@ -3076,10 +2919,7 @@ mermaid.initialize({
               (hot-expand "<s" "perl")) "Perl tangled")
        ("<" self-insert-command "ins"))))
 
-    :bind (("C-c a" . org-agenda)
-           ("C-c b" . org-switchb)
-           ("C-c x" . org-capture)
-           :map org-mode-map
+    :bind (:map org-mode-map
            ("<" . (lambda ()
                     "Insert org template."
                     (interactive)
@@ -3088,8 +2928,7 @@ mermaid.initialize({
                       (self-insert-command 1)))))
 
 
-    :hook (((org-babel-after-execute org-mode) . org-redisplay-inline-images) ; display image
-           (org-mode . (lambda ()
+    :hook ((org-mode . (lambda ()
                          (setq-local electric-indent-local-mode -1) ; Prevent aggressive auto-indent; setting to true for now
                          (evil-define-key 'normal org-mode-map (kbd "TAB") 'org-cycle)))
            
@@ -3106,14 +2945,7 @@ mermaid.initialize({
                                  (setq mode-line-format nil)
                                  (setq header-line-format nil))))
     :config
-    ;; For hydra
     (defun hot-expand (str &optional mod)
-      "Expand org template.
-
-  STR is a structure template string recognised by org like <s. MOD is a
-  string with additional parameters to add the begin line of the
-  structure element. HEADER string includes more parameters that are
-  prepended to the element after the #+HEADER: tag."
       (let (text)
         (when (region-active-p)
           (setq text (buffer-substring (region-beginning) (region-end)))
@@ -3129,7 +2961,7 @@ mermaid.initialize({
         (when text (insert text))))
 
     ;; To speed up startup, don't put to init section
-    (setq org-modules nil                 ; Faster loading
+    (setq ;;org-modules nil
   	    org-directory my/org-directory
   	    org-log-done 'time
   	    org-log-into-drawer t
@@ -3141,9 +2973,9 @@ mermaid.initialize({
   	    org-element-cache-persistent t
 
   	    ;; Disable expensive fontification
-  	    org-fontify-quote-and-verse-blocks nil
-  	    org-fontify-whole-heading-line nil
-  	    org-fontify-done-headline nil
+  	    ;; org-fontify-quote-and-verse-blocks nil
+  	    ;; org-fontify-whole-heading-line nil
+  	    ;; org-fontify-done-headline nil
   	    org-highlight-latex-and-related nil  ;; MAJOR performance killer
 
   	    org-todo-keywords
@@ -3194,14 +3026,12 @@ mermaid.initialize({
   	    ;; Startup optimization
   	    org-startup-with-latex-preview t
   	    org-startup-folded 'overview
-  	    ;;org-startup-indented nil
-  	    org-startup-with-inline-images nil
-  	    org-startup-with-latex-preview nil
+  	    org-startup-indented nil         
   	    org-indent-mode -1
           
   	    ;; Display settings
-          org-hide-leading-stars nil  ;;  Faster with nil
-          org-hide-emphasis-markers nil  ;; Faster with nil
+          org-hide-leading-stars t
+          org-hide-emphasis-markers t  ;; Faster with nil
           org-pretty-entities nil  ;; CHANGED: Disable for speed
           org-cycle-separator-lines 2
           
@@ -3638,9 +3468,6 @@ A suite of opinionated Transient UIs
 (when (display-graphic-p)
   (use-package pdf-view
     :ensure pdf-tools
-    :diminish (pdf-view-themed-minor-mode
-               pdf-view-midnight-minor-mode
-               pdf-view-printer-minor-mode)
     :defines pdf-annot-activate-created-annotations
     :functions pdf-tools-install
     :hook ((pdf-tools-enabled . pdf-view-auto-slice-minor-mode)
@@ -4297,7 +4124,6 @@ A suite of opinionated Transient UIs
   :config
   (when (childframe-workable-p)
     (use-package eldoc-mouse
-      :diminish
       :bind (:map eldoc-mouse-mode-map
              ("C-h ." . eldoc-mouse-pop-doc-at-cursor))
       :hook (eglot-managed-mode emacs-lisp-mode)
