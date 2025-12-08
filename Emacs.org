@@ -2357,64 +2357,59 @@ FACE defaults to inheriting from default and highlight."
 
 * Workspace
 #+begin_src emacs-lisp
-(defvar centaur-dashboard nil
-  "Display dashboard at startup or not.
-This variable is typically defined in init-custom.el.
-If you have init-custom.el, this defvar won't override your setting.")
+  (use-package tabspaces
+    :functions tabspaces-mode
+    :hook (after-init . (lambda() (unless centaur-dashboard (tabspaces-mode t))))
+    :custom
+    (tab-bar-show nil)
+    (tabspaces-use-filtered-buffers-as-default t)
+    (tabspaces-default-tab "Default")
+    (tabspaces-remove-to-default t)
+    (tabspaces-include-buffers '("*scratch*" "*Messages*"))
+    (tabspaces-exclude-buffers '("*eat*" "*vterm*" "*shell*" "*eshell*"))
 
-(use-package tabspaces
-  :functions tabspaces-mode
-  ;; :hook (after-init . (lambda() (unless centaur-dashboard (tabspaces-mode t))))
-  :custom
-  (tab-bar-show nil)
-  (tabspaces-use-filtered-buffers-as-default t)
-  (tabspaces-default-tab "Default")
-  (tabspaces-remove-to-default t)
-  (tabspaces-include-buffers '("*scratch*" "*Messages*"))
-  (tabspaces-exclude-buffers '("*eat*" "*vterm*" "*shell*" "*eshell*"))
+    ;; Session management settings
+    (tabspaces-session t)
+    (tabspaces-session-auto-restore (not centaur-dashboard))
 
-  ;; Session management settings
-  (tabspaces-session t)
-  (tabspaces-session-auto-restore (not centaur-dashboard))
+    :config
+    (with-no-warnings
+      (with-eval-after-load 'consult
+        (consult-customize consult--source-buffer :hidden t :default nil)
+        (defvar consult--source-workspace
+          (list :name     "Workspace Buffer"
+                :narrow   ?w
+                :history  'buffer-name-history
+                :category 'buffer
+                :state    #'consult--buffer-state
+                :default  t
+                :items    (lambda () (consult--buffer-query
+                                 :predicate #'tabspaces--local-buffer-p
+                                 :sort 'visibility
+                                 :as #'buffer-name)))
+          "Set workspace buffer list for consult-buffer.")
+        (add-to-list 'consult-buffer-sources 'consult--source-workspace))
 
-  :config
-  (with-no-warnings
-    (with-eval-after-load 'consult
-      (consult-customize consult--source-buffer :hidden t :default nil)
-      (defvar consult--source-workspace
-        (list :name     "Workspace Buffer"
-              :narrow   ?w
-              :history  'buffer-name-history
-              :category 'buffer
-              :state    #'consult--buffer-state
-              :default  t
-              :items    (lambda () (consult--buffer-query
-                               :predicate #'tabspaces--local-buffer-p
-                               :sort 'visibility
-                               :as #'buffer-name)))
-        "Set workspace buffer list for consult-buffer.")
-      (add-to-list 'consult-buffer-sources 'consult--source-workspace))
+      (defun my-tabspaces-delete-childframe (&rest _)
+        "Delete all child frames before saving tabspaces session.
+  This prevents issues with posframe popups being saved in the session."
+        (when (fboundp 'posframe-delete-all)
+          (ignore-errors
+            (posframe-delete-all))))
+      (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
 
-    (defun my-tabspaces-delete-childframe (&rest _)
-      "Delete all child frames before saving tabspaces session.
-This prevents issues with posframe popups being saved in the session."
-      (when (fboundp 'posframe-delete-all)
+      ;; Helper function to bury Messages buffer after restoring session
+      (defun my-tabspaces-bury-window (&rest _)
+        "Bury *Messages* buffer after restoring tabspaces session.
+  This provides a cleaner workspace after session restoration."
         (ignore-errors
-          (posframe-delete-all))))
-    (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
+          ;; Use the standard messages buffer name
+          (let ((msg-buf (get-buffer "*Messages*")))
+            (when msg-buf
+              (quit-windows-on msg-buf)))))
 
-    ;; Helper function to bury Messages buffer after restoring session
-    (defun my-tabspaces-bury-window (&rest _)
-      "Bury *Messages* buffer after restoring tabspaces session.
-This provides a cleaner workspace after session restoration."
-      (ignore-errors
-        ;; Use the standard messages buffer name
-        (let ((msg-buf (get-buffer "*Messages*")))
-          (when msg-buf
-            (quit-windows-on msg-buf)))))
-
-    ;; Advice to clean up Messages buffer after session restore
-    (advice-add #'tabspaces-restore-session :after #'my-tabspaces-bury-window)))
+      ;; Advice to clean up Messages buffer after session restore
+      (advice-add #'tabspaces-restore-session :after #'my-tabspaces-bury-window)))
 #+end_src
 
 * Window
