@@ -21,6 +21,7 @@ backup
 transient/
 .lsp-session-v1
 .mc-lists.el
+.mc-lists.el
 org-roam.db
 persistent-scratch/
 .persistent-scratch

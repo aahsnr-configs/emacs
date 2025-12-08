@@ -87,16 +87,6 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 ;; Load `custom-file'
 (and (file-readable-p custom-file) (load custom-file))
 
-;; Load custom-post file
-(defun load-custom-post-file ()
-  "Load custom-post file."
-  (cond ((file-exists-p centaur-custom-post-org-file)
-         (and (fboundp 'org-babel-load-file)
-              (org-babel-load-file centaur-custom-post-org-file)))
-        ((file-exists-p centaur-custom-post-file)
-         (load centaur-custom-post-file))))
-(add-hook 'after-init-hook #'load-custom-post-file)
-
 ;; HACK: DO NOT save `package-selected-packages' to `custom-file'
 ;; @see https://github.com/jwiegley/use-package/issues/383#issuecomment-247801751
 (defun my-package--save-selected-packages (&optional value)
@@ -203,15 +193,6 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
 #+end_src
 
 * Base Config
-** eval-when-compile
-#+begin_src emacs-lisp
-;; (eval-when-compile
-;;   (require 'init-const)
-;;   (require 'init-custom))
-
-;; (require 'init-funcs)
-#+end_src
-
 ** Key Modifiers and Optimizations
 #+begin_src emacs-lisp
 (with-no-warnings
@@ -468,7 +449,6 @@ Avoid placing large files like EAF in `site-lisp` to prevent slow startup."
             (/ (+ (plist-get info :parent-frame-height)
                   (* 2 (plist-get info :font-height)))
                2)))))
-
 #+end_src
 
 ** TODO Keybindings
@@ -1604,11 +1584,6 @@ value of the selected COLOR."
 #+begin_src emacs-lisp
 (use-package embark
   :commands embark-prefix-help-command
-  :bind (("C-." . embark-act)
-	 ("C-;" . embark-dwim) ;overrides `xref-find-definitions'
-         ([remap describe-bindings] . embark-bindings)
-         :map minibuffer-local-map
-         ("M-." . my-embark-preview))
   :init
   ;; Optionally replace the key help with a completing-read interface
   (setq prefix-help-command #'embark-prefix-help-command)
@@ -1889,193 +1864,191 @@ deletion, or > if it is flagged for displaying."
 #+end_src
 
 * Calendar
-
 * Dashboard
 #+begin_src emacs-lisp
-  (use-package dashboard
-    :diminish dashboard-mode
-    :custom-face
-    (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
-    (dashboard-items-face ((t (:weight normal))))
-    (dashboard-no-items-face ((t (:weight normal))))
-    :pretty-hydra
-    ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
-      :color pink :quit-key ("q" "C-g"))
-     ("Navigator"
-      (("U" update-config-and-packages "update" :exit t)
-       ("H" browse-homepage "homepage" :exit t)
-       ("R" restore-session "recover session" :exit t)
-       ("S" find-custom-file "settings" :exit t))
-      "Section"
-      (("}" dashboard-next-section "next")
-       ("{" dashboard-previous-section "previous")
-       ("r" dashboard-goto-recent-files "recent files")
-       ("m" dashboard-goto-bookmarks "bookmarks")
-       ("p" dashboard-goto-projects "projects"))
-      "Item"
-      (("RET" widget-button-press "open" :exit t)
-       ("<tab>" widget-forward "next")
-       ("C-i" widget-forward "next")
-       ("<backtab>" widget-backward "previous")
-       ("C-n" next-line "next line")
-       ("C-p" previous-line "previous  line"))
-      "Misc"
-      (("<f2>" open-dashboard "open" :exit t)
-       ("g" dashboard-refresh-buffer "refresh" :exit t)
-       ("Q" quit-dashboard "quit" :exit t))))
-    :bind (("<f2>" . open-dashboard)
-           :map dashboard-mode-map
-           ("H" . browse-homepage)
-           ("R" . restore-session)
-           ("S" . find-custom-file)
-           ("U" . update-config-and-packages)
-           ("q" . quit-dashboard)
-           ("h" . dashboard-hydra/body)
-           ("?" . dashboard-hydra/body))
-    :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
-    :init
-    (setq ;;dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
-          ;;dashboard-startup-banner (or centaur-logo 'official)
-          dashboard-page-separator "\n\f\n"
-          dashboard-projects-backend 'project-el
-          dashboard-path-style 'truncate-middle
-          dashboard-path-max-length 60
-          dashboard-center-content t
-          dashboard-vertically-center-content t
-          dashboard-show-shortcuts nil
-          dashboard-items '((recents  . 10)
-                            (bookmarks . 5)
-                            (projects . 5))
+(use-package dashboard
+  :custom-face
+  (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
+  (dashboard-items-face ((t (:weight normal))))
+  (dashboard-no-items-face ((t (:weight normal))))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
+    :color pink :quit-key ("q" "C-g"))
+   ("Navigator"
+    (("U" update-config-and-packages "update" :exit t)
+     ("H" browse-homepage "homepage" :exit t)
+     ("R" restore-session "recover session" :exit t)
+     ("S" find-custom-file "settings" :exit t))
+    "Section"
+    (("}" dashboard-next-section "next")
+     ("{" dashboard-previous-section "previous")
+     ("r" dashboard-goto-recent-files "recent files")
+     ("m" dashboard-goto-bookmarks "bookmarks")
+     ("p" dashboard-goto-projects "projects"))
+    "Item"
+    (("RET" widget-button-press "open" :exit t)
+     ("<tab>" widget-forward "next")
+     ("C-i" widget-forward "next")
+     ("<backtab>" widget-backward "previous")
+     ("C-n" next-line "next line")
+     ("C-p" previous-line "previous  line"))
+    "Misc"
+    (("<f2>" open-dashboard "open" :exit t)
+     ("g" dashboard-refresh-buffer "refresh" :exit t)
+     ("Q" quit-dashboard "quit" :exit t))))
+  :bind (("<f2>" . open-dashboard)
+         :map dashboard-mode-map
+         ("H" . browse-homepage)
+         ("R" . restore-session)
+         ("S" . find-custom-file)
+         ("U" . update-config-and-packages)
+         ("q" . quit-dashboard)
+         ("h" . dashboard-hydra/body)
+         ("?" . dashboard-hydra/body))
+  :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
+  :init
+  (setq ;;dashboard-banner-logo-title "CENTAUR EMACS - Enjoy Programming & Writing"
+        ;;dashboard-startup-banner (or centaur-logo 'official)
+        dashboard-page-separator "\n\f\n"
+        dashboard-projects-backend 'project-el
+        dashboard-path-style 'truncate-middle
+        dashboard-path-max-length 60
+        dashboard-center-content t
+        dashboard-vertically-center-content t
+        dashboard-show-shortcuts nil
+        dashboard-items '((recents  . 10)
+                          (bookmarks . 5)
+                          (projects . 5))
 
-          dashboard-startupify-list '(dashboard-insert-banner
-                                      dashboard-insert-newline
-                                      dashboard-insert-banner-title
-                                      dashboard-insert-newline
-                                      dashboard-insert-navigator
-                                      dashboard-insert-newline
-                                      dashboard-insert-init-info
-                                      dashboard-insert-items
-                                      dashboard-insert-newline
-                                      dashboard-insert-footer)
+        dashboard-startupify-list '(dashboard-insert-banner
+                                    dashboard-insert-newline
+                                    dashboard-insert-banner-title
+                                    dashboard-insert-newline
+                                    dashboard-insert-navigator
+                                    dashboard-insert-newline
+                                    dashboard-insert-init-info
+                                    dashboard-insert-items
+                                    dashboard-insert-newline
+                                    dashboard-insert-footer)
 
-          dashboard-display-icons-p #'icons-displayable-p
-          dashboard-set-file-icons centaur-icon
-          dashboard-set-heading-icons centaur-icon
-          dashboard-heading-icons '((recents   . "nf-oct-history")
-                                    (bookmarks . "nf-oct-bookmark")
-                                    (agenda    . "nf-oct-calendar")
-                                    (projects  . "nf-oct-briefcase")
-                                    (registers . "nf-oct-database"))
+        dashboard-display-icons-p #'icons-displayable-p
+        dashboard-set-file-icons centaur-icon
+        dashboard-set-heading-icons centaur-icon
+        dashboard-heading-icons '((recents   . "nf-oct-history")
+                                  (bookmarks . "nf-oct-bookmark")
+                                  (agenda    . "nf-oct-calendar")
+                                  (projects  . "nf-oct-briefcase")
+                                  (registers . "nf-oct-database"))
 
-          dashboard-navigator-buttons
-          `(((,(when (icons-displayable-p)
-                 (nerd-icons-mdicon "nf-md-github" :height 1.1))
-              "Homepage" "Browse homepage"
-              (lambda (&rest _) (browse-url centaur-homepage)))
-             (,(when (icons-displayable-p)
-                 (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
-              "Restore" "Restore previous session"
-              (lambda (&rest _) (restore-session)))
-             (,(when (icons-displayable-p)
-                 (nerd-icons-mdicon "nf-md-tools" :height 1.1))
-              "Settings" "Open custom file"
-              (lambda (&rest _) (find-file custom-file)))
-             (,(when (icons-displayable-p)
-                 (nerd-icons-mdicon "nf-md-update" :height 1.1))
-              "Update" "Update Centaur Emacs"
-              (lambda (&rest _) (centaur-update)))
-             (,(if (icons-displayable-p)
-                   (nerd-icons-mdicon "nf-md-help" :height 1.1)
-                 "?")
-              "" "Help (?/h)"
-              (lambda (&rest _) (dashboard-hydra/body)))))
+        dashboard-navigator-buttons
+        `(((,(when (icons-displayable-p)
+               (nerd-icons-mdicon "nf-md-github" :height 1.1))
+            "Homepage" "Browse homepage"
+            (lambda (&rest _) (browse-url centaur-homepage)))
+           (,(when (icons-displayable-p)
+               (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
+            "Restore" "Restore previous session"
+            (lambda (&rest _) (restore-session)))
+           (,(when (icons-displayable-p)
+               (nerd-icons-mdicon "nf-md-tools" :height 1.1))
+            "Settings" "Open custom file"
+            (lambda (&rest _) (find-file custom-file)))
+           (,(when (icons-displayable-p)
+               (nerd-icons-mdicon "nf-md-update" :height 1.1))
+            "Update" "Update Centaur Emacs"
+            (lambda (&rest _) (centaur-update)))
+           (,(if (icons-displayable-p)
+                 (nerd-icons-mdicon "nf-md-help" :height 1.1)
+               "?")
+            "" "Help (?/h)"
+            (lambda (&rest _) (dashboard-hydra/body)))))
 
-          dashboard-footer-icon
-          (if (icons-displayable-p)
-              (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
-            (propertize ">" 'face 'dashboard-footer)))
+        dashboard-footer-icon
+        (if (icons-displayable-p)
+            (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
+          (propertize ">" 'face 'dashboard-footer)))
 
-    (dashboard-setup-startup-hook)
-    :config
-    ;; Insert copyright
-    ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
-    (defun my-dashboard-insert-copyright ()
-      "Insert copyright in the footer."
-      (dashboard-insert-center
-       (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
-                   'face 'font-lock-comment-face)))
-    (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
+  (dashboard-setup-startup-hook)
+  :config
+  ;; Insert copyright
+  ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
+  (defun my-dashboard-insert-copyright ()
+    "Insert copyright in the footer."
+    (dashboard-insert-center
+     (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
+                 'face 'font-lock-comment-face)))
+  (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
 
-    (defun restore-session ()
-      "Restore the previous session."
-      (interactive)
-      (message "Restoring previous session...")
-      (quit-window t)
+  (defun restore-session ()
+    "Restore the previous session."
+    (interactive)
+    (message "Restoring previous session...")
+    (quit-window t)
 
-      (when (fboundp 'tabspaces-mode)
-        (unless tabspaces-mode
-          (tabspaces-mode t))
-        (tabspaces-restore-session))
+    (when (fboundp 'tabspaces-mode)
+      (unless tabspaces-mode
+        (tabspaces-mode t))
+      (tabspaces-restore-session))
 
-      (message "Restoring previous session...done"))
+    (message "Restoring previous session...done"))
 
-    (defun dashboard-goto-recent-files ()
-      "Go to recent files."
-      (interactive)
-      (let ((func (local-key-binding "r")))
-        (and func (funcall func))))
+  (defun dashboard-goto-recent-files ()
+    "Go to recent files."
+    (interactive)
+    (let ((func (local-key-binding "r")))
+      (and func (funcall func))))
 
-    (defun dashboard-goto-projects ()
-      "Go to projects."
-      (interactive)
-      (let ((func (local-key-binding "p")))
-        (and func (funcall func))))
+  (defun dashboard-goto-projects ()
+    "Go to projects."
+    (interactive)
+    (let ((func (local-key-binding "p")))
+      (and func (funcall func))))
 
-    (defun dashboard-goto-bookmarks ()
-      "Go to bookmarks."
-      (interactive)
-      (let ((func (local-key-binding "m")))
-        (and func (funcall func))))
+  (defun dashboard-goto-bookmarks ()
+    "Go to bookmarks."
+    (interactive)
+    (let ((func (local-key-binding "m")))
+      (and func (funcall func))))
 
-    (defvar dashboard-recover-layout-p nil
-      "Wether recovers the layout.")
+  (defvar dashboard-recover-layout-p nil
+    "Wether recovers the layout.")
 
-    (defun open-dashboard ()
-      "Open the *dashboard* buffer and jump to the first widget."
-      (interactive)
-      ;; Check if need to recover layout
-      (if (length> (window-list-1)
-                   ;; exclude `treemacs' window
-                   (if (and (fboundp 'treemacs-current-visibility)
-                            (eq (treemacs-current-visibility) 'visible))
-                       2
-                     1))
-          (setq dashboard-recover-layout-p t))
+  (defun open-dashboard ()
+    "Open the *dashboard* buffer and jump to the first widget."
+    (interactive)
+    ;; Check if need to recover layout
+    (if (length> (window-list-1)
+                 ;; exclude `treemacs' window
+                 (if (and (fboundp 'treemacs-current-visibility)
+                          (eq (treemacs-current-visibility) 'visible))
+                     2
+                   1))
+        (setq dashboard-recover-layout-p t))
 
-      ;; Display dashboard in maximized window
-      (delete-other-windows)
+    ;; Display dashboard in maximized window
+    (delete-other-windows)
 
-      ;; Refresh dashboard buffer
-      (dashboard-refresh-buffer)
+    ;; Refresh dashboard buffer
+    (dashboard-refresh-buffer)
 
-      ;; Jump to the first section
-      (dashboard-goto-recent-files))
+    ;; Jump to the first section
+    (dashboard-goto-recent-files))
 
-    (defun quit-dashboard ()
-      "Quit dashboard window."
-      (interactive)
-      (quit-window t)
+  (defun quit-dashboard ()
+    "Quit dashboard window."
+    (interactive)
+    (quit-window t)
 
-      ;; Create workspace
-      (when (fboundp 'tabspaces-mode)
-        (unless tabspaces-mode
-          (tabspaces-mode t)
-          (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
+    ;; Create workspace
+    (when (fboundp 'tabspaces-mode)
+      (unless tabspaces-mode
+        (tabspaces-mode t)
+        (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
 
-      ;; Recover layout
-      (and dashboard-recover-layout-p
-           (and (bound-and-true-p winner-mode) (winner-undo))
-           (setq dashboard-recover-layout-p nil))))
+    ;; Recover layout
+    (and dashboard-recover-layout-p
+         (and (bound-and-true-p winner-mode) (winner-undo))
+         (setq dashboard-recover-layout-p nil))))
 #+end_src
 
 * Dired
@@ -2479,47 +2452,46 @@ FACE defaults to inheriting from default and highlight."
 
 * iBuffer
 #+begin_src emacs-lisp
-(use-package ibuffer
-  :defer t
-  :ensure nil
-  :bind ("C-x C-b" . ibuffer)
-  :init (setq ibuffer-filter-group-name-face '(:inherit (font-lock-string-face bold))))
+  (use-package ibuffer
+    :defer t
+    :ensure nil
+    :init (setq ibuffer-filter-group-name-face '(:inherit (font-lock-string-face bold))))
 
-;; Display icons for buffers
-(use-package nerd-icons-ibuffer
-  :defer t
-  :hook (ibuffer-mode . nerd-icons-ibuffer-mode)
-  :init (setq nerd-icons-ibuffer-icon centaur-icon))
+  ;; Display icons for buffers
+  (use-package nerd-icons-ibuffer
+    :defer t
+    :hook (ibuffer-mode . nerd-icons-ibuffer-mode)
+    :init (setq nerd-icons-ibuffer-icon centaur-icon))
 
-;; Group ibuffer's list by project
-(use-package ibuffer-project
-  :defer t
-  :autoload (ibuffer-project-generate-filter-groups ibuffer-do-sort-by-project-file-relative)
-  :functions icons-displayable-p
-  :hook (ibuffer . (lambda ()
-                     "Group ibuffer's list by project."
-                     (setq ibuffer-filter-groups (ibuffer-project-generate-filter-groups))
-                     (unless (eq ibuffer-sorting-mode 'project-file-relative)
-                       (ibuffer-do-sort-by-project-file-relative))))
-  :init (setq ibuffer-project-use-cache t)
-  :config
-  (with-no-warnings
-    (defun my-ibuffer-project-group-name (root type)
-      "Return group name for project ROOT and TYPE."
-      (if (and (stringp type) (> (length type) 0))
-          (format "%s %s" type root)
-        (format "%s" root)))
-    (if (icons-displayable-p)
+  ;; Group ibuffer's list by project
+  (use-package ibuffer-project
+    :defer t
+    :autoload (ibuffer-project-generate-filter-groups ibuffer-do-sort-by-project-file-relative)
+    :functions icons-displayable-p
+    :hook (ibuffer . (lambda ()
+                       "Group ibuffer's list by project."
+                       (setq ibuffer-filter-groups (ibuffer-project-generate-filter-groups))
+                       (unless (eq ibuffer-sorting-mode 'project-file-relative)
+                         (ibuffer-do-sort-by-project-file-relative))))
+    :init (setq ibuffer-project-use-cache t)
+    :config
+    (with-no-warnings
+      (defun my-ibuffer-project-group-name (root type)
+        "Return group name for project ROOT and TYPE."
+        (if (and (stringp type) (> (length type) 0))
+            (format "%s %s" type root)
+          (format "%s" root)))
+      (if (icons-displayable-p)
+          (progn
+            (advice-add #'ibuffer-project-group-name :override #'my-ibuffer-project-group-name)
+            (setq ibuffer-project-root-functions
+                  `((ibuffer-project-project-root . ,(nerd-icons-octicon "nf-oct-repo" :height 1.2 :face ibuffer-filter-group-name-face))
+                    (file-remote-p . ,(nerd-icons-codicon "nf-cod-radio_tower" :height 1.2 :face ibuffer-filter-group-name-face)))))
         (progn
-          (advice-add #'ibuffer-project-group-name :override #'my-ibuffer-project-group-name)
+          (advice-remove #'ibuffer-project-group-name #'my-ibuffer-project-group-name)
           (setq ibuffer-project-root-functions
-                `((ibuffer-project-project-root . ,(nerd-icons-octicon "nf-oct-repo" :height 1.2 :face ibuffer-filter-group-name-face))
-                  (file-remote-p . ,(nerd-icons-codicon "nf-cod-radio_tower" :height 1.2 :face ibuffer-filter-group-name-face)))))
-      (progn
-        (advice-remove #'ibuffer-project-group-name #'my-ibuffer-project-group-name)
-        (setq ibuffer-project-root-functions
-              '((ibuffer-project-project-root . "Project")
-                (file-remote-p . "Remote")))))))
+                '((ibuffer-project-project-root . "Project")
+                  (file-remote-p . "Remote")))))))
 #+end_src
 
 ** Kill Ring
@@ -3057,217 +3029,215 @@ mermaid.initialize({
                   (org-level-6 . 1.03)
                   (org-level-7 . 1.02)
                   (org-level-8 . 1)))
-    (set-face-attribute (car face) nil :font "JetBrains Mono" :weight 'medium :height (cdr face))))
+    (set-face-attribute (car face) nil :font "JetBrainsMono Nerd Font" :weight 'bold :height (cdr face))))
 #+end_src
 
 ** Core Configuration
 =Disable large file optimizations for now=
 #+begin_src emacs-lisp
-(use-package org
-  :ensure nil
-  :pretty-hydra
-  ;; See `org-structure-template-alist'
-  ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
-    :color blue :quit-key ("q" "C-g"))
-   ("Basic"
-    (("a" (hot-expand "<a") "ascii")
-     ("c" (hot-expand "<c") "center")
-     ("C" (hot-expand "<C") "comment")
-     ("x" (hot-expand "<e") "example")
-     ("E" (hot-expand "<E") "export")
-     ("h" (hot-expand "<h") "html")
-     ("l" (hot-expand "<l") "latex")
-     ("n" (hot-expand "<n") "note")
-     ("o" (hot-expand "<q") "quote")
-     ("v" (hot-expand "<v") "verse"))
-    "Head"
-    (("i" (hot-expand "<i") "index")
-     ("A" (hot-expand "<A") "ASCII")
-     ("I" (hot-expand "<I") "INCLUDE")
-     ("H" (hot-expand "<H") "HTML")
-     ("L" (hot-expand "<L") "LaTeX"))
-    "Source"
-    (("s" (hot-expand "<s") "src")
-     ("e" (hot-expand "<s" "emacs-lisp") "emacs-lisp")
-     ("y" (hot-expand "<s" "python :results output") "python")
-     ("p" (hot-expand "<s" "perl") "perl")
-     ("w" (hot-expand "<s" "powershell") "powershell")
-     ("r" (hot-expand "<s" "ruby") "ruby")
-     ("S" (hot-expand "<s" "sh") "sh")
-     ("g" (hot-expand "<s" "go :imports '\(\"fmt\"\)") "golang"))
-    "Misc"
-    (("m" (hot-expand "<s" "mermaid :file chart.png") "mermaid")
-     ("u" (hot-expand "<s" "plantuml :file chart.png") "plantuml")
-     ("Y" (hot-expand "<s" "ipython :session :exports both :results raw drawer\n$0") "ipython")
-     ("P" (progn
-            (insert "#+HEADERS: :results output :exports both :shebang \"#!/usr/bin/env perl\"\n")
-            (hot-expand "<s" "perl")) "Perl tangled")
-     ("<" self-insert-command "ins"))))
+  (use-package org
+    :ensure nil
+    :pretty-hydra
+    ;; See `org-structure-template-alist'
+    ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
+      :color blue :quit-key ("q" "C-g"))
+     ("Basic"
+      (("a" (hot-expand "<a") "ascii")
+       ("c" (hot-expand "<c") "center")
+       ("C" (hot-expand "<C") "comment")
+       ("x" (hot-expand "<e") "example")
+       ("E" (hot-expand "<E") "export")
+       ("h" (hot-expand "<h") "html")
+       ("l" (hot-expand "<l") "latex")
+       ("n" (hot-expand "<n") "note")
+       ("o" (hot-expand "<q") "quote")
+       ("v" (hot-expand "<v") "verse"))
+      "Head"
+      (("i" (hot-expand "<i") "index")
+       ("A" (hot-expand "<A") "ASCII")
+       ("I" (hot-expand "<I") "INCLUDE")
+       ("H" (hot-expand "<H") "HTML")
+       ("L" (hot-expand "<L") "LaTeX"))
+      "Source"
+      (("s" (hot-expand "<s") "src")
+       ("e" (hot-expand "<s" "emacs-lisp") "emacs-lisp")
+       ("y" (hot-expand "<s" "python :results output") "python")
+       ("p" (hot-expand "<s" "perl") "perl")
+       ("w" (hot-expand "<s" "powershell") "powershell")
+       ("r" (hot-expand "<s" "ruby") "ruby")
+       ("S" (hot-expand "<s" "sh") "sh")
+       ("g" (hot-expand "<s" "go :imports '\(\"fmt\"\)") "golang"))
+      "Misc"
+      (("m" (hot-expand "<s" "mermaid :file chart.png") "mermaid")
+       ("u" (hot-expand "<s" "plantuml :file chart.png") "plantuml")
+       ("Y" (hot-expand "<s" "ipython :session :exports both :results raw drawer\n$0") "ipython")
+       ("P" (progn
+              (insert "#+HEADERS: :results output :exports both :shebang \"#!/usr/bin/env perl\"\n")
+              (hot-expand "<s" "perl")) "Perl tangled")
+       ("<" self-insert-command "ins"))))
 
-  :bind (("C-c a" . org-agenda)
-         ("C-c b" . org-switchb)
-         ("C-c x" . org-capture)
-         :map org-mode-map
-         ("<" . (lambda ()
-                  "Insert org template."
-                  (interactive)
-                  (if (or (region-active-p) (looking-back "^\s*" 1))
-                      (org-hydra/body)
-                    (self-insert-command 1)))))
-
-
-  :hook (((org-babel-after-execute org-mode) . org-redisplay-inline-images) ; display image
-         (org-indent-mode . (lambda()
-                              (make-variable-buffer-local 'show-paren-mode)
-                              (setq show-paren-mode nil)))
-	 (org-mode . visual-line-mode)
-	 (org-mode . ar/org-font-setup)
-	 (org-mode . auto-fill-mode)
-	 (org-agenda-mode . (lambda ()
-                              (visual-line-mode -1)
-                              (toggle-truncate-lines 1)
-                              (display-line-numbers-mode -1)
-                              (setq mode-line-format nil)
-                              (setq header-line-format nil)))
-	 (org-capture-mode . (lambda ()
-                               (setq mode-line-format nil)
-                               (setq header-line-format nil)))
+    :bind (("C-c a" . org-agenda)
+           ("C-c b" . org-switchb)
+           ("C-c x" . org-capture)
+           :map org-mode-map
+           ("<" . (lambda ()
+                    "Insert org template."
+                    (interactive)
+                    (if (or (region-active-p) (looking-back "^\s*" 1))
+                        (org-hydra/body)
+                      (self-insert-command 1)))))
 
 
-	 )
-  :config
-  ;; For hydra
-  (defun hot-expand (str &optional mod)
-    "Expand org template.
+    :hook (((org-babel-after-execute org-mode) . org-redisplay-inline-images) ; display image
+           (org-mode . (lambda ()
+                         (setq-local electric-indent-local-mode -1) ; Prevent aggressive auto-indent; setting to true for now
+                         (evil-define-key 'normal org-mode-map (kbd "TAB") 'org-cycle)))
+           
+  	     (org-mode . visual-line-mode)
+  	     (org-mode . ar/org-font-setup)
+  	     (org-mode . auto-fill-mode)
+  	     (org-agenda-mode . (lambda ()
+                                (visual-line-mode -1)
+                                (toggle-truncate-lines 1)
+                                (display-line-numbers-mode -1)
+                                (setq mode-line-format nil)
+                                (setq header-line-format nil)))
+  	     (org-capture-mode . (lambda ()
+                                 (setq mode-line-format nil)
+                                 (setq header-line-format nil))))
+    :config
+    ;; For hydra
+    (defun hot-expand (str &optional mod)
+      "Expand org template.
 
-STR is a structure template string recognised by org like <s. MOD is a
-string with additional parameters to add the begin line of the
-structure element. HEADER string includes more parameters that are
-prepended to the element after the #+HEADER: tag."
-    (let (text)
-      (when (region-active-p)
-        (setq text (buffer-substring (region-beginning) (region-end)))
-        (delete-region (region-beginning) (region-end)))
-      (insert str)
-      (if (fboundp 'org-try-structure-completion)
-          (org-try-structure-completion) ; < org 9
-        (progn
-          ;; New template expansion since org 9
-          (require 'org-tempo nil t)
-          (org-tempo-complete-tag)))
-      (when mod (insert mod) (forward-line))
-      (when text (insert text))))
+  STR is a structure template string recognised by org like <s. MOD is a
+  string with additional parameters to add the begin line of the
+  structure element. HEADER string includes more parameters that are
+  prepended to the element after the #+HEADER: tag."
+      (let (text)
+        (when (region-active-p)
+          (setq text (buffer-substring (region-beginning) (region-end)))
+          (delete-region (region-beginning) (region-end)))
+        (insert str)
+        (if (fboundp 'org-try-structure-completion)
+            (org-try-structure-completion) ; < org 9
+          (progn
+            ;; New template expansion since org 9
+            (require 'org-tempo nil t)
+            (org-tempo-complete-tag)))
+        (when mod (insert mod) (forward-line))
+        (when text (insert text))))
 
-  ;; To speed up startup, don't put to init section
-  (setq org-modules nil                 ; Faster loading
-	org-directory my/org-directory
-	org-log-done 'time
-	org-log-into-drawer t
-	org-return-follows-link t
-	org-src-fontify-natively t
+    ;; To speed up startup, don't put to init section
+    (setq org-modules nil                 ; Faster loading
+  	    org-directory my/org-directory
+  	    org-log-done 'time
+  	    org-log-into-drawer t
+  	    org-return-follows-link t
+  	    org-src-fontify-natively t
 
-	;; Element cache - ESSENTIAL for large files
-	org-element-use-cache t
-	org-element-cache-persistent t
+  	    ;; Element cache - ESSENTIAL for large files
+  	    org-element-use-cache t
+  	    org-element-cache-persistent t
 
-	;; Disable expensive fontification
-	org-fontify-quote-and-verse-blocks nil
-	org-fontify-whole-heading-line nil
-	org-fontify-done-headline nil
-	org-highlight-latex-and-related nil  ;; MAJOR performance killer
+  	    ;; Disable expensive fontification
+  	    org-fontify-quote-and-verse-blocks nil
+  	    org-fontify-whole-heading-line nil
+  	    org-fontify-done-headline nil
+  	    org-highlight-latex-and-related nil  ;; MAJOR performance killer
 
-	org-todo-keywords
-	'((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w@/!)" "|" "DONE(d!)" "CANCEL(c@)")
-	  (sequence "PLAN(P)" "ACTIVE(A)" "PAUSED(x)" "|" "ACHIEVED(a)" "DROPPED(D)"))
+  	    org-todo-keywords
+  	    '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w@/!)" "|" "DONE(d!)" "CANCEL(c@)")
+  	      (sequence "PLAN(P)" "ACTIVE(A)" "PAUSED(x)" "|" "ACHIEVED(a)" "DROPPED(D)"))
+          
+          org-todo-keyword-faces
+  	    '(("TODO"      . (:foreground "#f38ba8" :weight bold))
+  	      ("NEXT"      . (:foreground "#fab387" :weight bold))
+  	      ("PROG"      . (:foreground "#89b4fa" :weight bold))
+  	      ("WAIT"      . (:foreground "#f9e2af" :weight bold))
+  	      ("DONE"      . (:foreground "#a6e3a1" :weight bold))
+  	      ("CANCEL"    . (:foreground "#6c7086" :weight bold))
+  	      ("PLAN"      . (:foreground "#94e2d5" :weight bold))
+  	      ("ACTIVE"    . (:foreground "#cba6f7" :weight bold))
+  	      ("PAUSED"    . (:foreground "#bac2de" :weight bold))
+  	      ("ACHIEVED"  . (:foreground "#a6e3a1" :weight bold))
+  	      ("DROPPED"   . (:foreground "#6c7086" :weight bold)))
+          
+          org-priority-faces '((?A . error)
+                               (?B . warning)
+                               (?C . success))
+          
+  	    org-tag-alist '(("@work"      . ?w)
+  			            ("@home"      . ?h)
+  			            ("@computer"  . ?c)
+  			            ("@errands"   . ?e)
+  			            ("read"       . ?r)
+  			            ("meeting"    . ?m)
+  			            ("urgent"     . ?u)
+  			            ("someday"    . ?s))
+          
+          ;; Agenda styling
+          org-agenda-files (list my/org-directory)
+          org-agenda-block-separator ?─
+          org-agenda-time-grid
+          '((daily today require-timed)
+            (800 1000 1200 1400 1600 1800 2000)
+            " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
+          org-agenda-current-time-string
+          "⭠ now ─────────────────────────────────────────────────"
+  	    org-agenda-inhibit-startup t  ;; CRITICAL: Don't run all hooks
+  	    org-agenda-dim-blocked-tasks nil
+  	    org-agenda-use-tag-inheritance nil
+  	    org-agenda-ignore-properties '(effort appt category)
+  	    org-agenda-span 'day
+          
+  	    ;; Startup optimization
+  	    org-startup-with-latex-preview t
+  	    org-startup-folded 'overview
+  	    ;;org-startup-indented nil
+  	    org-startup-with-inline-images nil
+  	    org-startup-with-latex-preview nil
+  	    org-indent-mode -1
+          
+  	    ;; Display settings
+          org-hide-leading-stars nil  ;;  Faster with nil
+          org-hide-emphasis-markers nil  ;; Faster with nil
+          org-pretty-entities nil  ;; CHANGED: Disable for speed
+          org-cycle-separator-lines 2
+          
+          org-tags-column -80
+          org-catch-invisible-edits 'smart)
+    
+    ;; Add new template
+    (add-to-list 'org-structure-template-alist '("n" . "note"))
 
-        org-todo-keyword-faces
-	'(("TODO"      . (:foreground "#f38ba8" :weight bold))
-	  ("NEXT"      . (:foreground "#fab387" :weight bold))
-	  ("PROG"      . (:foreground "#89b4fa" :weight bold))
-	  ("WAIT"      . (:foreground "#f9e2af" :weight bold))
-	  ("DONE"      . (:foreground "#a6e3a1" :weight bold))
-	  ("CANCEL"    . (:foreground "#6c7086" :weight bold))
-	  ("PLAN"      . (:foreground "#94e2d5" :weight bold))
-	  ("ACTIVE"    . (:foreground "#cba6f7" :weight bold))
-	  ("PAUSED"    . (:foreground "#bac2de" :weight bold))
-	  ("ACHIEVED"  . (:foreground "#a6e3a1" :weight bold))
-	  ("DROPPED"   . (:foreground "#6c7086" :weight bold)))
+    ;; Babel
+    (setq org-confirm-babel-evaluate nil
+          org-src-fontify-natively t
+          org-src-tab-acts-natively t)
 
-        org-priority-faces '((?A . error)
-                             (?B . warning)
-                             (?C . success))
+    (require 'org-tempo)
+    (defconst load-language-alist
+      '((emacs-lisp . t)
+        (perl       . t)
+        (python     . t)
+        (ruby       . t)
+        (js         . t)
+        (css        . t)
+        (sass       . t)
+        (C          . t)
+        (java       . t)
+        (shell      . t)
+        (plantuml   . t))
+      "Alist of org ob languages.")
 
-	org-tag-alist '(("@work"      . ?w)
-			("@home"      . ?h)
-			("@computer"  . ?c)
-			("@errands"   . ?e)
-			("read"       . ?r)
-			("meeting"    . ?m)
-			("urgent"     . ?u)
-			("someday"    . ?s))
-
-        ;; Agenda styling
-        org-agenda-files (list my/org-directory)
-        org-agenda-block-separator ?─
-        org-agenda-time-grid
-        '((daily today require-timed)
-          (800 1000 1200 1400 1600 1800 2000)
-          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄")
-        org-agenda-current-time-string
-        "⭠ now ─────────────────────────────────────────────────"
-	org-agenda-inhibit-startup t  ;; CRITICAL: Don't run all hooks
-	org-agenda-dim-blocked-tasks nil
-	org-agenda-use-tag-inheritance nil
-	org-agenda-ignore-properties '(effort appt category)
-	org-agenda-span 'day
-
-	;; Startup optimization
-	org-startup-with-latex-preview t
-	org-startup-folded 'overview
-	;;org-startup-indented nil
-	org-startup-with-inline-images nil
-	org-startup-with-latex-preview nil
-	org-indent-mode -1
-
-	;; Display settings
-	org-hide-leading-stars nil
-	org-hide-emphasis-markers nil
-	org-pretty-entities nil
-	org-cycle-separator-lines 2
-
-        org-tags-column -80
-        org-catch-invisible-edits 'smart)
-
-  ;; Add new template
-  (add-to-list 'org-structure-template-alist '("n" . "note"))
-
-  ;; Babel
-  (setq org-confirm-babel-evaluate nil
-        org-src-fontify-natively t
-        org-src-tab-acts-natively t)
-
-  (require 'org-tempo)
-  (defconst load-language-alist
-    '((emacs-lisp . t)
-      (perl       . t)
-      (python     . t)
-      (ruby       . t)
-      (js         . t)
-      (css        . t)
-      (sass       . t)
-      (C          . t)
-      (java       . t)
-      (shell      . t)
-      (plantuml   . t))
-    "Alist of org ob languages.")
-
-  (org-babel-do-load-languages 'org-babel-load-languages
-                               load-language-alist)
-  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
-  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-  (add-to-list 'org-structure-template-alist '("py" . "src python"))
-  (add-to-list 'org-structure-template-alist '("jpy" . "src jupyter-python"))
-  (add-to-list 'org-structure-template-alist '("tex" . "src latex")))
+    (org-babel-do-load-languages 'org-babel-load-languages
+                                 load-language-alist)
+    (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
+    (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+    (add-to-list 'org-structure-template-alist '("py" . "src python"))
+    (add-to-list 'org-structure-template-alist '("jpy" . "src jupyter-python"))
+    (add-to-list 'org-structure-template-alist '("tex" . "src latex")))
 #+end_src
 
 ** Org Rich Yank
@@ -3744,116 +3714,113 @@ A suite of opinionated Transient UIs
 
 *** Lsp Mode
 #+begin_src emacs-lisp
-(use-package lsp-mode
- :defer t
- :defines (lsp-diagnostics-disabled-modes lsp-clients-python-library-directories)
- :autoload lsp-enable-which-key-integration
- :commands (lsp-format-buffer lsp-organize-imports)
- :hook ((prog-mode . (lambda ()
-                       (unless (derived-mode-p
-                                'emacs-lisp-mode 'lisp-mode
-                                'makefile-mode 'snippet-mode
-                                'ron-mode)
-                         (lsp-deferred))))
-        ((markdown-mode yaml-mode yaml-ts-mode) . lsp-deferred)
-        (lsp-mode . (lambda ()
-                      ;; Integrate `which-key'
-                      (lsp-enable-which-key-integration)
+  (use-package lsp-mode
+    :defer t
+    :defines (lsp-diagnostics-disabled-modes lsp-clients-python-library-directories)
+    :autoload lsp-enable-which-key-integration
+    :commands (lsp-format-buffer lsp-organize-imports)
+    :hook ((prog-mode . (lambda ()
+                         (unless (derived-mode-p
+                                  'emacs-lisp-mode 'lisp-mode
+                                  'makefile-mode 'snippet-mode
+                                  'ron-mode)
+                           (lsp-deferred))))
+           ((markdown-mode yaml-mode yaml-ts-mode) . lsp-deferred)
+           (lsp-mode . (lambda ()
+                         ;; Integrate `which-key'
+                        (lsp-enable-which-key-integration)
+                        
+                        ;; Format and organize imports
+                        (when (and my-lsp-format-on-save
+                                   (not (apply #'derived-mode-p my-lsp-format-on-save-ignore-modes)))
+                          (add-hook 'before-save-hook #'lsp-format-buffer t t)
+                          (add-hook 'before-save-hook #'lsp-organize-imports t t)))))
+    :bind (:map lsp-mode-map
+           ("C-c C-d" . lsp-describe-thing-at-point)
+           ([remap xref-find-definitions] . lsp-find-definition)
+           ([remap xref-find-references] . lsp-find-references))
+    :init (setq lsp-use-plists t
+                lsp-log-io nil
+                
+                lsp-keymap-prefix "C-c l"
+                lsp-keep-workspace-alive nil
+                lsp-signature-auto-activate nil
+                lsp-modeline-code-actions-enable nil
+                lsp-modeline-diagnostics-enable nil
+                lsp-modeline-workspace-status-enable nil
+                
+                lsp-semantic-tokens-enable t
+                lsp-progress-spinner-type 'progress-bar-filled
+                
+                lsp-enable-file-watchers nil
+                lsp-enable-folding nil
+                lsp-enable-symbol-highlighting nil
+                lsp-enable-text-document-color nil
+                
+                lsp-enable-indentation nil
+                lsp-enable-on-type-formatting nil
+                
+                ;; For diagnostics
+                lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode)
+                
+                ;; For clients
+                lsp-clients-python-library-directories '("/usr/local/" "/usr/"))
+    :config
+   
+    (with-no-warnings
+      ;; Disable `lsp-mode' in `git-timemachine-mode'
+      (defun my-lsp--init-if-visible (fn &rest args)
+        (unless (bound-and-true-p git-timemachine-mode)
+          (apply fn args)))
+      (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible)
 
-                      ;; Format and organize imports
-                      (when (and my-lsp-format-on-save
-                                 (not (apply #'derived-mode-p my-lsp-format-on-save-ignore-modes)))
-                        (add-hook 'before-save-hook #'lsp-format-buffer t t)
-                        (add-hook 'before-save-hook #'lsp-organize-imports t t)))))
- :bind (:map lsp-mode-map
-        ("C-c C-d" . lsp-describe-thing-at-point)
-        ([remap xref-find-definitions] . lsp-find-definition)
-        ([remap xref-find-references] . lsp-find-references))
- :init (setq lsp-use-plists t
-             lsp-log-io nil
-
-             lsp-keymap-prefix "C-c l"
-             lsp-keep-workspace-alive nil
-             lsp-signature-auto-activate nil
-             lsp-modeline-code-actions-enable nil
-             lsp-modeline-diagnostics-enable nil
-             lsp-modeline-workspace-status-enable nil
-
-             lsp-semantic-tokens-enable t
-             lsp-progress-spinner-type 'progress-bar-filled
-
-             lsp-enable-file-watchers nil
-             lsp-enable-folding nil
-             lsp-enable-symbol-highlighting nil
-             lsp-enable-text-document-color nil
-
-             lsp-enable-indentation nil
-             lsp-enable-on-type-formatting nil
-
-             ;; For diagnostics
-             lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode)
-
-             ;; For clients
-             lsp-clients-python-library-directories '("/usr/local/" "/usr/"))
- :config
- (use-package consult-lsp
-   :bind (:map lsp-mode-map
-          ("C-M-." . consult-lsp-symbols)))
-
- (with-no-warnings
-   ;; Disable `lsp-mode' in `git-timemachine-mode'
-   (defun my-lsp--init-if-visible (fn &rest args)
-     (unless (bound-and-true-p git-timemachine-mode)
-       (apply fn args)))
-   (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible)
-
-   ;; Enable `lsp-mode' in sh/bash/zsh
-   (defun my-lsp-bash-check-sh-shell (&rest _)
-     (and (memq major-mode '(sh-mode bash-ts-mode))
-          (memq sh-shell '(sh bash zsh))))
-   (advice-add #'lsp-bash-check-sh-shell :override #'my-lsp-bash-check-sh-shell)
-   (add-to-list 'lsp-language-id-configuration '(bash-ts-mode . "shellscript"))
-
-   ;; Display icons
-   (when (icons-displayable-p)
-     (defun my-lsp-icons-get-by-file-ext (file-ext &optional feature)
-       (when (and file-ext
-                  (lsp-icons--enabled-for-feature feature))
-         (nerd-icons-icon-for-extension file-ext)))
-     (advice-add #'lsp-icons-get-by-file-ext :override #'my-lsp-icons-get-by-file-ext)
-
-     (defvar lsp-symbol-alist
-       '((misc          nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-warning-face)
-         (document      nerd-icons-codicon "nf-cod-symbol_file" :face font-lock-string-face)
-         (namespace     nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-type-face)
-         (string        nerd-icons-codicon "nf-cod-symbol_string" :face font-lock-doc-face)
-         (boolean-data  nerd-icons-codicon "nf-cod-symbol_boolean" :face font-lock-builtin-face)
-         (numeric       nerd-icons-codicon "nf-cod-symbol_numeric" :face font-lock-builtin-face)
-         (method        nerd-icons-codicon "nf-cod-symbol_method" :face font-lock-function-name-face)
-         (field         nerd-icons-codicon "nf-cod-symbol_field" :face font-lock-variable-name-face)
-         (localvariable nerd-icons-codicon "nf-cod-symbol_variable" :face font-lock-variable-name-face)
-         (class         nerd-icons-codicon "nf-cod-symbol_class" :face font-lock-type-face)
-         (interface     nerd-icons-codicon "nf-cod-symbol_interface" :face font-lock-type-face)
-         (property      nerd-icons-codicon "nf-cod-symbol_property" :face font-lock-variable-name-face)
-         (indexer       nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
-         (enumerator    nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
-         (enumitem      nerd-icons-codicon "nf-cod-symbol_enum_member" :face font-lock-builtin-face)
-         (constant      nerd-icons-codicon "nf-cod-symbol_constant" :face font-lock-constant-face)
-         (structure     nerd-icons-codicon "nf-cod-symbol_structure" :face font-lock-variable-name-face)
-         (event         nerd-icons-codicon "nf-cod-symbol_event" :face font-lock-warning-face)
-         (operator      nerd-icons-codicon "nf-cod-symbol_operator" :face font-lock-comment-delimiter-face)
-         (template      nerd-icons-codicon "nf-cod-symbol_snippet" :face font-lock-type-face)))
-
-     (defun my-lsp-icons-get-by-symbol-kind (kind &optional feature)
-       (when (and kind
-                  (lsp-icons--enabled-for-feature feature))
-         (let* ((icon (cdr (assoc (lsp-treemacs-symbol-kind->icon kind) lsp-symbol-alist)))
-                (args (cdr icon)))
-           (apply (car icon) args))))
-     (advice-add #'lsp-icons-get-by-symbol-kind :override #'my-lsp-icons-get-by-symbol-kind)
-
-     (setq lsp-headerline-arrow (nerd-icons-octicon "nf-oct-chevron_right"
-                                                    :face 'lsp-headerline-breadcrumb-separator-face)))))
+      ;; Enable `lsp-mode' in sh/bash/zsh
+      (defun my-lsp-bash-check-sh-shell (&rest _)
+        (and (memq major-mode '(sh-mode bash-ts-mode))
+             (memq sh-shell '(sh bash zsh))))
+      (advice-add #'lsp-bash-check-sh-shell :override #'my-lsp-bash-check-sh-shell)
+      (add-to-list 'lsp-language-id-configuration '(bash-ts-mode . "shellscript"))
+      
+      ;; Display icons
+      (when (icons-displayable-p)
+        (defun my-lsp-icons-get-by-file-ext (file-ext &optional feature)
+          (when (and file-ext
+                     (lsp-icons--enabled-for-feature feature))
+            (nerd-icons-icon-for-extension file-ext)))
+        (advice-add #'lsp-icons-get-by-file-ext :override #'my-lsp-icons-get-by-file-ext)
+        
+        (defvar lsp-symbol-alist
+          '((misc          nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-warning-face)
+            (document      nerd-icons-codicon "nf-cod-symbol_file" :face font-lock-string-face)
+            (namespace     nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-type-face)
+            (string        nerd-icons-codicon "nf-cod-symbol_string" :face font-lock-doc-face)
+            (boolean-data  nerd-icons-codicon "nf-cod-symbol_boolean" :face font-lock-builtin-face)
+            (numeric       nerd-icons-codicon "nf-cod-symbol_numeric" :face font-lock-builtin-face)
+            (method        nerd-icons-codicon "nf-cod-symbol_method" :face font-lock-function-name-face)
+            (field         nerd-icons-codicon "nf-cod-symbol_field" :face font-lock-variable-name-face)
+            (localvariable nerd-icons-codicon "nf-cod-symbol_variable" :face font-lock-variable-name-face)
+            (class         nerd-icons-codicon "nf-cod-symbol_class" :face font-lock-type-face)
+            (interface     nerd-icons-codicon "nf-cod-symbol_interface" :face font-lock-type-face)
+            (property      nerd-icons-codicon "nf-cod-symbol_property" :face font-lock-variable-name-face)
+            (indexer       nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
+            (enumerator    nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
+            (treemacs-icon-enumitem      nerd-icons-codicon "nf-cod-symbol_enum_member" :face font-lock-builtin-face)
+            (constant      nerd-icons-codicon "nf-cod-symbol_constant" :face font-lock-constant-face)
+            (structure     nerd-icons-codicon "nf-cod-symbol_structure" :face font-lock-variable-name-face)
+            (event         nerd-icons-codicon "nf-cod-symbol_event" :face font-lock-warning-face)
+            (operator      nerd-icons-codicon "nf-cod-symbol_operator" :face font-lock-comment-delimiter-face)
+            (template      nerd-icons-codicon "nf-cod-symbol_snippet" :face font-lock-type-face)))
+        
+        (defun my-lsp-icons-get-by-symbol-kind (kind &optional feature)
+          (when (and kind
+                     (lsp-icons--enabled-for-feature feature))
+            (let* ((icon (cdr (assoc (lsp-treemacs-symbol-kind->icon kind) lsp-symbol-alist)))
+                   (args (cdr icon)))
+              (apply (car icon) args))))
+        (advice-add #'lsp-icons-get-by-symbol-kind :override #'my-lsp-icons-get-by-symbol-kind)
+        
+        (setq lsp-headerline-arrow (nerd-icons-octicon "nf-oct-chevron_right"
+                                                       :face 'lsp-headerline-breadcrumb-separator-face)))))
 #+end_src
 
 *** LSP UI
@@ -3994,6 +3961,14 @@ A suite of opinionated Transient UIs
     (advice-add #'lsp-ui-doc--handle-hr-lines :override #'my-lsp-ui-doc--handle-hr-lines)))
 #+end_src
 
+*** Consult Integration
+
+#+begin_src emacs-lisp
+  (use-package consult-lsp
+    :defer t
+    :bind (:map lsp-mode-map
+           ("C-M-." . consult-lsp-symbols)))
+#+end_src
 *** LSP Treemacs
 #+begin_src emacs-lisp
 (use-package lsp-treemacs
@@ -4184,8 +4159,7 @@ A suite of opinionated Transient UIs
 *** LSP pyright
 #+begin_src emacs-lisp
 (use-package lsp-pyright
-  :defer t
-  :custom (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
+  :custom (lsp-pyright-langserver-command "pyright") ;; or basedpyright
   :hook (((python-mode python-ts-mode) . (lambda ()
                                           (require 'lsp-pyright)
                                           (lsp-deferred)))))  ; or lsp-deferred
@@ -4269,7 +4243,7 @@ A suite of opinionated Transient UIs
   (add-hook 'dape-on-start-hooks #'dape-hydra/body))
 #+end_src
 
-**  TODO Syntax Checking
+** TODO Syntax Checking
 =Integrate with scimax=
 #+begin_src emacs-lisp
 (use-package flycheck
@@ -4545,3 +4519,165 @@ A suite of opinionated Transient UIs
          (lambda (button)
            (helpful-variable (button-get button 'apropos-symbol))))))))
 #+end_src
+
+* Evil
+#+begin_src emacs-lisp
+(use-package evil
+  :demand t
+  :init
+  ;; Core behavior from Doom
+  (setq evil-want-C-g-bindings t
+        evil-want-C-i-jump nil
+        evil-want-C-u-scroll t
+        evil-want-C-u-delete t
+        evil-want-C-w-delete t
+        evil-want-Y-yank-to-eol t
+        evil-want-abbrev-expand-on-insert-exit nil
+        evil-want-integration t
+        evil-want-keybinding nil
+        evil-symbol-word-search t
+
+        ;; Cursor appearance
+        evil-default-cursor t
+        evil-normal-state-cursor 'box
+        evil-emacs-state-cursor 'box
+        evil-insert-state-cursor 'bar
+        evil-visual-state-cursor 'hollow
+        evil-replace-state-cursor 'hbar
+        evil-operator-state-cursor 'hollow
+
+        ;; Search and highlighting
+        evil-ex-search-vim-style-regexp t
+        evil-ex-visual-char-range t
+        evil-ex-interactive-search-highlight 'selected-window
+
+        ;; Mode line
+        evil-mode-line-format nil
+
+        ;; Suppress "beginning/end of line" errors in macros
+        evil-kbd-macro-suppress-motion-error t
+
+        ;; Don't move cursor back when exiting insert mode
+        evil-move-cursor-back nil
+
+        ;; Fine undo - separate each action
+        evil-want-fine-undo t
+
+        ;; Don't move cursor beyond EOL
+        evil-move-beyond-eol nil
+
+        ;; Better search wrapping
+        evil-search-wrap t
+        evil-magic t
+        evil-echo-state t
+        evil-indent-convert-tabs t
+        evil-ex-substitute-global t
+        evil-insert-skip-empty-lines t
+        evil-v$-excludes-newline t
+        evil-respect-visual-line-mode t
+
+        ;; Split window behavior
+        evil-split-window-below t
+        evil-vsplit-window-right t
+
+        ;; Doom-specific: don't clobber the region on C-u
+        evil-want-C-u-delete t
+
+        ;; More vim-like behavior
+        evil-want-Y-yank-to-eol t
+        evil-want-fine-undo t)
+
+  :config
+  (evil-mode 1)
+  (evil-select-search-module 'evil-search-module 'evil-search)
+
+  ;; Set shift width
+  (setq-default evil-shift-width tab-width)
+
+  ;; Make evil-mode play nice with custom modes
+  (evil-set-initial-state 'special-mode 'motion)
+  (evil-set-initial-state 'messages-buffer-mode 'normal)
+  (evil-set-initial-state 'dashboard-mode 'normal)
+
+  ;; Don't interfere with localleader key
+  (define-key evil-motion-state-map "\\" nil)
+
+  ;; Make movement keys work on visual lines
+  (define-key evil-motion-state-map "j" 'evil-next-visual-line)
+  (define-key evil-motion-state-map "k" 'evil-previous-visual-line)
+  (define-key evil-motion-state-map "gj" 'evil-next-line)
+  (define-key evil-motion-state-map "gk" 'evil-previous-line))
+
+(use-package evil-collection
+  :after evil
+  :init
+  (setq evil-collection-setup-minibuffer t
+        evil-collection-want-unimpaired-p nil)
+  :config
+  (evil-collection-init))
+
+(use-package evil-nerd-commenter :after evil)
+(use-package evil-numbers :after evil)
+(use-package evil-args :after evil)
+(use-package evil-anzu  :after evil)
+(use-package evil-exchange :after evil :config (evil-exchange-install))
+(use-package evil-indent-plus :after evil :config (evil-indent-plus-default-bindings))
+(use-package evil-visualstar :hook (evil-mode . global-evil-visualstar-mode))
+(use-package evil-snipe :after evil :config (evil-snipe-mode 1) (evil-snipe-override-mode 1))
+
+(use-package evil-lion
+  :after evil
+  :hook (prog-mode . evil-lion-mode))
+
+(use-package evil-multiedit :after evil :config (evil-multiedit-default-keybinds))
+(use-package evil-goggles :hook (evil-mode . evil-goggles-mode) :custom (evil-goggles-duration 0.1))
+
+(use-package goto-chg
+  :after evil
+  :commands (goto-last-change goto-last-change-reverse)
+  :config
+  (evil-define-key 'normal 'global (kbd "g;") 'goto-last-change)
+  (evil-define-key 'normal 'global (kbd "g,") 'goto-last-change-reverse))
+
+;; evil-quickscope: Visual aid for f/F/t/T motions
+(use-package evil-quickscope
+  :after evil
+  :hook (prog-mode . turn-on-evil-quickscope-mode)
+  :custom
+  (evil-quickscope-cross-lines t)
+  (evil-quickscope-accepted-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+
+(use-package evil-surround
+  :after evil
+  :commands global-evil-surround-mode
+  :custom
+  (evil-surround-pairs-alist
+   '((?\( . ("(" . ")"))
+     (?\[ . ("[" . "]"))
+     (?\{ . ("{" . "}"))
+
+     (?\) . ("(" . ")"))
+     (?\] . ("[" . "]"))
+     (?\} . ("{" . "}"))
+
+     (?< . ("<" . ">"))
+     (?> . ("<" . ">"))))
+  :hook (after-init . global-evil-surround-mode))
+
+(use-package evil-matchit
+  :after evil
+  :config
+  (global-evil-matchit-mode 1))
+
+(use-package evil-textobj-anyblock
+  :after evil
+  :config
+  (define-key evil-inner-text-objects-map "b" 'evil-textobj-anyblock-inner-block)
+  (define-key evil-outer-text-objects-map "b" 'evil-textobj-anyblock-a-block))
+
+(use-package evil-embrace
+  :after evil-surround
+  :config
+  (evil-embrace-enable-evil-surround-integration))
+#+end_src
+
