@@ -81,3 +81,66 @@
 - [ ] scimax-jinx.el [Remove ivy and avy integrations]
 - [ ] scimax-jupyter.el [Remove hydra stuff for now]
 - [ ] scimax-latex.el
+
+I haved attached my emacs configuration files, mainly the Emacs.org file containing the bulk of my emacs configuration and the early-init.el. Perform the following tasks for my emacs configuration:
+
+Your first task is to set doom emacs style keybindings and vim-style keybindings (where appropriate) for the following emacs packages and replacing the existing packages general: 
+- [ ] transwin
+- [ ] undo-fu
+- [ ] macro
+- [ ] helpful
+- [ ] avy
+- [ ] avy-zap
+- [ ] ace-link
+- [ ] iedit
+- [ ] expand-region
+- [ ] multiple-cursors
+- [ ] consult-dir
+- [ ] consult-yasnippet
+- [ ] dired and dired-related packages
+- [ ] hl-todo
+- [ ] diff-hl
+- [ ] browse-kill-ring
+- [ ] popper
+- [ ] treemacs
+- [ ] org-roam
+- [ ] org-roam-ui
+- [ ] consult-org-roam
+- [ ] olivetti
+- [ ] casual-suite
+- [ ] pdf-view
+- [ ] lsp-ui
+- [ ] consult-lsp
+- [ ] lsp-treemacs
+- [ ] xref
+- [ ] quickrun
+
+Keep in mind that you can keep any keybindings that you deem not needed to be changed for the 1st task. Also make sure there are no conflicting keybindings for this task as well. The general emacs package use-package and all the keybindings set using the general package should be at the end of the emacs config file in a single use-package block
+
+Also replace the following keybindings with doom emacs style keybindings using general:
+```el
+(bind-keys ("s-r"     . revert-buffer-quick)
+           ("C-x K"   . delete-this-file)
+           ("C-c C-l" . reload-init-file))
+
+```
+
+Only use consult-recent-file to open recent files using `SPC f r`. All the replaced or the new keybindings must be mnemonic
+
+Do not touch any keybindings related to hydra and pretty-hydra throughout the emacs configuration. In other words, don't touch any keybindings under the :pretty-hydra block as well as any keybindings that map to -hydra/body. This is the end of the 1st task. And point what keybindings need to removed as well. 
+
+For the 2nd task, in the hydra Setup section, rewrite the hydra use-package config so that it does not need childframe-completion-workable-p. This is the end of the 2nd task.
+
+The whole emacs configuration was previously using the built-in emacs package management and now it uses elpaca. Make sure the emacs configuration correctly use elpaca. Do not write any changes into the emacs config file itself. This is your 3rd task.
+
+For the 4th task, remove any unnecessary or not that useful evil configurations and evil packages. But make sure to keep the following config:
+```el
+(with-eval-after-load 'evil-maps
+  (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
+```
+
+For your 5th task, also make sure all the custom color settings match the colors of doom-themes tokyo-night theme. Also set tokyo-night theming for pdf-tools.
+
+For your 6th task, make sure to include any buffer or modes that have not already been include in the popper configuration.
+
+After performing all the above tasks, only write out the changes needed in the left side of the window.

@@ -25,3 +25,4 @@ transient/
 org-roam.db
 persistent-scratch/
 .persistent-scratch
+elpaca/
