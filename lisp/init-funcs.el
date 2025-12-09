@@ -37,49 +37,8 @@
   (require 'init-const)
   (require 'init-custom))
 
-(defvar socks-noproxy)
-(defvar socks-server)
-
-(declare-function browse-url-file-url "browse-url")
 (declare-function browse-url-interactive-arg "browse-url")
-(declare-function chart-bar-quickie "chart")
 (declare-function consult-theme "ext:consult")
-(declare-function nerd-icons-install-fonts "ext:nerd-icons")
-(declare-function xwidget-buffer "xwidget")
-(declare-function xwidget-webkit-current-session "xwidget")
-
-
-
-;; Font
-(defun font-available-p (font-name)
-  "Check if font with FONT-NAME is available."
-  (find-font (font-spec :name font-name)))
-
-;; Dos2Unix/Unix2Dos
-(defun dos2unix ()
-  "Convert the current buffer to UNIX file format."
-  (interactive)
-  (set-buffer-file-coding-system 'undecided-unix nil))
-
-(defun unix2dos ()
-  "Convert the current buffer to DOS file format."
-  (interactive)
-  (set-buffer-file-coding-system 'undecided-dos nil))
-
-(defun delete-dos-eol ()
-  "Delete `' characters in current region or buffer.
-Same as '`replace-string' `C-q' `C-m' `RET' `RET''."
-  (interactive)
-  (save-excursion
-    (when (region-active-p)
-      (narrow-to-region (region-beginning) (region-end)))
-    (goto-char (point-min))
-    (let ((count 0))
-      (while (search-forward "\r" nil t)
-        (replace-match "" nil t)
-        (setq count (1+ count)))
-      (message "Removed %d " count))
-    (widen)))
 
 ;; File and buffer
 (defun delete-this-file ()
@@ -150,48 +109,6 @@ Same as '`replace-string' `C-q' `C-m' `RET' `RET''."
       (buffer-substring-no-properties (region-beginning) (region-end))
     (thing-at-point 'symbol t)))
 
-;; Browse URL
-(defun xwidget-workable-p ()
-  "Check whether xwidget is available."
-  (and (display-graphic-p)
-       (featurep 'xwidget-internal)))
-
-(defun centaur-webkit-browse-url (url &optional pop-buffer new-session)
-  "Browse URL with xwidget-webkit' and switch or pop to the buffer.
-
-POP-BUFFER specifies whether to pop to the buffer.
-NEW-SESSION specifies whether to create a new xwidget-webkit session.
-Interactively, URL defaults to the string looking like a url around point."
-  (interactive (progn
-                 (require 'browse-url)
-                 (browse-url-interactive-arg "URL: ")))
-  (xwidget-webkit-browse-url url new-session)
-  (let ((buf (xwidget-buffer (xwidget-webkit-current-session))))
-    (when (buffer-live-p buf)
-      (and (eq buf (current-buffer)) (quit-window))
-      (if pop-buffer
-          (pop-to-buffer buf)
-        (switch-to-buffer buf)))))
-
-(defun centaur-browse-url (url)
-  "Open URL using a configurable method.
-See `browse-url' for more details."
-  (interactive)
-  (if (xwidget-workable-p)
-      (centaur-webkit-browse-url url t)
-    (browse-url url)))
-
-(defun centaur-browse-url-of-file (file)
-  "Use a web browser to display FILE.
-Display the current buffer's file if FILE is nil or if called
-interactively.  Turn the filename into a URL with function
-`browse-url-file-url'.  Pass the URL to a browser using the
-`browse-url' function then run `browse-url-of-file-hook'."
-  (interactive)
-  (if (xwidget-workable-p)
-      (centaur-webkit-browse-url (browse-url-file-url file) t)
-    (browse-url-of-file file)))
-
 ;; Reload configurations
 (defun reload-init-file ()
   "Reload Emacs configurations."
@@ -253,108 +170,11 @@ interactively.  Turn the filename into a URL with function
        (or (featurep 'nerd-icons)
            (require 'nerd-icons nil t))))
 
-(defun centaur-treesit-available-p ()
-  "Check whether tree-sitter is available.
-
-Native tree-sitter is introduced since 29.1."
-  (and centaur-tree-sitter
-       (fboundp 'treesit-available-p)
-       (treesit-available-p)))
-
-(defun centaur-set-variable (variable value &optional no-save)
-  "Set the VARIABLE to VALUE, and return VALUE.
-
-  Save to option `custom-file' if NO-SAVE is nil."
-  (customize-set-variable variable value)
-  (when (and (not no-save)
-             (file-writable-p custom-file))
-    (with-temp-buffer
-      (insert-file-contents custom-file)
-      (goto-char (point-min))
-      (while (re-search-forward
-              (format "^[\t ]*[;]*[\t ]*(setq %s .*)" variable)
-              nil t)
-        (replace-match (format "(setq %s '%s)" variable value) nil nil))
-      (write-region nil nil custom-file)
-      (message "Saved %s (%s) to %s" variable value custom-file))))
-
 (defun too-long-file-p ()
   "Check whether the file is too long."
   (or (> (buffer-size) 500000)
       (and (fboundp 'buffer-line-statistics)
            (> (car (buffer-line-statistics)) 10000))))
-
-(define-minor-mode centaur-read-mode
-  "Minor Mode for better reading experience."
-  :init-value nil
-  :group centaur
-  (if centaur-read-mode
-      (progn
-        (and (fboundp 'olivetti-mode) (olivetti-mode 1))
-        (and (fboundp 'mixed-pitch-mode) (mixed-pitch-mode 1))
-        (text-scale-set +1))
-    (progn
-      (and (fboundp 'olivetti-mode) (olivetti-mode -1))
-      (and (fboundp 'mixed-pitch-mode) (mixed-pitch-mode -1))
-      (text-scale-set 0))))
-
-;; Pakcage repository (ELPA)
-(defun set-package-archives (archives &optional refresh async no-save)
-  "Set the package ARCHIVES (ELPA).
-
-REFRESH is non-nil, will refresh archive contents.
-ASYNC specifies whether to perform the downloads in the background.
-Save to option `custom-file' if NO-SAVE is nil."
-  (interactive
-   (list
-    (intern
-     (completing-read "Select package archives: "
-                      (mapcar #'car centaur-package-archives-alist)))))
-  ;; Set option
-  (centaur-set-variable 'centaur-package-archives archives no-save)
-
-  ;; Refresh if need
-  (and refresh (package-refresh-contents async))
-
-  (message "Set package archives to `%s'" archives))
-(defalias 'centaur-set-package-archives #'set-package-archives)
-
-;; Refer to https://emacs-china.org/t/elpa/11192
-(defun centaur-test-package-archives (&optional no-chart)
-  "Test connection speed of all package archives and display on chart.
-
-Not displaying the chart if NO-CHART is non-nil.
-Return the fastest package archive."
-  (interactive)
-
-  (let* ((durations (mapcar
-                     (lambda (pair)
-                       (let ((url (concat (cdr (nth 2 (cdr pair)))
-                                          "archive-contents"))
-                             (start (current-time)))
-                         (message "Fetching %s..." url)
-                         (ignore-errors
-                           (url-copy-file url null-device t))
-                         (float-time (time-subtract (current-time) start))))
-                     centaur-package-archives-alist))
-         (fastest (car (nth (cl-position (apply #'min durations) durations)
-                            centaur-package-archives-alist))))
-
-    ;; Display on chart
-    (when (and (not no-chart)
-               (require 'chart nil t)
-               (require 'url nil t))
-      (chart-bar-quickie
-       'vertical
-       "Speed test for the ELPA mirrors"
-       (mapcar (lambda (p) (symbol-name (car p))) centaur-package-archives-alist)
-       "ELPA"
-       (mapcar (lambda (d) (* 1e3 d)) durations) "ms"))
-
-    (message "`%s' is the fastest package archive" fastest)
-
-    ;; Return the fastest
-    fastest))
 
 (defun set-from-minibuffer (sym)
   "Set SYM value from minibuffer."
@@ -377,8 +197,6 @@ Return the fastest package archive."
          sym sym-value))
       read-expression-map t
       'read-expression-history))))
-
-
 
 ;; Update
 (defun update-config ()
@@ -408,50 +226,6 @@ Return the fastest package archive."
   (update-config)
   (update-packages))
 (defalias 'centaur-update #'update-config-and-packages)
-
-(defun update-dotfiles ()
-  "Update the dotfiles to the latest version."
-  (interactive)
-  (let ((dir (or (getenv "DOTFILES")
-                 (expand-file-name "~/.dotfiles/"))))
-    (if (file-exists-p dir)
-        (progn
-          (message "Updating dotfiles...")
-          (cd dir)
-          (shell-command "git pull")
-          (message "Updating dotfiles...done"))
-      (message "\"%s\" doesn't exist" dir))))
-(defalias 'centaur-update-dotfiles #'update-dotfiles)
-
-(defun update-org ()
-  "Update Org files to the latest version."
-  (interactive)
-  (let ((dir (expand-file-name "~/org/")))
-    (if (file-exists-p dir)
-        (progn
-          (message "Updating org files...")
-          (cd dir)
-          (shell-command "git pull")
-          (message "Updating org files...done"))
-      (message "\"%s\" doesn't exist" dir))))
-(defalias 'centaur-update-org #'update-org)
-
-(defun update-all()
-  "Update dotfiles, org files, configurations and packages to the latest."
-  (interactive)
-  (update-org)
-  (update-dotfiles)
-  (update-config-and-packages))
-(defalias 'centaur-update-all #'update-all)
-
-
-;; Fonts
-(defun centaur-install-fonts ()
-  "Install necessary fonts."
-  (interactive)
-  (nerd-icons-install-fonts))
-
-
 
 ;; UI
 (defvar after-load-theme-hook nil
@@ -673,93 +447,6 @@ Return the fastest package archive."
       (set-frame-parameter nil 'fullscreen nil)
       (set-frame-position nil left top)
       (set-frame-size nil width height t))))
-
-
-
-;; Network Proxy
-(defun show-http-proxy ()
-  "Show HTTP/HTTPS proxy."
-  (interactive)
-  (if url-proxy-services
-      (message "Current HTTP proxy is `%s'" centaur-proxy)
-    (message "No HTTP proxy")))
-
-(defun enable-http-proxy ()
-  "Enable HTTP/HTTPS proxy."
-  (interactive)
-  (setq url-proxy-services
-        `(("http" . ,centaur-proxy)
-          ("https" . ,centaur-proxy)
-          ("no_proxy" . "^\\(localhost\\|192.168.*\\|10.*\\)")))
-  (show-http-proxy))
-
-(defun disable-http-proxy ()
-  "Disable HTTP/HTTPS proxy."
-  (interactive)
-  (setq url-proxy-services nil)
-  (show-http-proxy))
-
-(defun toggle-http-proxy ()
-  "Toggle HTTP/HTTPS proxy."
-  (interactive)
-  (if (bound-and-true-p url-proxy-services)
-      (disable-http-proxy)
-    (enable-http-proxy)))
-
-(defun show-socks-proxy ()
-  "Show SOCKS proxy."
-  (interactive)
-  (if (bound-and-true-p socks-noproxy)
-      (message "Current SOCKS%d proxy is %s:%s"
-               (cadddr socks-server) (cadr socks-server) (caddr socks-server))
-    (message "No SOCKS proxy")))
-
-(defun enable-socks-proxy ()
-  "Enable SOCKS proxy."
-  (interactive)
-  (require 'socks)
-  (setq url-gateway-method 'socks
-        socks-noproxy '("localhost"))
-  (let* ((proxy (split-string centaur-socks-proxy ":"))
-         (host (car proxy))
-         (port (string-to-number (cadr proxy))))
-    (setq socks-server `("Default server" ,host ,port 5)))
-  (setenv "all_proxy" (concat "socks5://" centaur-socks-proxy))
-  (show-socks-proxy))
-
-(defun disable-socks-proxy ()
-  "Disable SOCKS proxy."
-  (interactive)
-  (setq url-gateway-method 'native
-        socks-noproxy nil
-        socks-server nil)
-  (setenv "all_proxy" "")
-  (show-socks-proxy))
-
-(defun toggle-socks-proxy ()
-  "Toggle SOCKS proxy."
-  (interactive)
-  (if (bound-and-true-p socks-server)
-      (disable-socks-proxy)
-    (enable-socks-proxy)))
-
-(defun enable-proxy ()
-  "Enbale proxy."
-  (interactive)
-  (enable-http-proxy)
-  (enable-socks-proxy))
-
-(defun disable-proxy ()
-  "Disable proxy."
-  (interactive)
-  (disable-http-proxy)
-  (disable-socks-proxy))
-
-(defun toggle-proxy ()
-  "Toggle proxy."
-  (interactive)
-  (toggle-http-proxy)
-  (toggle-socks-proxy))
 
 (provide 'init-funcs)
 
