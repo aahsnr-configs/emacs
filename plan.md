@@ -85,29 +85,29 @@
 I haved attached my emacs configuration files, mainly the Emacs.org file containing the bulk of my emacs configuration and the early-init.el. Perform the following tasks for my emacs configuration:
 
 Your first task is to set doom emacs style keybindings and vim-style keybindings (where appropriate) for the following emacs packages and replacing the existing packages general: 
-- [ ] transwin
-- [ ] undo-fu
-- [ ] macro
-- [ ] helpful
-- [ ] avy
-- [ ] avy-zap
-- [ ] ace-link
-- [ ] iedit
-- [ ] expand-region
-- [ ] multiple-cursors
-- [ ] consult-dir
-- [ ] consult-yasnippet
-- [ ] dired and dired-related packages
-- [ ] hl-todo
-- [ ] diff-hl
-- [ ] browse-kill-ring
-- [ ] popper
-- [ ] treemacs
-- [ ] org-roam
-- [ ] org-roam-ui
-- [ ] consult-org-roam
-- [ ] olivetti
-- [ ] casual-suite
+- [x] transwin
+- [x] undo-fu
+- [x] macro
+- [x] helpful
+- [x] avy
+- [x] avy-zap
+- [x] ace-link
+- [x] iedit
+- [x] expand-region
+- [x] multiple-cursors
+- [x] consult-dir
+- [x] consult-yasnippet
+- [x] dired and dired-related packages
+- [x] hl-todo
+- [x] diff-hl
+- [x] browse-kill-ring
+- [x] popper
+- [x] treemacs
+- [x] org-roam
+- [x] org-roam-ui
+- [x] consult-org-roam
+- [x] olivetti
+- [x] casual-suite
 - [ ] pdf-view
 - [ ] lsp-ui
 - [ ] consult-lsp

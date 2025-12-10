@@ -37,7 +37,7 @@
   ;; MAXIMUM GC DEFERRAL (Doom Strategy)
   ;; ====================
   (setq gc-cons-threshold most-positive-fixnum
-        gc-cons-percentage 0.8)
+        gc-cons-percentage 0.6)
 
   ;; Disable file name handlers completely during startup
   (setq file-name-handler-alist nil)

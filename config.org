@@ -4700,6 +4700,7 @@ A suite of opinionated Transient UIs
   (apheleia-global-mode +1))
 #+end_src
 
+
 ** Prettify Symbols
 #+begin_src emacs-lisp
 (use-package prog-mode
