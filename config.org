@@ -1030,29 +1030,13 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Evil Extensions
 #+begin_src emacs-lisp
 (use-package evil-nerd-commenter :after evil)
-(use-package evil-numbers :after evil)
-(use-package evil-args :after evil)
 (use-package evil-anzu  :after evil)
-(use-package evil-exchange :after evil :config (evil-exchange-install))
-(use-package evil-indent-plus :after evil :config (evil-indent-plus-default-bindings))
 (use-package evil-visualstar :hook (evil-mode . global-evil-visualstar-mode))
-(use-package evil-snipe :after evil :config (evil-snipe-mode 1) (evil-snipe-override-mode 1))
-
-(use-package evil-lion
-  :after evil
-  :hook (prog-mode . evil-lion-mode))
 
 (use-package evil-multiedit :after evil :config (evil-multiedit-default-keybinds))
 (use-package evil-goggles :hook (evil-mode . evil-goggles-mode) :custom (evil-goggles-duration 0.1))
-
-(use-package goto-chg
-  :after evil
-  :commands (goto-last-change goto-last-change-reverse)
-  :config
-  (evil-define-key 'normal 'global (kbd "g;") 'goto-last-change)
-  (evil-define-key 'normal 'global (kbd "g,") 'goto-last-change-reverse))
-
 ;; evil-quickscope: Visual aid for f/F/t/T motions
+
 (use-package evil-quickscope
   :after evil
   :hook (prog-mode . turn-on-evil-quickscope-mode)
@@ -1082,30 +1066,10 @@ Lower this if you experience freezing, raise if stuttering.")
   :config
   (global-evil-matchit-mode 1))
 
-(use-package evil-textobj-anyblock
-  :after evil
-  :config
-  (define-key evil-inner-text-objects-map "b" 'evil-textobj-anyblock-inner-block)
-  (define-key evil-outer-text-objects-map "b" 'evil-textobj-anyblock-a-block))
-
 (use-package evil-embrace
   :after evil-surround
   :config
   (evil-embrace-enable-evil-surround-integration))
-
-;; Doom-style number increment/decrement
-(general-define-key
- :states '(normal visual)
- "C-a" 'evil-numbers/inc-at-pt
- "C-x" 'evil-numbers/dec-at-pt
- "g C-a" 'evil-numbers/inc-at-pt-incremental
- "g C-x" 'evil-numbers/dec-at-pt-incremental)
-
-;; Doom-style text objects
-(general-define-key
- :states 'motion
- "gx" 'evil-exchange
- "gX" 'evil-exchange-cancel)
 #+end_src
 
 ** Evil Window Movement Enhancements
