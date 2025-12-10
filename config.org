@@ -151,7 +151,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (elpaca-wait)
 
 ;; NOW set the queue limit after elpaca-use-package-mode is enabled
-(setq elpaca-queue-limit 1)
+;;(setq elpaca-queue-limit 1)
 
 ;; Configure use-package behavior
 (eval-and-compile
@@ -1301,7 +1301,7 @@ Lower this if you experience freezing, raise if stuttering.")
   :custom-face
   (transient-posframe ((t (:inherit tooltip))))
   (transient-posframe-border ((t (:inherit posframe-border :background unspecified))))
-  :hook (after-init . transient-posframe-mode)
+  :hook (elpaca-after-init . transient-posframe-mode)
   :init (setq transient-mode-line-format nil
               transient-posframe-border-width posframe-border-width
               transient-posframe-poshandler 'posframe-poshandler-frame-center
@@ -2081,69 +2081,69 @@ deletion, or > if it is flagged for displaying."
 
 * Dashboard
 #+begin_src emacs-lisp
-;; (use-package dashboard
-;;   :ensure t
-;;   :custom-face
-;;   (dashboard-heading ((t (:inherit default :weight bold))))
-;;   (dashboard-items-face ((t (:inherit default :height 0.9))))
-;;   :config
-;;   ;; 1. Layout & Basic Settings
-;;   (setq dashboard-startup-banner 'logo)
-;;   (setq dashboard-center-content t)
-;;   (setq dashboard-vertically-center-content t)
-;;   (setq dashboard-init-info-message-format "Loaded %d packages in %.2f seconds")
+(use-package dashboard
+  :demand t
+  :custom-face
+  (dashboard-heading ((t (:inherit default :weight bold))))
+  (dashboard-items-face ((t (:inherit default :height 0.9))))
+  :config
+  ;; 1. Layout & Basic Settings
+  (setq dashboard-startup-banner 'logo)
+  (setq dashboard-center-content t)
+  (setq dashboard-vertically-center-content t)
+  (setq dashboard-init-info-message-format "Loaded %d packages in %.2f seconds")
 
-;;   ;; 2. Icons & Aesthetics (Matches your nerd-icons setup)
-;;   (setq dashboard-display-icons-p t)
-;;   (setq dashboard-icon-type 'nerd-icons)
-;;   (setq dashboard-set-heading-icons t)
-;;   (setq dashboard-set-file-icons t)
+  ;; 2. Icons & Aesthetics (Matches your nerd-icons setup)
+  (setq dashboard-display-icons-p t)
+  (setq dashboard-icon-type 'nerd-icons)
+  (setq dashboard-set-heading-icons t)
+  (setq dashboard-set-file-icons t)
 
-;;   ;; Modern, minimal heading icons
-;;   (setq dashboard-heading-icons
-;;         '((recents   . "nf-oct-history")
-;;           (bookmarks . "nf-oct-bookmark")
-;;           (agenda    . "nf-oct-calendar")
-;;           (projects  . "nf-oct-rocket")
-;;           (registers . "nf-oct-database")))
+  ;; Modern, minimal heading icons
+  (setq dashboard-heading-icons
+        '((recents   . "nf-oct-history")
+          (bookmarks . "nf-oct-bookmark")
+          (agenda    . "nf-oct-calendar")
+          (projects  . "nf-oct-rocket")
+          (registers . "nf-oct-database")))
 
-;;   ;; 3. Content Management
-;;   (setq dashboard-items '((recents  . 5)
-;;                           (projects . 3)
-;;                           (bookmarks . 3)
-;;                           (agenda   . 3)))
+  ;; 3. Content Management
+  (setq dashboard-items '((recents  . 5)
+                          (projects . 3)
+                          (bookmarks . 3)
+                          (agenda   . 3)))
 
-;;   ;; 4. Project Backend (Defaults to built-in project.el if projectile is missing)
-;;   (setq dashboard-projects-backend 'project-el)
+  ;; 4. Project Backend (Defaults to built-in project.el if projectile is missing)
+  (setq dashboard-projects-backend 'project-el)
 
-;;   ;; 5. Navigator (Customized for your Elpaca & Tabspaces workflow)
-;;   (setq dashboard-set-navigator t)
-;;   (setq dashboard-navigator-buttons
-;;         `(;; Row 1
-;;           ((,(nerd-icons-octicon "nf-oct-gear" :height 1.1 :v-adjust 0.0)
-;;             "Config"
-;;             "Open Configuration (Org)"
-;;             (lambda (&rest _) (find-file (expand-file-name "emacs.txt" user-emacs-directory))))
+  ;; 5. Navigator (Customized for your Elpaca & Tabspaces workflow)
+  (setq dashboard-set-navigator t)
+  (setq dashboard-navigator-buttons
+        `(;; Row 1
+          ((,(nerd-icons-octicon "nf-oct-gear" :height 1.1 :v-adjust 0.0)
+            "Config"
+            "Open Configuration (Org)"
+            (lambda (&rest _) (find-file (expand-file-name "emacs.txt" user-emacs-directory))))
 
-;;            (,(nerd-icons-octicon "nf-oct-package" :height 1.1 :v-adjust 0.0)
-;;             "Updates"
-;;             "Elpaca Manager"
-;;             (lambda (&rest _) (elpaca-manager)))
+           (,(nerd-icons-octicon "nf-oct-package" :height 1.1 :v-adjust 0.0)
+            "Updates"
+            "Elpaca Manager"
+            (lambda (&rest _) (elpaca-manager)))
 
-;;            (,(nerd-icons-octicon "nf-oct-server" :height 1.1 :v-adjust 0.0)
-;;             "Restore"
-;;             "Restore Last Session"
-;;             (lambda (&rest _) (tabspaces-restore-session))))))
+           (,(nerd-icons-octicon "nf-oct-server" :height 1.1 :v-adjust 0.0)
+            "Restore"
+            "Restore Last Session"
+            (lambda (&rest _) (tabspaces-restore-session))))))
 
-;;   ;; 6. Footer
-;;   (setq dashboard-set-footer nil)
-;;   (setq dashboard-footer-messages '("Happy Hacking, Ahsanur!"))
+  ;; 6. Footer
+  (setq dashboard-set-footer nil)
+  (setq dashboard-footer-messages '("Happy Hacking, Ahsanur!"))
 
-;;   ;; 7. Startup Hooks
-;;   (dashboard-setup-startup-hook)
+  ;; 7. Startup Hooks
+  (dashboard-setup-startup-hook)
 
-;;   ;; Ensure dashboard opens in emacsclient
-;;   (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
+  ;; Ensure dashboard opens in emacsclient
+  (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
 #+end_src
 
 * Dired
