@@ -11,43 +11,39 @@
 
 ** Garbage Collections
 #+begin_src emacs-lisp
-;; CRITICAL: Restore GC after startup with optimized values
-(defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
+(defvar better-gc-cons-threshold 134217728
   "Optimal GC threshold for modern LSP-heavy workflows.
 Lower this if you experience freezing, raise if stuttering.")
 
 (defvar better-gc-cons-percentage 0.1
   "GC percentage of heap to trigger collection.")
 
-;; Restore GC settings after startup
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (setq gc-cons-threshold better-gc-cons-threshold
-                  gc-cons-percentage better-gc-cons-percentage)
+;; Restore GC settings after Elpaca finishes loading all packages
+(with-eval-after-load 'elpaca
+  (add-hook 'elpaca-after-init-hook
+            (lambda ()
+              (setq gc-cons-threshold better-gc-cons-threshold
+                    gc-cons-percentage better-gc-cons-percentage)
 
-            ;; FIX: Only restore file handlers if the original variable actually exists
-            (when (boundp 'file-name-handler-alist-original)
-              (setq file-name-handler-alist file-name-handler-alist-original)
-              (makunbound 'file-name-handler-alist-original))
-
-            ;; Report startup time
-            (message "Emacs loaded in %.2fs with %d GCs"
-                     (float-time (time-subtract after-init-time before-init-time))
-                     gcs-done))
-          100) ;; Run late to ensure accurate timing
+              ;; Report startup time
+              (message "Emacs loaded in %.2fs with %d GCs"
+                       (float-time (time-subtract after-init-time before-init-time))
+                       gcs-done))
+            100)
 
 ;; Increase GC threshold in minibuffer to prevent slowdowns during completion
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (defun gc-minibuffer-setup-hook ()
-              (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
+(with-eval-after-load 'elpaca
+  (add-hook 'elpaca-after-init-hook
+            (lambda ()
+              (defun gc-minibuffer-setup-hook ()
+                (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
 
-            (defun gc-minibuffer-exit-hook ()
-              (garbage-collect)
-              (setq gc-cons-threshold better-gc-cons-threshold))
+              (defun gc-minibuffer-exit-hook ()
+                (garbage-collect)
+                (setq gc-cons-threshold better-gc-cons-threshold))
 
-            (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
-            (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
+              (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
+              (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook))))
 #+end_src
 
 ** Custom Functions
@@ -78,38 +74,6 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ** Constants
 #+begin_src emacs-lisp
-;; init-const.el --- Define constants.	-*- lexical-binding: t -*-
-
-;; Copyright (C) 2006-2025 Vincent Zhang
-
-;; Author: Vincent Zhang <seagle0128@gmail.com>
-;; URL: https://github.com/seagle0128/.emacs.d
-
-;; This file is not part of GNU Emacs.
-;;
-;; This program is free software; you can redistribute it and/or
-;; modify it under the terms of the GNU General Public License as
-;; published by the Free Software Foundation; either version 3, or
-;; (at your option) any later version.
-;;
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-;; General Public License for more details.
-;;
-;; You should have received a copy of the GNU General Public License
-;; along with this program; see the file COPYING.  If not, write to
-;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
-;; Floor, Boston, MA 02110-1301, USA.
-;;
-
-;;; Commentary:
-;;
-;; Define constants.
-;;
-
-;;; Code:
-
 (defconst sys/linuxp
   (eq system-type 'gnu/linux)
   "Are we running on a GNU/Linux system?")
@@ -174,6 +138,7 @@ Lower this if you experience freezing, raise if stuttering.")
     (require 'elpaca)
     (elpaca-generate-autoloads "elpaca" repo)
     (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 
@@ -182,15 +147,17 @@ Lower this if you experience freezing, raise if stuttering.")
   ;; Enable use-package :ensure support for Elpaca.
   (elpaca-use-package-mode))
 
-
+;; CRITICAL: Wait for elpaca-use-package to be ready before using :ensure keyword
 (elpaca-wait)
 
+;; NOW set the queue limit after elpaca-use-package-mode is enabled
 (setq elpaca-queue-limit 4)
 
+;; Configure use-package behavior
 (eval-and-compile
-  (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
+  (setq use-package-verbose nil  ;; Reduce startup messages
         use-package-expand-minimally t
-        use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
+        use-package-compute-statistics nil  ;; Disable unless profiling
         ;;use-package-always-defer t
         use-package-always-ensure t
         use-package-enable-imenu-support t))
@@ -200,8 +167,6 @@ Lower this if you experience freezing, raise if stuttering.")
   (require 'bind-key))
 #+end_src
 
-#+RESULTS:
-: bind-key
 ** Performance Tuning
 #+begin_src emacs-lisp
 (when (fboundp 'pgtk-use-im-context)
@@ -229,9 +194,9 @@ Lower this if you experience freezing, raise if stuttering.")
               large-hscroll-threshold 1000
               syntax-wholeline-max 1000)
 
-(setq undo-limit 800000           ;; 800KB (default: 160KB)
-      undo-strong-limit 1200000   ;; 1.2MB (default: 240KB)
-      undo-outer-limit 120000000) ;; 120MB (default: 24MB)
+(setq undo-limit 800000
+      undo-strong-limit 1200000
+      undo-outer-limit 120000000)
 
 (setq scroll-conservatively 101
       scroll-margin 0
@@ -276,9 +241,12 @@ Lower this if you experience freezing, raise if stuttering.")
 ;; Suppress redefinition warnings
 (setq ad-redefinition-action 'accept)
 
-;; Custom file location
+;; Custom file location - CRITICAL: Load after Elpaca finishes
 (setq custom-file (concat user-emacs-directory "custom.el"))
-(load custom-file 'noerror)
+;; Load custom file AFTER all packages are activated
+(with-eval-after-load 'elpaca
+  (add-hook 'elpaca-after-init-hook
+            (lambda () (load custom-file 'noerror))))
 
 ;; Require final newline
 (setq require-final-newline t)
@@ -305,7 +273,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Garbage Collector Magic Hack
 #+begin_src emacs-lisp
 (use-package gcmh
-  :hook (emacs-startup . gcmh-mode)
+  :hook (elpaca-after-init . gcmh-mode)
   :init
   (setq gcmh-idle-delay 'auto
         gcmh-auto-idle-delay-factor 10
@@ -329,7 +297,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Environment
 #+begin_src emacs-lisp
 (use-package exec-path-from-shell
-  :defer t
+  :demand t
   :custom
   (exec-path-from-shell-variables
    '("PATH" "MANPATH"
@@ -346,12 +314,12 @@ Lower this if you experience freezing, raise if stuttering.")
 ;; Save place
 (use-package saveplace
   :ensure nil
-  :hook (after-init . save-place-mode))
+  :hook (elpaca-after-init . save-place-mode))
 
 ;; History
 (use-package recentf
   :ensure nil
-  :hook (after-init . recentf-mode)
+  :hook (elpaca-after-init . recentf-mode)
   :init (setq recentf-max-saved-items 300
               recentf-exclude
               '("\\.?cache" ".cask" "url" "COMMIT_EDITMSG\\'" "bookmarks"
@@ -365,7 +333,7 @@ Lower this if you experience freezing, raise if stuttering.")
 
 (use-package savehist
   :ensure nil
-  :hook (after-init . savehist-mode)
+  :hook (elpaca-after-init . savehist-mode)
   :init (setq enable-recursive-minibuffers t ; Allow commands in minibuffers
               history-length 1000
               savehist-additional-variables '(mark-ring
@@ -378,15 +346,10 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ** Misc
 #+begin_src emacs-lisp
- ;; ;; Start server
-;; (use-package server
-;;   :if centaur-server
-;;   :hook (after-init . server-mode))
-
 ;; ;; Misc.
 (use-package simple
   :ensure nil
-  :hook ((after-init . size-indication-mode)
+  :hook ((elpaca-after-init . size-indication-mode)
          (text-mode . visual-line-mode)
          ((prog-mode markdown-mode conf-mode) . enable-trailing-whitespace))
   :init
@@ -674,6 +637,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (setq evil-undo-system 'undo-fu)
 
 (use-package evil
+  :ensure (:wait t)
   :demand t
   :init
   ;; Core behavior
@@ -741,6 +705,8 @@ Lower this if you experience freezing, raise if stuttering.")
   (define-key evil-motion-state-map "gj" 'evil-next-line)
   (define-key evil-motion-state-map "gk" 'evil-previous-line))
 #+end_src
+
+#+RESULTS:
 
 ** Evil Collection
 #+begin_src emacs-lisp
@@ -840,7 +806,6 @@ Lower this if you experience freezing, raise if stuttering.")
         (goto-char (1+ (elt state 1)))
         (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
         (cond
-         ;; cargo-process-mode of form doesn't seem to be a symbol, or is a keyword
          ((and (elt state 2)
                (or (not (looking-at "\\sw\\|\\s_"))
                    (looking-at ":")))
@@ -850,10 +815,6 @@ Lower this if you experience freezing, raise if stuttering.")
                      (beginning-of-line)
                      (parse-partial-sexp (point)
                                          calculate-lisp-indent-last-sexp 0 t)))
-          ;; Indent under the list or under the first sexp on the same
-          ;; line as calculate-lisp-indent-last-sexp.  Note that first
-          ;; thing on that line has to be complete sexp since we are
-          ;; inside the innermost containing sexp.
           (backward-prefix-chars)
           (current-column))
          ((and (save-excursion
@@ -1011,10 +972,15 @@ Lower this if you experience freezing, raise if stuttering.")
   (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
 
 ;; Set fonts on startup and for new frames in daemon mode
+;; CRITICAL: For daemon mode, wait until after Elpaca loads packages
 (if (daemonp)
-    (add-hook 'after-make-frame-functions
-              (lambda (frame)
-                (with-selected-frame frame (ar/set-fonts))))
+    (with-eval-after-load 'elpaca
+      (add-hook 'elpaca-after-init-hook
+                (lambda ()
+                  (add-hook 'after-make-frame-functions
+                            (lambda (frame)
+                              (with-selected-frame frame (ar/set-fonts)))))))
+  ;; For non-daemon mode, set fonts immediately
   (ar/set-fonts))
 
 ;; Line spacing
@@ -1062,7 +1028,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Solaire Mode
 #+begin_src emacs-lisp
 (use-package solaire-mode
-  :hook (after-init . solaire-global-mode))
+  :hook (elpaca-after-init . solaire-global-mode))
 #+end_src
 
 ** Doom Themes
@@ -1070,27 +1036,21 @@ Lower this if you experience freezing, raise if stuttering.")
 (use-package doom-themes
   :demand t
   :custom
-  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
-  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  ;; for treemacs users
-  (doom-themes-treemacs-theme "doom-colors") ; use "doom-colors" for less minimal icon theme
+  (doom-themes-enable-bold t)
+  (doom-themes-enable-italic t)
+  (doom-themes-treemacs-theme "doom-one")
   :config
   (load-theme 'doom-tokyo-night t)
-
-  ;; Enable flashing mode-line on errors
   (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (nerd-icons must be installed!)
   (doom-themes-neotree-config)
-  ;; or for treemacs users
   (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 #+end_src
 
 ** Modeline
 #+begin_src emacs-lisp
 (use-package doom-modeline
-  :hook (after-init . doom-modeline-mode)
+  :hook (elpaca-after-init . doom-modeline-mode)
   :hook (doom-modeline-mode . column-number-mode)
   :init
   (setq doom-modeline-bar-width 3
@@ -1303,7 +1263,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Text Scaling
 #+begin_src emacs-lisp
 (use-package default-text-scale
-  :hook (after-init . default-text-scale-mode))
+  :hook (elpaca-after-init . default-text-scale-mode))
 #+end_src
 
 ** Scrolling
@@ -1324,7 +1284,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (when (fboundp 'pixel-scroll-precision-mode) ;; 29+
   (use-package ultra-scroll
     :functions (hl-todo-mode diff-hl-flydiff-mode)
-    :hook (after-init . ultra-scroll-mode)
+    :hook (elpaca-after-init . ultra-scroll-mode)
     :config
     (add-hook 'ultra-scroll-hide-functions #'diff-hl-flydiff-mode)
     (add-hook 'ultra-scroll-hide-functions #'hl-todo-mode)
@@ -1355,7 +1315,7 @@ Lower this if you experience freezing, raise if stuttering.")
 #+begin_src emacs-lisp
 (use-package delsel
   :ensure nil
-  :hook (after-init . delete-selection-mode))
+  :hook (elpaca-after-init . delete-selection-mode))
 #+end_src
 
 ** Rectangle
@@ -1403,7 +1363,7 @@ Lower this if you experience freezing, raise if stuttering.")
 #+begin_src emacs-lisp
 (use-package autorevert
   :ensure nil
-  :hook (after-init . global-auto-revert-mode))
+  :hook (elpaca-after-init . global-auto-revert-mode))
 #+end_src
 
 ** TODO Avy/Ace
@@ -1411,7 +1371,7 @@ Lower this if you experience freezing, raise if stuttering.")
 #+begin_src emacs-lisp
 ;; Jump to things in Emacs tree-style
 (use-package avy
-  :hook (after-init . avy-setup-default)
+  :hook (elpaca-after-init . avy-setup-default)
   :config (setq avy-all-windows nil
                 avy-all-windows-alt t
                 avy-background t
@@ -1423,7 +1383,7 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ;; Quickly follow links
 (use-package ace-link
-  :hook (after-init . ace-link-setup-default))
+  :hook (elpaca-after-init . ace-link-setup-default))
 #+end_src
 
 ** Aggressive Indent
@@ -1431,7 +1391,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (use-package aggressive-indent
   :autoload aggressive-indent-mode
   :functions too-long-file-p
-  :hook ((after-init . global-aggressive-indent-mode)
+  :hook ((elpaca-after-init . global-aggressive-indent-mode)
          ;; NOTE: Disable in large files due to the performance issues
          ;; https://github.com/Malabarba/aggressive-indent-mode/issues/73
          (find-file . (lambda ()
@@ -1470,14 +1430,14 @@ Lower this if you experience freezing, raise if stuttering.")
          :map isearch-mode-map
          ([remap isearch-query-replace] . anzu-isearch-query-replace)
          ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
-  :hook (after-init . global-anzu-mode))
+  :hook (elpaca-after-init . global-anzu-mode))
 #+end_src
 
 ** Drag stuff around
 #+begin_src emacs-lisp
 (use-package drag-stuff
   :autoload drag-stuff-define-keys
-  :hook (after-init . drag-stuff-global-mode)
+  :hook (elpaca-after-init . drag-stuff-global-mode)
   :config
   (add-to-list 'drag-stuff-except-modes 'org-mode)
   (drag-stuff-define-keys))
@@ -1502,7 +1462,7 @@ Lower this if you experience freezing, raise if stuttering.")
 #+begin_src emacs-lisp
 (use-package elec-pair
   :ensure nil
-  :hook (after-init . electric-pair-mode)
+  :hook (elpaca-after-init . electric-pair-mode)
   :init (setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit))
 #+end_src
 
@@ -1559,14 +1519,14 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Smart Region: Smartly select region, rectangle, multi cursors
 #+begin_src emacs-lisp
 (use-package smart-region
-  :hook (after-init . smart-region-on))
+  :hook (elpaca-after-init . smart-region-on))
 #+end_src
 
 ** Hungry deletion
 
 #+begin_src emacs-lisp
 (use-package hungry-delete
-  :hook (after-init . global-hungry-delete-mode)
+  :hook (elpaca-after-init . global-hungry-delete-mode)
   :init (setq hungry-delete-chars-to-skip " \t\f\v"
               hungry-delete-except-modes
               '(help-mode minibuffer-mode minibuffer-inactive-mode calc-mode)))
@@ -1671,7 +1631,7 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ;; Hanlde minified code
 (use-package so-long
-  :hook (after-init . global-so-long-mode))
+  :hook (elpaca-after-init . global-so-long-mode))
 #+end_src
 
 * Completion Framework
@@ -1689,8 +1649,6 @@ Lower this if you experience freezing, raise if stuttering.")
 VERTical Interactive COmpletion
 #+begin_src emacs-lisp
 (use-package vertico
-  :ensure (:wait t)
-  :demand t
   :custom
   (vertico-count 10)
   (vertico-resize nil)
@@ -1699,7 +1657,7 @@ VERTical Interactive COmpletion
          ("RET" . vertico-directory-enter)
          ("DEL" . vertico-directory-delete-char)
          ("M-DEL" . vertico-directory-delete-word))
-  :hook ((after-init . vertico-mode)
+  :hook ((elpaca-after-init . vertico-mode)
          (rfn-eshadow-update-overlay . vertico-directory-tidy)))
 #+end_src
 
@@ -1707,9 +1665,8 @@ VERTical Interactive COmpletion
 Enrich existing commands with completion annotations
 #+begin_src emacs-lisp
 (use-package marginalia
-  :ensure (:wait t)
   :demand t
-  :hook (after-init . marginalia-mode)
+  :hook (elpaca-after-init . marginalia-mode)
   :config
   (setq marginalia-max-relative-age 0 ; Always show absolute time
         marginalia-align 'right))
@@ -1752,17 +1709,10 @@ Consulting completing-read
   ;; relevant when you use the default completion UI.
   :hook (completion-list-mode . consult-preview-at-point-mode)
   :init
-  ;; Optionally configure the register formatting. This improves the register
-  ;; preview for `consult-register', `consult-register-load',
-  ;; `consult-register-store' and the Emacs built-ins.
   (setq register-preview-delay 0.5
         register-preview-function #'consult-register-format)
-
-  ;; Tweak the register preview window.
-  ;; This adds thin lines, sorting and hides the mode line of the window.
   (advice-add #'register-preview :override #'consult-register-window)
 
-  ;; Use Consult to select xref locations with preview
   (with-eval-after-load 'xref
     (setq xref-show-xrefs-function #'consult-xref
           xref-show-definitions-function #'consult-xref))
@@ -1786,7 +1736,6 @@ value of the selected COLOR."
                           :history '(:input consult-colors-history))))
     (insert color))
 
-  ;; Adapted from counsel.el to get web colors.
   (defun consult-colors--web-list nil
     "Return list of CSS colors for `counsult-colors-web'."
     (require 'shr-color)
@@ -1805,14 +1754,8 @@ value of the selected COLOR."
                           :history '(:input consult-colors-history))))
     (insert color))
   :config
-  ;; Optionally configure preview. The default value
-  ;; is 'any, such that any key triggers the preview.
-  ;; (setq consult-preview-key 'any)
-  ;; (setq consult-preview-key '("S-<down>" "S-<up>"))
   (setq consult-preview-key nil)
 
-  ;; Define a custom buffer source that only shows file-visiting buffers
-  ;; This mimics Doom Emacs behavior where only "real" file buffers are shown
   (defvar consult--source-file-visiting-buffer
     `(:name "Main"
       :narrow ?f
@@ -1867,7 +1810,6 @@ value of the selected COLOR."
 (use-package embark
   :commands embark-prefix-help-command
   :init
-  ;; Optionally replace the key help with a completing-read interface
   (setq prefix-help-command #'embark-prefix-help-command)
   :config
   ;; Manual preview for non-Consult commands using Embark
@@ -1938,8 +1880,6 @@ targets."
 ** Corfu
 #+begin_src emacs-lisp
 (use-package corfu
-  :ensure (:wait t)
-  :demand t
   :autoload (corfu-quit consult-completion-in-region)
   :functions (persistent-scratch-save corfu-move-to-minibuffer)
   :custom
@@ -1966,7 +1906,7 @@ targets."
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
         ("M-h" . corfu-info-documentation))
-  :hook ((after-init . global-corfu-mode)
+  :hook ((elpaca-after-init . global-corfu-mode)
          (global-corfu-mode . corfu-history-mode))
   :config
   ;;Quit completion before saving
@@ -2036,7 +1976,7 @@ targets."
 
 (use-package yasnippet
   :defer t
-  :hook (after-init . yas-global-mode)
+  :hook (elpaca-after-init . yas-global-mode)
   :config
   (add-to-list 'yas-snippet-dirs my/snippets-directory))
 
@@ -2259,7 +2199,7 @@ deletion, or > if it is flagged for displaying."
 #+begin_src emacs-lisp
 (use-package hl-line
   :ensure nil
-  :hook ((after-init . global-hl-line-mode)
+  :hook ((elpaca-after-init . global-hl-line-mode)
          ((dashboard-mode eshell-mode shell-mode term-mode vterm-mode) .
           (lambda () (setq-local global-hl-line-mode nil)))))
 #+end_src
@@ -2274,7 +2214,7 @@ deletion, or > if it is flagged for displaying."
                       (:box (:line-width (-1 . -1) :color "gray73")))
                      (((class color) (background dark))
                       (:box (:line-width (-1 . -1) :color "gray56")))))
-  :hook (after-init . show-paren-mode)
+  :hook (elpaca-after-init . show-paren-mode)
   :init (setq show-paren-when-point-inside-paren t
               show-paren-when-point-in-periphery t)
   :config
@@ -2382,7 +2322,7 @@ FACE defaults to inheriting from default and highlight."
   :bind (:map region-occurrences-highlighter-nav-mode-map
          ("M-n" . region-occurrences-highlighter-next)
          ("M-p" . region-occurrences-highlighter-prev))
-  :hook (after-init . global-region-occurrences-highlighter-mode))
+  :hook (elpaca-after-init . global-region-occurrences-highlighter-mode))
 #+end_src
 
 ** Highlight indentions
@@ -2404,7 +2344,7 @@ FACE defaults to inheriting from default and highlight."
 ** Colorize color names in buffers
 #+begin_src emacs-lisp
 (use-package colorful-mode
-  :hook (after-init . global-colorful-mode)
+  :hook (elpaca-after-init . global-colorful-mode)
   :init (setq colorful-use-prefix t)
   :config (dolist (mode '(html-mode php-mode help-mode helpful-mode))
             (add-to-list 'global-colorful-modes mode)))
@@ -2425,7 +2365,7 @@ FACE defaults to inheriting from default and highlight."
   :functions rg rg-read-files rg-project
   :custom-face
   (hl-todo ((t (:inherit default :height 0.9 :width condensed :weight bold :underline nil :inverse-video t))))
-  :hook (after-init . global-hl-todo-mode)
+  :hook (elpaca-after-init . global-hl-todo-mode)
   :init (setq hl-todo-require-punctuation t
               hl-todo-highlight-punctuation ":")
   :config
@@ -2478,8 +2418,8 @@ FACE defaults to inheriting from default and highlight."
   (diff-hl-delete ((t (:inherit diff-removed :background unspecified))))
   :bind (:map diff-hl-command-map
          ("SPC" . diff-hl-mark-hunk))
-  :hook ((after-init . global-diff-hl-mode)
-         (after-init . global-diff-hl-show-hunk-mouse-mode)
+  :hook ((elpaca-after-init . global-diff-hl-mode)
+         (elpaca-after-init . global-diff-hl-show-hunk-mouse-mode)
          (dired-mode . diff-hl-dired-mode))
   :config
   ;; Highlight on-the-fly
@@ -2577,7 +2517,7 @@ FACE defaults to inheriting from default and highlight."
   (setq nerd-icons-ibuffer-icon t)
   (setq nerd-icons-ibuffer-color-icon t)
   (setq nerd-icons-ibuffer-icon-size 1.0)
-  (setq  nerd-icons-ibuffer-human-readable-size t))
+  (setq nerd-icons-ibuffer-human-readable-size t))
 
 ;; Group ibuffer's list by project
 (use-package ibuffer-project
@@ -2626,7 +2566,7 @@ FACE defaults to inheriting from default and highlight."
 ;; Interactively insert and edit items from kill-ring
 (use-package browse-kill-ring
   :defer t
-  :hook (after-init . browse-kill-ring-default-keybindings)
+  :hook (elpaca-after-init . browse-kill-ring-default-keybindings)
   :init (setq browse-kill-ring-separator "────────────────"
               browse-kill-ring-separator-face 'shadow))
 #+end_src
@@ -2635,7 +2575,7 @@ FACE defaults to inheriting from default and highlight."
 #+begin_src emacs-lisp
 (use-package tabspaces
   :functions tabspaces-mode
-  :hook (after-init . tabspaces-mode)
+  :hook (elpaca-after-init . tabspaces-mode)
   :custom
   (tab-bar-show nil)
   (tabspaces-use-filtered-buffers-as-default t)
@@ -2666,25 +2606,28 @@ FACE defaults to inheriting from default and highlight."
         "Set workspace buffer list for consult-buffer.")
       (add-to-list 'consult-buffer-sources 'consult--source-workspace))
 
+    ;; Delete child frames before saving session
+    ;; This prevents posframe popups from being saved in the session
     (defun my-tabspaces-delete-childframe (&rest _)
-      "Delete all child frames before saving tabspaces session.
-This prevents issues with posframe popups being saved in the session."
-      (when (fboundp 'posframe-delete-all)
+      "Delete all child frames before saving tabspaces session."
+      (when (and (fboundp 'posframe-delete-all)
+                 (featurep 'posframe))
         (ignore-errors
           (posframe-delete-all))))
-    (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
 
-    ;; Helper function to bury Messages buffer after restoring session
+    ;; Bury Messages buffer after restoring session
+    ;; Use idle timer to ensure restoration is complete
     (defun my-tabspaces-bury-window (&rest _)
-      "Bury *Messages* buffer after restoring tabspaces session.
-This provides a cleaner workspace after session restoration."
-      (ignore-errors
-        ;; Use the standard messages buffer name
-        (let ((msg-buf (get-buffer "*Messages*")))
-          (when msg-buf
-            (quit-windows-on msg-buf)))))
+      "Bury *Messages* buffer after restoring tabspaces session."
+      (run-with-idle-timer 0.5 nil
+        (lambda ()
+          (ignore-errors
+            (let ((msg-buf (get-buffer "*Messages*")))
+              (when msg-buf
+                (quit-windows-on msg-buf)))))))
 
-    ;; Advice to clean up Messages buffer after session restore
+    ;; Add advice to tabspaces session functions
+    (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
     (advice-add #'tabspaces-restore-session :after #'my-tabspaces-bury-window)))
 #+end_src
 
@@ -2694,7 +2637,7 @@ Directional window-selection routines
 #+begin_src emacs-lisp
 (use-package windmove
   :ensure nil
-  :hook (after-init . (lambda ()
+  :hook (elpaca-after-init . (lambda ()
                         (windmove-default-keybindings 'super))))
 #+end_src
 
@@ -2704,7 +2647,7 @@ Restore old window configurations
 (use-package winner
   :ensure nil
   :commands (winner-undo winner-redo)
-  :hook (after-init . winner-mode)
+  :hook (elpaca-after-init . winner-mode)
   :init (setq winner-boring-buffers '("*Completions*"
                                       "*Compile-Log*"
                                       "*inferior-lisp*"
@@ -2823,7 +2766,7 @@ Enforce rules for popups
   :custom
   (popper-group-function #'popper-group-by-directory)
   (popper-echo-dispatch-actions t)
-  :hook (emacs-startup . popper-echo-mode)
+  :hook (elpaca-after-init . popper-echo-mode)
   :init
   (setq popper-mode-line ""
         popper-reference-buffers
@@ -3701,7 +3644,7 @@ mermaid.initialize({
 #+begin_src emacs-lisp
 (use-package which-key
   :defer 0.5
-  :hook (after-init . which-key-mode)
+  :hook (elpaca-after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
   (which-key-separator " → ")
@@ -3719,12 +3662,14 @@ Persistent the scratch buffer
                                   (user-error "Scratch buffer cannot be killed")))
          ([remap revert-buffer] . persistent-scratch-restore)
          ([remap revert-buffer-quick] . persistent-scratch-restore))
-  :hook ((after-init . persistent-scratch-autosave-mode)
+  :hook ((elpaca-after-init . persistent-scratch-autosave-mode)
          (lisp-interaction-mode . persistent-scratch-mode))
   :init (setq persistent-scratch-backup-file-name-format "%Y-%m-%d"
               persistent-scratch-backup-directory
               (expand-file-name "persistent-scratch" user-emacs-directory)))
 #+end_src
+
+#+RESULTS:
 
 ** Grep
 Search tools
@@ -3759,7 +3704,7 @@ Fast search tool `ripgrep'
 #+begin_src emacs-lisp
 (use-package rg
   :defer t
-  :hook (after-init . rg-enable-default-bindings)
+  :hook (elpaca-after-init . rg-enable-default-bindings)
   :bind (:map rg-global-map
          ("c" . rg-dwim-current-dir)
          ("f" . rg-dwim-current-file)
