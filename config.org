@@ -183,6 +183,10 @@ Lower this if you experience freezing, raise if stuttering.")
   (elpaca-use-package-mode))
 
 
+(elpaca-wait)
+
+(setq elpaca-queue-limit 4)
+
 (eval-and-compile
   (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
         use-package-expand-minimally t
