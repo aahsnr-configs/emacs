@@ -1310,13 +1310,6 @@ Lower this if you experience freezing, raise if stuttering.")
 #+end_src
 
 * Editor Behaviour
-** Delete selection if you insert
-#+begin_src emacs-lisp
-(use-package delsel
-  :ensure nil
-  :hook (elpaca-after-init . delete-selection-mode))
-#+end_src
-
 ** Rectangle
 #+begin_src emacs-lisp
 (use-package rect
@@ -1513,12 +1506,6 @@ Lower this if you experience freezing, raise if stuttering.")
     "% 2(mc/num-cursors) cursor%s(if (> (mc/num-cursors) 1) \"s\" \"\")"
 	(("0" mc/insert-numbers "insert numbers" :exit t)
 	 ("A" mc/insert-letters "insert letters" :exit t)))))
-#+end_src
-
-** Smart Region: Smartly select region, rectangle, multi cursors
-#+begin_src emacs-lisp
-(use-package smart-region
-  :hook (elpaca-after-init . smart-region-on))
 #+end_src
 
 ** Hungry deletion
@@ -2280,17 +2267,7 @@ FACE defaults to inheriting from default and highlight."
   (symbol-overlay-face-5 ((t (:inherit nerd-icons-red :background unspecified :foreground unspecified :inverse-video t))))
   (symbol-overlay-face-6 ((t (:inherit nerd-icons-orange :background unspecified :foreground unspecified :inverse-video t))))
   (symbol-overlay-face-7 ((t (:inherit nerd-icons-green :background unspecified :foreground unspecified :inverse-video t))))
-  (symbol-overlay-face-8 ((t (:inherit nerd-icons-cyan :background unspecified :foreground unspecified :inverse-video t))))
-  :bind (("M-i"  . symbol-overlay-put)
-         ("M-n"  . symbol-overlay-jump-next)
-         ("M-p"  . symbol-overlay-jump-prev)
-         ("M-N"  . symbol-overlay-switch-forward)
-         ("M-P"  . symbol-overlay-switch-backward)
-         ("M-C"  . symbol-overlay-remove-all)
-         ([M-f2] . symbol-overlay-mode)
-         ([M-f3] . symbol-overlay-put)
-         ([M-f4] . symbol-overlay-remove-all))
-  :bind-keymap ("M-s s"  . symbol-overlay-map)
+  (symbol-overlay-face-8 ((t (:inherit nerd-icons-cyan :background unspecified :foreground unspecified :inverse-video t))))    
   :hook (((prog-mode yaml-mode yaml-ts-mode) . symbol-overlay-mode)
          (iedit-mode     . turn-off-symbol-overlay)
          (iedit-mode-end . turn-on-symbol-overlay))
@@ -2315,15 +2292,6 @@ FACE defaults to inheriting from default and highlight."
     (advice-add #'easy-kill-destroy-candidate :after #'turn-on-symbol-overlay)))
 #+end_src
 
-** Mark occurrences of current selection
-#+begin_src emacs-lisp
-(use-package region-occurrences-highlighter
-  :bind (:map region-occurrences-highlighter-nav-mode-map
-         ("M-n" . region-occurrences-highlighter-next)
-         ("M-p" . region-occurrences-highlighter-prev))
-  :hook (elpaca-after-init . global-region-occurrences-highlighter-mode))
-#+end_src
-
 ** Highlight indentions
 
 #+begin_src emacs-lisp
@@ -2338,15 +2306,6 @@ FACE defaults to inheriting from default and highlight."
 				                       if_statement with_statement while_statement)))
   :hook ((prog-mode yaml-mode) . indent-bars-mode)
   :config (require 'indent-bars-ts))
-#+end_src
-
-** Colorize color names in buffers
-#+begin_src emacs-lisp
-(use-package colorful-mode
-  :hook (elpaca-after-init . global-colorful-mode)
-  :init (setq colorful-use-prefix t)
-  :config (dolist (mode '(html-mode php-mode help-mode helpful-mode))
-            (add-to-list 'global-colorful-modes mode)))
 #+end_src
 
 ** Highlight brackets according to their depth
@@ -3928,6 +3887,697 @@ A suite of opinionated Transient UIs
     (advice-add 'save-place-find-file-hook :around #'saveplace-pdf-view-find-file-advice)
     (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice)))
 #+end_src
+* Development Tools
+** envrc
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (elpaca-after-init . envrc-global-mode))
+#+end_src
+
+** LSP Mode
+*** Prereq
+#+begin_src emacs-lisp
+(defvar my-lsp-format-on-save nil
+  "Enable format on save with LSP.")
+
+(defvar my-lsp-format-on-save-ignore-modes
+  '(c-mode c++-mode python-mode)
+  "Major modes to ignore when formatting on save.")
+
+;; Helper function for icons
+(defun icons-displayable-p ()
+  "Return non-nil if icons can be displayed."
+  (and (display-graphic-p)
+       (or (featurep 'nerd-icons)
+           (require 'nerd-icons nil t))))
+
+;; Helper function for childframe
+(defun childframe-workable-p ()
+  "Test whether childframe is workable."
+  (and (display-graphic-p)
+       (or (featurep 'posframe)
+           (require 'posframe nil t))))
+#+end_src
+
+*** Lsp Mode
+#+begin_src emacs-lisp
+(use-package lsp-mode
+  :defer t
+  :defines (lsp-diagnostics-disabled-modes lsp-clients-python-library-directories)
+  :autoload lsp-enable-which-key-integration
+  :commands (lsp-format-buffer lsp-organize-imports)
+  :hook ((prog-mode . (lambda ()
+                       (unless (derived-mode-p
+                                'emacs-lisp-mode 'lisp-mode
+                                'makefile-mode 'snippet-mode
+                                'ron-mode)
+                         (lsp-deferred))))
+         ((markdown-mode yaml-mode yaml-ts-mode) . lsp-deferred)
+         (lsp-mode . (lambda ()
+                       ;; Integrate `which-key'
+                      (lsp-enable-which-key-integration)
+
+                      ;; Format and organize imports
+                      (when (and my-lsp-format-on-save
+                                 (not (apply #'derived-mode-p my-lsp-format-on-save-ignore-modes)))
+                        (add-hook 'before-save-hook #'lsp-format-buffer t t)
+                        (add-hook 'before-save-hook #'lsp-organize-imports t t)))))
+  :bind (:map lsp-mode-map
+         ("C-c C-d" . lsp-describe-thing-at-point)
+         ([remap xref-find-definitions] . lsp-find-definition)
+         ([remap xref-find-references] . lsp-find-references))
+  :init (setq lsp-use-plists t
+              lsp-log-io nil
+
+              lsp-keymap-prefix "C-c l"
+              lsp-keep-workspace-alive nil
+              lsp-signature-auto-activate nil
+              lsp-modeline-code-actions-enable nil
+              lsp-modeline-diagnostics-enable nil
+              lsp-modeline-workspace-status-enable nil
+
+              lsp-semantic-tokens-enable t
+              lsp-progress-spinner-type 'progress-bar-filled
+
+              lsp-enable-file-watchers nil
+              lsp-enable-folding nil
+              lsp-enable-symbol-highlighting nil
+              lsp-enable-text-document-color nil
+
+              lsp-enable-indentation nil
+              lsp-enable-on-type-formatting nil
+
+              ;; For diagnostics
+              lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode)
+
+              ;; For clients
+              lsp-clients-python-library-directories '("/usr/local/" "/usr/"))
+  :config
+
+  (with-no-warnings
+    ;; Disable `lsp-mode' in `git-timemachine-mode'
+    (defun my-lsp--init-if-visible (fn &rest args)
+      (unless (bound-and-true-p git-timemachine-mode)
+        (apply fn args)))
+    (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible)
+
+    ;; Enable `lsp-mode' in sh/bash/zsh
+    (defun my-lsp-bash-check-sh-shell (&rest _)
+      (and (memq major-mode '(sh-mode bash-ts-mode))
+           (memq sh-shell '(sh bash zsh))))
+    (advice-add #'lsp-bash-check-sh-shell :override #'my-lsp-bash-check-sh-shell)
+    (add-to-list 'lsp-language-id-configuration '(bash-ts-mode . "shellscript"))
+
+    ;; Display icons
+    (when (icons-displayable-p)
+      (defun my-lsp-icons-get-by-file-ext (file-ext &optional feature)
+        (when (and file-ext
+                   (lsp-icons--enabled-for-feature feature))
+          (nerd-icons-icon-for-extension file-ext)))
+      (advice-add #'lsp-icons-get-by-file-ext :override #'my-lsp-icons-get-by-file-ext)
+
+      (defvar lsp-symbol-alist
+        '((misc          nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-warning-face)
+          (document      nerd-icons-codicon "nf-cod-symbol_file" :face font-lock-string-face)
+          (namespace     nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-type-face)
+          (string        nerd-icons-codicon "nf-cod-symbol_string" :face font-lock-doc-face)
+          (boolean-data  nerd-icons-codicon "nf-cod-symbol_boolean" :face font-lock-builtin-face)
+          (numeric       nerd-icons-codicon "nf-cod-symbol_numeric" :face font-lock-builtin-face)
+          (method        nerd-icons-codicon "nf-cod-symbol_method" :face font-lock-function-name-face)
+          (field         nerd-icons-codicon "nf-cod-symbol_field" :face font-lock-variable-name-face)
+          (localvariable nerd-icons-codicon "nf-cod-symbol_variable" :face font-lock-variable-name-face)
+          (class         nerd-icons-codicon "nf-cod-symbol_class" :face font-lock-type-face)
+          (interface     nerd-icons-codicon "nf-cod-symbol_interface" :face font-lock-type-face)
+          (property      nerd-icons-codicon "nf-cod-symbol_property" :face font-lock-variable-name-face)
+          (indexer       nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
+          (enumerator    nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
+          (treemacs-icon-enumitem      nerd-icons-codicon "nf-cod-symbol_enum_member" :face font-lock-builtin-face)
+          (constant      nerd-icons-codicon "nf-cod-symbol_constant" :face font-lock-constant-face)
+          (structure     nerd-icons-codicon "nf-cod-symbol_structure" :face font-lock-variable-name-face)
+          (event         nerd-icons-codicon "nf-cod-symbol_event" :face font-lock-warning-face)
+          (operator      nerd-icons-codicon "nf-cod-symbol_operator" :face font-lock-comment-delimiter-face)
+          (template      nerd-icons-codicon "nf-cod-symbol_snippet" :face font-lock-type-face)))
+
+      (defun my-lsp-icons-get-by-symbol-kind (kind &optional feature)
+        (when (and kind
+                   (lsp-icons--enabled-for-feature feature))
+          (let* ((icon (cdr (assoc (lsp-treemacs-symbol-kind->icon kind) lsp-symbol-alist)))
+                 (args (cdr icon)))
+            (apply (car icon) args))))
+      (advice-add #'lsp-icons-get-by-symbol-kind :override #'my-lsp-icons-get-by-symbol-kind)
+
+      (setq lsp-headerline-arrow (nerd-icons-octicon "nf-oct-chevron_right"
+                                                     :face 'lsp-headerline-breadcrumb-separator-face)))))
+#+end_src
+
+*** LSP UI
+#+begin_src emacs-lisp
+(use-package lsp-ui
+  :defer t
+  :custom-face
+  (lsp-ui-sideline-code-action ((t (:inherit warning))))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "LSP UI" 'faicon "nf-fa-rocket" :face 'nerd-icons-green)
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Doc"
+    (("d e" (progn
+              (lsp-ui-doc-enable (not lsp-ui-doc-mode))
+              (setq lsp-ui-doc-enable (not lsp-ui-doc-enable)))
+      "enable" :toggle lsp-ui-doc-mode)
+     ("d s" (setq lsp-ui-doc-include-signature (not lsp-ui-doc-include-signature))
+      "signature" :toggle lsp-ui-doc-include-signature)
+     ("d t" (setq lsp-ui-doc-position 'top)
+      "top" :toggle (eq lsp-ui-doc-position 'top))
+     ("d b" (setq lsp-ui-doc-position 'bottom)
+      "bottom" :toggle (eq lsp-ui-doc-position 'bottom))
+     ("d p" (setq lsp-ui-doc-position 'at-point)
+      "at point" :toggle (eq lsp-ui-doc-position 'at-point))
+     ("d h" (setq lsp-ui-doc-header (not lsp-ui-doc-header))
+      "header" :toggle lsp-ui-doc-header)
+     ("d f" (setq lsp-ui-doc-alignment 'frame)
+      "align frame" :toggle (eq lsp-ui-doc-alignment 'frame))
+     ("d w" (setq lsp-ui-doc-alignment 'window)
+      "align window" :toggle (eq lsp-ui-doc-alignment 'window)))
+    "Sideline"
+    (("s e" (progn
+              (lsp-ui-sideline-enable (not lsp-ui-sideline-mode))
+              (setq lsp-ui-sideline-enable (not lsp-ui-sideline-enable)))
+      "enable" :toggle lsp-ui-sideline-mode)
+     ("s h" (setq lsp-ui-sideline-show-hover (not lsp-ui-sideline-show-hover))
+      "hover" :toggle lsp-ui-sideline-show-hover)
+     ("s d" (setq lsp-ui-sideline-show-diagnostics (not lsp-ui-sideline-show-diagnostics))
+      "diagnostics" :toggle lsp-ui-sideline-show-diagnostics)
+     ("s s" (setq lsp-ui-sideline-show-symbol (not lsp-ui-sideline-show-symbol))
+      "symbol" :toggle lsp-ui-sideline-show-symbol)
+     ("s c" (setq lsp-ui-sideline-show-code-actions (not lsp-ui-sideline-show-code-actions))
+     "code actions" :toggle lsp-ui-sideline-show-code-actions)
+     ("s i" (setq lsp-ui-sideline-ignore-duplicate (not lsp-ui-sideline-ignore-duplicate))
+      "ignore duplicate" :toggle lsp-ui-sideline-ignore-duplicate))
+    "Action"
+    (("h" backward-char "←")
+     ("j" next-line "↓")
+     ("k" previous-line "↑")
+     ("l" forward-char "→")
+     ("C-a" mwim-beginning-of-code-or-line nil)
+     ("C-e" mwim-end-of-code-or-line nil)
+     ("C-b" backward-char nil)
+     ("C-n" next-line nil)
+     ("C-p" previous-line nil)
+     ("C-f" forward-char nil)
+     ("M-b" backward-word nil)
+     ("M-f" forward-word nil)
+     ("c" lsp-ui-sideline-apply-code-actions "apply code actions"))))
+  :bind (("C-c u" . lsp-ui-imenu)
+         :map lsp-ui-mode-map
+         ("M-<f6>" . lsp-ui-hydra/body)
+         ("s-<return>" . lsp-ui-sideline-apply-code-actions)
+         ([remap xref-find-definitions] . lsp-ui-peek-find-definitions)
+         ([remap xref-find-references] . lsp-ui-peek-find-references))
+  :hook (lsp-mode . lsp-ui-mode)
+  :init
+  (setq lsp-ui-sideline-show-diagnostics nil
+        lsp-ui-sideline-ignore-duplicate t
+        lsp-ui-doc-delay 0.1
+        lsp-ui-doc-show-with-cursor (not (display-graphic-p))
+        lsp-ui-imenu-auto-refresh 'after-save
+        lsp-ui-imenu-colors `(,(face-foreground 'font-lock-keyword-face)
+                              ,(face-foreground 'font-lock-string-face)
+                              ,(face-foreground 'font-lock-constant-face)
+                              ,(face-foreground 'font-lock-variable-name-face)))
+  ;; Set correct color to borders
+  (defun my-lsp-ui-doc-set-border ()
+    "Set the border color of lsp doc."
+    (setq lsp-ui-doc-border
+          (face-background 'posframe-border nil t)))
+  (my-lsp-ui-doc-set-border)
+  (add-hook 'after-load-theme-hook #'my-lsp-ui-doc-set-border t)
+  :config
+  (with-no-warnings
+    ;; Display peek in child frame if possible
+    ;; @see https://github.com/emacs-lsp/lsp-ui/issues/441
+    (defvar-local lsp-ui-peek--buffer nil)
+    (defun lsp-ui-peek--peek-display (fn src1 src2)
+      (if (childframe-workable-p)
+          (-let* ((win-width (frame-width))
+                  (lsp-ui-peek-list-width (/ (frame-width) 2))
+                  (string (-some--> (-zip-fill "" src1 src2)
+                            (--map (lsp-ui-peek--adjust win-width it) it)
+                            (-map-indexed 'lsp-ui-peek--make-line it)
+                            (-concat it (lsp-ui-peek--make-footer)))))
+            (setq lsp-ui-peek--buffer (get-buffer-create " *lsp-peek--buffer*"))
+           (posframe-show lsp-ui-peek--buffer
+                          :string (mapconcat 'identity string "")
+                          :min-width (frame-width)
+                          :internal-border-color (face-background 'posframe-border nil t)
+                          :internal-border-width 1
+                          :poshandler #'posframe-poshandler-frame-center))
+        (funcall fn src1 src2)))
+    (defun lsp-ui-peek--peek-destroy (fn)
+      (if (childframe-workable-p)
+          (progn
+            (when (bufferp lsp-ui-peek--buffer)
+              (posframe-hide lsp-ui-peek--buffer))
+            (setq lsp-ui-peek--last-xref nil))
+        (funcall fn)))
+    (advice-add #'lsp-ui-peek--peek-new :around #'lsp-ui-peek--peek-display)
+    (advice-add #'lsp-ui-peek--peek-hide :around #'lsp-ui-peek--peek-destroy)
+
+    ;; Handle docs
+    (defun my-lsp-ui-doc--handle-hr-lines nil
+      (let (bolp next before after)
+        (goto-char 1)
+        (while (setq next (next-single-property-change (or next 1) 'markdown-hr))
+         (when (get-text-property next 'markdown-hr)
+           (goto-char next)
+           (setq bolp (bolp)
+                 before (char-before))
+           (delete-region (point) (save-excursion (forward-visible-line 1) (point)))
+           (setq after- (char-after (1+ (point))))
+           (insert
+            (concat
+             (and bolp (not (equal before ?\n)) (propertize "\n" 'face '(:height 0.5)))
+             (propertize "\n" 'face '(:height 0.5))
+             (propertize " "
+                         ;; :align-to is added with lsp-ui-doc--fix-hr-props
+                         'display- '(space :height (1))
+                         'lsp-ui-doc--replace-hr t
+                         'face `(:background ,(face-foreground 'font-lock-comment-face nil t)))
+             ;; :align-to is added here too
+             (propertize " " 'display- '(space :height (1)))
+             (and (not (equal after ?\n)) (propertize " \n" 'face '(:height 0.5)))))))))
+    (advice-add #'lsp-ui-doc--handle-hr-lines :override #'my-lsp-ui-doc--handle-hr-lines)))
+#+end_src
+
+*** Consult Integration
+
+#+begin_src emacs-lisp
+(use-package consult-lsp
+  :defer t
+  :bind (:map lsp-mode-map
+         ("C-M-." . consult-lsp-symbols)))
+#+end_src
+
+*** LSP Treemacs
+#+begin_src emacs-lisp
+(use-package lsp-treemacs
+ :after lsp-mode
+ :functions lsp-treemacs-sync-mode
+ :bind (:map lsp-mode-map
+        ("C-<f8>" . lsp-treemacs-errors-list)
+        ("M-<f8>" . lsp-treemacs-symbols)
+        ("s-<f8>" . lsp-treemacs-java-deps-list))
+ :init (lsp-treemacs-sync-mode 1)
+ :config
+ (with-eval-after-load 'ace-window
+   (when (boundp 'aw-ignored-buffers)
+     (push 'lsp-treemacs-symbols-mode aw-ignored-buffers)
+     (push 'lsp-treemacs-java-deps-mode aw-ignored-buffers)))
+
+ (with-no-warnings
+   (when (icons-displayable-p)
+     (treemacs-create-theme "lsp-nerd-icons"
+       :config
+       (progn
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-repo" :face 'nerd-icons-blue))
+          :extensions (root))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_boolean" :face 'nerd-icons-lblue))
+          :extensions (boolean-data))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_class" :face 'nerd-icons-orange))
+          :extensions (class))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_color"))
+          :extensions (color-palette))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_constant"))
+          :extensions (constant))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_file"))
+          :extensions (document))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_misc" :face 'nerd-icons-orange))
+          :extensions (enumerator))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_enum_member" :face 'nerd-icons-lblue))
+          :extensions (enumitem))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_event" :face 'nerd-icons-orange))
+          :extensions (event))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_field" :face 'nerd-icons-lblue))
+          :extensions (field))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_misc"))
+          :extensions (indexer))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_keyword"))
+          :extensions (intellisense-keyword))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_interface" :face 'nerd-icons-lblue))
+          :extensions (interface))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_variable" :face 'nerd-icons-lblue))
+          :extensions (localvariable))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_method" :face 'nerd-icons-purple))
+          :extensions (method))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_namespace" :face 'nerd-icons-lblue))
+          :extensions (namespace))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_numeric"))
+          :extensions (numeric))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_operator"))
+          :extensions (operator))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_property"))
+          :extensions (property))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_snippet"))
+          :extensions (snippet))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_string"))
+          :extensions (string))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_structure" :face 'nerd-icons-orange))
+          :extensions (structure))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_snippet"))
+          :extensions (template))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-chevron_right" :face 'nerd-icons-dsilver))
+          :extensions (collapsed) :fallback "+")
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-chevron_down" :face 'nerd-icons-dsilver))
+          :extensions (expanded) :fallback "-")
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-file_binary" :face 'nerd-icons-dsilver))
+          :extensions (classfile))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-blue))
+          :extensions (default-folder-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-blue))
+          :extensions (default-folder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-green))
+          :extensions (default-root-folder-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-green))
+          :extensions (default-root-folder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-file_binary" :face 'nerd-icons-dsilver))
+          :extensions ("class"))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-file_zip" :face 'nerd-icons-dsilver))
+          :extensions (file-type-jar))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-dsilver))
+          :extensions (folder-open))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-dsilver))
+          :extensions (folder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-orange))
+          :extensions (folder-type-component-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-orange))
+          :extensions (folder-type-component))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-green))
+          :extensions (folder-type-library-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-green))
+          :extensions (folder-type-library))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-pink))
+          :extensions (folder-type-maven-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-pink))
+          :extensions (folder-type-maven))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-orange))
+          :extensions (folder-type-package-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-orange))
+          :extensions (folder-type-package))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-add" :face 'nerd-icons-dsilver))
+          :extensions (icon-create))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-list_flat" :face 'nerd-icons-dsilver))
+          :extensions (icon-flat))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_class" :face 'nerd-icons-blue))
+          :extensions (icon-hierarchical))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-link" :face 'nerd-icons-dsilver))
+          :extensions (icon-link))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-refresh" :face 'nerd-icons-dsilver))
+          :extensions (icon-refresh))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-faicon "nf-fa-unlink" :face 'nerd-icons-dsilver))
+          :extensions (icon-unlink))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-devicon "nf-dev-java" :face 'nerd-icons-orange))
+          :extensions (jar))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-library" :face 'nerd-icons-green))
+          :extensions (library))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-lblue))
+          :extensions (packagefolder-open))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-lblue))
+          :extensions (packagefolder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-archive" :face 'nerd-icons-dsilver))
+          :extensions (package))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-repo" :face 'nerd-icons-blue))
+          :extensions (java-project))))
+
+     (setq lsp-treemacs-theme "lsp-nerd-icons"))))
+#+end_src
+
+*** LSP pyright
+#+begin_src emacs-lisp
+(use-package lsp-pyright
+  :custom (lsp-pyright-langserver-command "pyright") ;; or basedpyright
+  :hook (((python-mode python-ts-mode) . (lambda ()
+                                          (require 'lsp-pyright)
+                                          (lsp-deferred)))))  ; or lsp-deferred
+#+end_src
+
+*** Enable LSP in org babel
+#+begin_src emacs-lisp
+(cl-defmacro lsp-org-babel-enable (lang)
+  "Support LANG in org source code block."
+  (cl-check-type lang string)
+  (let* ((edit-pre (intern (format "org-babel-edit-prep:%s" lang)))
+         (intern-pre (intern (format "lsp--%s" (symbol-name edit-pre)))))
+    `(progn
+       (defun ,intern-pre (info)
+         (setq buffer-file-name (or (->> info caddr (alist-get :file))
+                                    "org-src-babel.tmp"))
+         (when (fboundp 'lsp-deferred)
+           ;; Avoid headerline conflicts
+           (setq-local lsp-headerline-breadcrumb-enable nil)
+           (lsp-deferred)))
+       (put ',intern-pre 'function-documentation
+            (format "Enable lsp-mode in the buffer of org source block (%s)."
+                    (upcase ,lang)))
+
+       (if (fboundp ',edit-pre)
+           (advice-add ',edit-pre :after ',intern-pre)
+         (progn
+           (defun ,edit-pre (info)
+             (,intern-pre info))
+           (put ',edit-pre 'function-documentation
+                (format "Prepare local buffer environment for org source block (%s)."
+                        (upcase ,lang))))))))
+
+(defconst org-babel-lang-list
+  '("go" "python" "ipython" "ruby" "js" "css" "sass" "c" "rust" "java" "cpp" "c++" "shell")
+  "The supported programming languages for interactive Babel.")
+(dolist (lang org-babel-lang-list)
+  (eval `(lsp-org-babel-enable ,lang)))
+#+end_src
+
+** DAP
+#+begin_src emacs-lisp
+(use-package dape
+  :defer t
+  :bind (("<f5>" . dape)
+         ("M-<f5>" . dape-hydra/body))
+  :custom (dape-buffer-window-arrangment 'right)
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Debug" 'codicon "nf-cod-debug")
+    :color pink :quit-key ("q" "C-g"))
+   ("Stepping"
+    (("n" dape-next "next")
+     ("s" dape-step-in "step in")
+     ("o" dape-step-out "step out")
+     ("c" dape-continue "continue")
+     ("p" dape-pause "pause")
+     ("k" dape-kill "kill")
+     ("r" dape-restart "restart")
+     ("D" dape-disconnect-quit "disconnect"))
+    "Switch"
+    (("m" dape-read-memory "memory")
+     ("t" dape-select-thread "thread")
+     ("w" dape-watch-dwim "watch")
+     ("S" dape-select-stack "stack")
+     ("i" dape-info "info")
+     ("R" dape-repl "repl"))
+    "Breakpoints"
+    (("b" dape-breakpoint-toggle "toggle")
+     ("l" dape-breakpoint-log "log")
+     ("e" dape-breakpoint-expression "expression")
+     ("B" dape-breakpoint-remove-all "clear"))
+    "Debug"
+    (("d" dape "dape")
+     ("Q" dape-quit "quit" :exit t))))
+  :config
+  ;; Save buffers on startup, useful for interpreted languages
+  (add-hook 'dape-on-start-hooks
+            (defun dape--save-on-start ()
+              (save-some-buffers t t)))
+  ;; Display hydra on startup
+  (add-hook 'dape-on-start-hooks #'dape-hydra/body))
+#+end_src
+
+** TODO Syntax Checking
+=Integrate with scimax=
+#+begin_src emacs-lisp
+(use-package flycheck
+  :defer t
+  :hook (prog-mode . flycheck-mode)
+  :config
+  (setq flycheck-emacs-lisp-load-path 'inherit)
+  (delq 'new-line flycheck-check-syntax-automatically)
+  (setq flycheck-idle-change-delay 1.0)
+  (setq flycheck-buffer-switch-check-intermediate-buffers t)
+  (setq flycheck-display-errors-delay 0.25))
+
+(use-package flycheck-posframe
+  :defer t
+  :after flycheck
+  :hook (flycheck-mode . flycheck-posframe-mode))
+#+end_src
+
+** Formatting
+#+begin_src emacs-lisp
+(use-package apheleia
+  :defer t
+  :config
+  (apheleia-global-mode +1))
+#+end_src
+
+** Prettify Symbols
+#+begin_src emacs-lisp
+(defcustom centaur-prettify-symbols-alist
+  '(("lambda" . ?λ)
+    ("<-"     . ?←)
+    ("->"     . ?→)
+    ("->>"    . ?↠)
+    ("=>"     . ?⇒)
+    ("map"    . ?↦)
+    ("/="     . ?≠)
+    ("!="     . ?≠)
+    ("=="     . ?≡)
+    ("<="     . ?≤)
+    (">="     . ?≥)
+    ("=<<"    . (?= (Br . Bl) ?≪))
+    (">>="    . (?≫ (Br . Bl) ?=))
+    ("<=<"    . ?↢)
+    (">=>"    . ?↣)
+    ("&&"     . ?∧)
+    ("||"     . ?∨)
+    ("not"    . ?¬))
+  "A list of symbol prettifications.
+Nil to use font supports ligatures."
+  :group 'centaur
+  :type '(alist :key-type string :value-type (choice character sexp)))
+
+(use-package prog-mode
+  :ensure nil
+  :hook (prog-mode . prettify-symbols-mode)
+  :init
+  (setq-default prettify-symbols-alist centaur-prettify-symbols-alist)
+  (setq prettify-symbols-unprettify-at-point 'right-edge))
+#+end_src
+
+** Tree-sitter
+#+begin_src emacs-lisp
+;; Automatic Tree-sitter grammar management
+(use-package treesit-auto
+  :defer t
+  :hook (after-init . global-treesit-auto-mode)
+  :init (setq treesit-auto-install 'prompt))
+
+;; Code folding indicators using Tree-sitter
+(use-package treesit-fold-indicators
+  :defer t
+  :ensure treesit-fold
+  :hook (after-init . global-treesit-fold-indicators-mode)
+  :init (setq treesit-fold-indicators-priority -1))
+#+end_src
+
+** Eldoc
+#+begin_src emacs-lisp
+(use-package eldoc
+  :defer t
+  :ensure nil
+  :config
+  (when (childframe-workable-p)
+    (use-package eldoc-mouse
+      :bind (:map eldoc-mouse-mode-map
+             ("C-h ." . eldoc-mouse-pop-doc-at-cursor))
+      :hook (eglot-managed-mode emacs-lisp-mode)
+      :init (setq eldoc-mouse-posframe-border-color (face-background 'posframe-border nil t))
+      :config
+      (tooltip-mode -1)                 ; Conflict with `track-mouse'
+      (add-to-list 'eldoc-mouse-posframe-override-parameters
+                   `(background-color . ,(face-background 'tooltip nil t))))))
+#+end_src
+
+** Cross Referencing Commands
+#+begin_src emacs-lisp
+(use-package xref
+  :ensure nil
+  :defer t
+  :autoload xref-show-definitions-completing-read
+  :bind (("M-g ." . xref-find-definitions)
+         ("M-g ," . xref-go-back))
+  :init
+  ;; Use faster search tool
+  (when (executable-find "rg")
+    (setq xref-search-program 'ripgrep))
+
+  ;; Select from xref candidates in minibuffer
+  (setq xref-show-definitions-function #'xref-show-definitions-completing-read
+        xref-show-xrefs-function #'xref-show-definitions-completing-read))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+ ;; Code styles
+(use-package editorconfig
+  :defer t
+  :hook (elpaca-after-init . editorconfig-mode))
+
+;; Run commands quickly
+(use-package quickrun
+  :defer t
+  :bind (("C-<f5>" . quickrun)
+         ("C-c X"  . quickrun)))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (use-package general
@@ -4009,7 +4659,19 @@ A suite of opinionated Transient UIs
     "s e" '(consult-isearch-history :wk "Search history")
     "s y" '(consult-yasnippet :wk "Yasnippet")
     "s t" '(hl-todo-occur :wk "Todo list")
-    "s T" '(hl-todo-rg-project :wk "Todo in project"))
+    "s T" '(hl-todo-rg-project :wk "Todo in project")
+
+    "s h" '(:ignore t :wk "highlight")
+    "s h h" '(symbol-overlay-put :wk "Highlight symbol")
+    "s h c" '(symbol-overlay-remove-all :wk "Clear highlights")
+    "s h n" '(symbol-overlay-jump-next :wk "Next occurrence")
+    "s h p" '(symbol-overlay-jump-prev :wk "Prev occurrence")
+    "s h d" '(symbol-overlay-jump-to-definition :wk "Jump to definition")
+    "s h r" '(symbol-overlay-rename :wk "Rename symbol")
+    "s h q" '(symbol-overlay-query-replace :wk "Query replace")
+    "s h t" '(symbol-overlay-toggle-in-scope :wk "Toggle scope")
+    "s h w" '(symbol-overlay-save-symbol :wk "Copy symbol")
+    "s h m" '(symbol-overlay-mode :wk "Symbol overlay mode"))
 
   ;; Window operations (SPC w)
   (ar/global-leader
@@ -4263,14 +4925,6 @@ A suite of opinionated Transient UIs
     "e e" '(iedit-mode :wk "Iedit mode")
     "e r" '(iedit-rectangle-mode :wk "Rectangle mode"))
 
-  ;; Symbol overlay (SPC s o)
-  (ar/global-leader
-    "s o" '(:ignore t :wk "overlay")
-    "s o o" '(symbol-overlay-put :wk "Overlay symbol")
-    "s o r" '(symbol-overlay-remove-all :wk "Remove overlays")
-    "s o n" '(symbol-overlay-jump-next :wk "Next symbol")
-    "s o p" '(symbol-overlay-jump-prev :wk "Previous symbol"))
-
   ;; Casual suite (SPC ?)
   (ar/global-leader
     "?" '(:ignore t :wk "casual")
@@ -4285,10 +4939,6 @@ A suite of opinionated Transient UIs
   ;; Treemacs (SPC 0)
   (ar/global-leader
     "0" '(treemacs-select-window :wk "Select treemacs"))
-
-  ;; ========================
-  ;; MOTION STATE BINDINGS
-  ;; ========================
 
   (general-define-key
    :states 'motion
@@ -4314,10 +4964,6 @@ A suite of opinionated Transient UIs
    "g ," 'xref-go-back
    "g ." 'xref-find-definitions)
 
-  ;; ========================
-  ;; NORMAL/VISUAL BINDINGS
-  ;; ========================
-
   (general-define-key
    :states '(normal visual)
    ;; Better navigation
@@ -4330,28 +4976,16 @@ A suite of opinionated Transient UIs
    "z" 'avy-zap-to-char-dwim
    "Z" 'avy-zap-up-to-char-dwim)
 
-  ;; ========================
-  ;; NORMAL STATE BINDINGS
-  ;; ========================
-
   (general-define-key
    :states 'normal
    ;; Undo-fu
    "u" 'undo-fu-only-undo
    "C-r" 'undo-fu-only-redo)
 
-  ;; ========================
-  ;; INSERT STATE BINDINGS
-  ;; ========================
-
   (general-define-key
    :states 'insert
    ;; Yasnippet navigation with Tab conflict resolution handled by yasnippet itself
    )
-
-  ;; ========================
-  ;; GLOBAL BINDINGS
-  ;; ========================
 
   (general-define-key
    ;; Ace-link
@@ -4361,10 +4995,6 @@ A suite of opinionated Transient UIs
    "C-`" 'popper-toggle
    "C-~" 'popper-cycle
    "M-`" 'popper-toggle-type)
-
-  ;; ========================
-  ;; DIRED MODE BINDINGS
-  ;; ========================
 
   (general-define-key
    :states 'normal
@@ -4391,10 +5021,6 @@ A suite of opinionated Transient UIs
    "(" 'dired-hide-details-mode
    ")" 'dired-omit-mode)
 
-  ;; ========================
-  ;; HELPFUL MODE BINDINGS
-  ;; ========================
-
   (general-define-key
    :states 'normal
    :keymaps 'helpful-mode-map
@@ -4403,10 +5029,6 @@ A suite of opinionated Transient UIs
    "TAB" 'forward-button
    "S-TAB" 'backward-button
    "RET" 'push-button)
-
-  ;; ========================
-  ;; PDF-VIEW MODE BINDINGS
-  ;; ========================
 
   (general-define-key
    :states 'normal
@@ -4438,10 +5060,6 @@ A suite of opinionated Transient UIs
    "b" 'pdf-view-set-slice-from-bounding-box
    "r" 'pdf-view-reset-slice
    "q" 'quit-window)
-
-  ;; ========================
-  ;; ORG MODE LOCAL LEADER
-  ;; ========================
 
   (ar/local-leader
     :keymaps 'org-mode-map
