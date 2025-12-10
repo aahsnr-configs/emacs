@@ -1,0 +1,499 @@
+ #+TITLE: Emacs Configuration
+#+AUTHOR: Ahsanur Rahman
+#+STARTUP: overview
+#+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
+
+* Core Emacs Configuration
+** Lexical Binding
+#+begin_src emacs-lisp
+;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+#+end_src
+
+** Garbage Collections
+#+begin_src emacs-lisp
+;; CRITICAL: Restore GC after startup with optimized values
+(defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
+  "Optimal GC threshold for modern LSP-heavy workflows.
+Lower this if you experience freezing, raise if stuttering.")
+
+(defvar better-gc-cons-percentage 0.1
+  "GC percentage of heap to trigger collection.")
+
+;; Restore GC settings after startup
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold better-gc-cons-threshold
+                  gc-cons-percentage better-gc-cons-percentage)
+
+            ;; FIX: Only restore file handlers if the original variable actually exists
+            (when (boundp 'file-name-handler-alist-original)
+              (setq file-name-handler-alist file-name-handler-alist-original)
+              (makunbound 'file-name-handler-alist-original))
+
+            ;; Report startup time
+            (message "Emacs loaded in %.2fs with %d GCs"
+                     (float-time (time-subtract after-init-time before-init-time))
+                     gcs-done))
+          100) ;; Run late to ensure accurate timing
+
+;; Increase GC threshold in minibuffer to prevent slowdowns during completion
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (defun gc-minibuffer-setup-hook ()
+              (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
+
+            (defun gc-minibuffer-exit-hook ()
+              (garbage-collect)
+              (setq gc-cons-threshold better-gc-cons-threshold))
+
+            (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
+            (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
+#+end_src
+
+** Custom Functions
+#+begin_src emacs-lisp
+(defun childframe-workable-p ()
+  "Whether childframe is workable."
+  (and (>= emacs-major-version 26)
+       (not noninteractive)
+       (not emacs-basic-display)
+       (or (display-graphic-p)
+           (featurep 'tty-child-frames))
+       (eq (frame-parameter (selected-frame) 'minibuffer) 't)))
+
+(defun childframe-completion-workable-p ()
+  "Whether childframe completion is workable."
+  (and (eq centaur-completion-style 'childframe)
+       (childframe-workable-p)))
+
+(defun icons-displayable-p ()
+  "Return non-nil if icons are displayable."
+  (and centaur-icon
+       (or (featurep 'nerd-icons)
+           (require 'nerd-icons nil t))))
+
+(defun too-long-file-p ()
+  "Check whether the file is too long."
+  (or (> (buffer-size) 500000)
+      (and (fboundp 'buffer-line-statistics)
+           (> (car (buffer-line-statistics)) 10000))))
+#+end_src
+
+** Constants
+#+begin_src emacs-lisp
+;; init-const.el --- Define constants.	-*- lexical-binding: t -*-
+
+;; Copyright (C) 2006-2025 Vincent Zhang
+
+;; Author: Vincent Zhang <seagle0128@gmail.com>
+;; URL: https://github.com/seagle0128/.emacs.d
+
+;; This file is not part of GNU Emacs.
+;;
+;; This program is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU General Public License as
+;; published by the Free Software Foundation; either version 3, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+;;
+
+;;; Commentary:
+;;
+;; Define constants.
+;;
+
+;;; Code:
+
+(defconst sys/linuxp
+  (eq system-type 'gnu/linux)
+  "Are we running on a GNU/Linux system?")
+
+(defconst sys/rootp
+  (string-equal "root" (getenv "USER"))
+  "Are you using ROOT user?")
+
+(defconst emacs/>=29p
+  (>= emacs-major-version 29)
+  "Emacs is 29 or above.")
+
+(defconst emacs/>=29.2p
+  (and (>= emacs-major-version 29)
+       (>= emacs-minor-version 2))
+  "Emacs is 29.2 or above.")
+
+(defconst emacs/>=30p
+  (>= emacs-major-version 30)
+  "Emacs is 30 or above.")
+
+(defconst emacs/>=31p
+  (>= emacs-major-version 31)
+  "Emacs is 31 or above.")
+#+end_src
+
+** Package Management
+#+begin_src emacs-lisp
+(defvar elpaca-installer-version 0.11)
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
+(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+                              :ref nil :depth 1 :inherit ignore
+                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+                              :build (:not elpaca--activate-package)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28) (require 'subr-x))
+    (condition-case-unless-debug err
+        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+                                                  ,@(when-let* ((depth (plist-get order :depth)))
+                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
+                                                  ,(plist-get order :repo) ,repo))))
+                  ((zerop (call-process "git" nil buffer t "checkout"
+                                        (or (plist-get order :ref) "--"))))
+                  (emacs (concat invocation-directory invocation-name))
+                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                  ((require 'elpaca))
+                  ((elpaca-generate-autoloads "elpaca" repo)))
+            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+          (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
+
+;; Install use-package support
+(elpaca elpaca-use-package
+  ;; Enable use-package :ensure support for Elpaca.
+  (elpaca-use-package-mode))
+
+
+(eval-and-compile
+  (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
+        use-package-expand-minimally t
+        use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
+        ;;use-package-always-defer t
+        use-package-always-ensure t
+        use-package-enable-imenu-support t))
+
+(eval-when-compile
+  (require 'use-package)
+  (require 'bind-key))
+#+end_src
+
+#+RESULTS:
+: bind-key
+** Performance Tuning
+#+begin_src emacs-lisp
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
+
+
+(setq-default bidi-display-reordering nil
+              bidi-paragraph-direction 'left-to-right
+              bidi-inhibit-bpa t)
+
+;; Apply to common modes
+(defun my/bidi-optimizations ()
+  "Apply bidi optimizations for current buffer."
+  (setq-local bidi-paragraph-direction 'left-to-right
+              bidi-inhibit-bpa t))
+
+(add-hook 'org-mode-hook #'my/bidi-optimizations)
+(add-hook 'text-mode-hook #'my/bidi-optimizations)
+(add-hook 'prog-mode-hook #'my/bidi-optimizations)
+
+(setq-default long-line-threshold 1000
+              large-hscroll-threshold 1000
+              syntax-wholeline-max 1000)
+
+(setq undo-limit 800000           ;; 800KB (default: 160KB)
+      undo-strong-limit 1200000   ;; 1.2MB (default: 240KB)
+      undo-outer-limit 120000000) ;; 120MB (default: 24MB)
+
+(setq scroll-conservatively 101
+      scroll-margin 0
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil
+      fast-but-imprecise-scrolling t  ;; Trade accuracy for speed
+      redisplay-skip-fontification-on-input t)  ;; Skip during rapid input
+
+(setq highlight-nonselected-windows nil)
+(setq blink-cursor-mode nil)
+
+(setq frame-resize-pixelwise t)
+(setq window-resize-pixelwise nil)
+
+(setq byte-compile-warnings '(not obsolete))
+(setq native-comp-async-report-warnings-errors 'silent)
+
+(setq ffap-machine-p-known 'reject)
+
+(setq inhibit-compacting-font-caches t)  ;; Don't compact font cache
+#+end_src
+
+** Small Configs
+#+begin_src emacs-lisp
+;; Move backup files to dedicated directory
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+
+;; Confirmation settings
+(setq confirm-kill-processes nil)  ;; Auto-kill processes on exit
+
+;; Faster echo of keystrokes
+(setq echo-keystrokes 0.1)
+
+;; Don't create lockfiles
+(setq-default create-lockfiles nil)
+
+;; Compilation settings
+(setq-default compilation-always-kill t
+              compilation-ask-about-save nil
+              compilation-scroll-output t)
+
+;; Suppress redefinition warnings
+(setq ad-redefinition-action 'accept)
+
+;; Custom file location
+(setq custom-file (concat user-emacs-directory "custom.el"))
+(load custom-file 'noerror)
+
+;; Require final newline
+(setq require-final-newline t)
+
+;; Enable commands
+(put 'erase-buffer 'disabled nil)
+
+;; Global modes
+(global-hl-line-mode 1)
+(delete-selection-mode 1)
+
+;; File associations
+(add-to-list 'auto-mode-alist '("\\.in\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.out\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.args\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.bb\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.bbclass\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.Rmd\\'" . markdown-mode))
+
+;; Alt key mapping
+(setq x-alt-keysym 'meta)
+#+end_src
+
+** Garbage Collector Magic Hack
+#+begin_src emacs-lisp
+(use-package gcmh
+  :hook (emacs-startup . gcmh-mode)
+  :init
+  (setq gcmh-idle-delay 'auto
+        gcmh-auto-idle-delay-factor 10
+        gcmh-high-cons-threshold #x1000000)) ; 16MB
+#+end_src
+
+** UTF-8 Coding System
+#+begin_src emacs-lisp
+(set-selection-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(set-language-environment "UTF-8")
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(setq locale-coding-system 'utf-8)
+;; Treat clipboard input as UTF-8 string first; compound text next, etc.
+(when (display-graphic-p)
+  (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
+#+end_src
+
+** Environment
+#+begin_src emacs-lisp
+(use-package exec-path-from-shell
+  :defer t
+  :custom
+  (exec-path-from-shell-variables
+   '("PATH" "MANPATH"
+     "OPENAI_API_KEY" "ANTHROPIC_API_KEY"
+     "XAI_API_KEY" "DEEPSEEK_API_KEY"
+     "OPENROUTER_API_KEY" "GEMINI_API_KEY"))
+  :config
+  (when (daemonp)
+    (exec-path-from-shell-initialize)))
+#+end_src
+
+** Session Management
+#+begin_src emacs-lisp
+;; Save place
+(use-package saveplace
+  :ensure nil
+  :hook (after-init . save-place-mode))
+
+;; History
+(use-package recentf
+  :ensure nil
+  :hook (after-init . recentf-mode)
+  :init (setq recentf-max-saved-items 300
+              recentf-exclude
+              '("\\.?cache" ".cask" "url" "COMMIT_EDITMSG\\'" "bookmarks"
+                "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
+                "\\.?ido\\.last$" "\\.revive$" "/G?TAGS$" "/.elfeed/"
+                "^/tmp/" "^/var/folders/.+$" "^/ssh:" "/persp-confs/"
+                (lambda (file) (file-in-directory-p file package-user-dir))))
+  :config
+  (push (expand-file-name recentf-save-file) recentf-exclude)
+  (add-to-list 'recentf-filename-handlers #'abbreviate-file-name))
+
+(use-package savehist
+  :ensure nil
+  :hook (after-init . savehist-mode)
+  :init (setq enable-recursive-minibuffers t ; Allow commands in minibuffers
+              history-length 1000
+              savehist-additional-variables '(mark-ring
+                                              global-mark-ring
+                                              search-ring
+                                              regexp-search-ring
+                                              extended-command-history)
+              savehist-autosave-interval 300))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+ ;; ;; Start server
+;; (use-package server
+;;   :if centaur-server
+;;   :hook (after-init . server-mode))
+
+;; ;; Misc.
+(use-package simple
+  :ensure nil
+  :hook ((after-init . size-indication-mode)
+         (text-mode . visual-line-mode)
+         ((prog-mode markdown-mode conf-mode) . enable-trailing-whitespace))
+  :init
+  (setq column-number-mode t
+        line-number-mode t
+        kill-whole-line t               ; Kill line including '\n'
+        line-move-visual nil
+        track-eol t                     ; Keep cursor at end of lines. Require line-move-visual is nil.
+        set-mark-command-repeat-pop t)  ; Repeating C-SPC after popping mark pops it again
+
+  ;; Visualize TAB, (HARD) SPACE, NEWLINE
+  (setq-default show-trailing-whitespace nil) ; Don't show trailing whitespace by default
+  (defun enable-trailing-whitespace ()
+    "Show trailing spaces and delete on saving."
+    (setq show-trailing-whitespace t)
+    (add-hook 'before-save-hook #'delete-trailing-whitespace nil t))
+
+  ;; Prettify the process list
+  (with-no-warnings
+    (defun my-list-processes--prettify ()
+      "Prettify process list."
+      (when-let* ((entries tabulated-list-entries))
+        (setq tabulated-list-entries nil)
+        (dolist (p (process-list))
+          (when-let* ((val (cadr (assoc p entries)))
+                      (name (aref val 0))
+                      (pid (aref val 1))
+                      (status (aref val 2))
+                      (status (list status
+                                    'face
+                                    (if (memq status '(stop exit closed failed))
+                                        'error
+                                      'success)))
+                      (buf-label (aref val 3))
+                      (tty (list (aref val 4) 'face 'font-lock-doc-face))
+                      (thread (list (aref val 5) 'face 'font-lock-doc-face))
+                      (cmd (list (aref val 6) 'face 'completions-annotations)))
+            (push (list p (vector name pid status buf-label tty thread cmd))
+		          tabulated-list-entries)))))
+    (advice-add #'list-processes--refresh :after #'my-list-processes--prettify)))
+
+;; Misc
+(if (boundp 'use-short-answers)
+    (setq use-short-answers t)
+  (fset 'yes-or-no-p 'y-or-n-p))
+(setq-default major-mode 'text-mode
+              fill-column 80
+              tab-width 4
+              indent-tabs-mode nil)     ; Permanently indent with spaces, never with TABs
+
+(setq visible-bell t
+      inhibit-compacting-font-caches t  ; Don’t compact font caches during GC
+      delete-by-moving-to-trash t       ; Deleting files go to OS's trash folder
+      make-backup-files nil             ; Forbide to make backup files
+      auto-save-default nil             ; Disable auto save
+
+      uniquify-buffer-name-style 'post-forward-angle-brackets ; Show path if names are same
+      adaptive-fill-regexp "[ t]+|[ t]*([0-9]+.|*+)[ t]*"
+      adaptive-fill-first-line-regexp "^* *$"
+      sentence-end "\\([。！？]\\|……\\|[.?!][]\"')}]*\\($\\|[ \t]\\)\\)[ \t\n]*"
+      sentence-end-double-space nil
+      word-wrap-by-category t)
+#+end_src
+
+** Async
+#+begin_src emacs-lisp
+(use-package async
+  :functions (async-bytecomp-package-mode dired-async-mode)
+  :init
+  (async-bytecomp-package-mode 1)
+  (dired-async-mode 1))
+#+end_src
+
+** Frame
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  ;; Frame transparence
+  (use-package transwin))
+#+end_src
+
+** Child Frame
+#+begin_src emacs-lisp
+(use-package posframe
+  :hook (after-load-theme . posframe-delete-all)
+  :init
+  (defface posframe-border
+    `((t (:inherit region)))
+    "Face used by the `posframe' border."
+    :group 'posframe)
+  (defvar posframe-border-width 2
+    "Default posframe border width.")
+  :config
+  (with-no-warnings
+    (defun my-posframe--prettify-frame (&rest _)
+      (set-face-background 'fringe nil posframe--frame))
+    (advice-add #'posframe--create-posframe :after #'my-posframe--prettify-frame)
+
+    (defun posframe-poshandler-frame-center-near-bottom (info)
+      (cons (/ (- (plist-get info :parent-frame-width)
+                  (plist-get info :posframe-width))
+               2)
+            (/ (+ (plist-get info :parent-frame-height)
+                  (* 2 (plist-get info :font-height)))
+               2)))))
+#+end_src
+
+** Setup User
+#+begin_src emacs-lisp
+(setq user-full-name "Ahsanur Rahman"
+      user-mail-address "ahsanur041@proton.me")
+#+end_src
