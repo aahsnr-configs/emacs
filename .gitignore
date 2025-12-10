@@ -20,4 +20,8 @@ projectile-bookmarks.eld
 backup
 transient/
 elpaca/
+.persistent-scratch
 .lsp-session-v1
+tabsession.el
+.mc-lists.el
+persistent-scratch/

@@ -1685,6 +1685,8 @@ Lower this if you experience freezing, raise if stuttering.")
 VERTical Interactive COmpletion
 #+begin_src emacs-lisp
 (use-package vertico
+  :ensure (:wait t)
+  :demand t
   :custom
   (vertico-count 10)
   (vertico-resize nil)
@@ -1701,6 +1703,8 @@ VERTical Interactive COmpletion
 Enrich existing commands with completion annotations
 #+begin_src emacs-lisp
 (use-package marginalia
+  :ensure (:wait t)
+  :demand t
   :hook (after-init . marginalia-mode)
   :config
   (setq marginalia-max-relative-age 0 ; Always show absolute time
@@ -1930,6 +1934,8 @@ targets."
 ** Corfu
 #+begin_src emacs-lisp
 (use-package corfu
+  :ensure (:wait t)
+  :demand t
   :autoload (corfu-quit consult-completion-in-region)
   :functions (persistent-scratch-save corfu-move-to-minibuffer)
   :custom
@@ -2132,69 +2138,69 @@ deletion, or > if it is flagged for displaying."
 
 * Dashboard
 #+begin_src emacs-lisp
-(use-package dashboard
-  :ensure t
-  :custom-face
-  (dashboard-heading ((t (:inherit default :weight bold))))
-  (dashboard-items-face ((t (:inherit default :height 0.9))))
-  :config
-  ;; 1. Layout & Basic Settings
-  (setq dashboard-startup-banner 'logo)
-  (setq dashboard-center-content t)
-  (setq dashboard-vertically-center-content t)
-  (setq dashboard-init-info-message-format "Loaded %d packages in %.2f seconds")
+;; (use-package dashboard
+;;   :ensure t
+;;   :custom-face
+;;   (dashboard-heading ((t (:inherit default :weight bold))))
+;;   (dashboard-items-face ((t (:inherit default :height 0.9))))
+;;   :config
+;;   ;; 1. Layout & Basic Settings
+;;   (setq dashboard-startup-banner 'logo)
+;;   (setq dashboard-center-content t)
+;;   (setq dashboard-vertically-center-content t)
+;;   (setq dashboard-init-info-message-format "Loaded %d packages in %.2f seconds")
 
-  ;; 2. Icons & Aesthetics (Matches your nerd-icons setup)
-  (setq dashboard-display-icons-p t)
-  (setq dashboard-icon-type 'nerd-icons)
-  (setq dashboard-set-heading-icons t)
-  (setq dashboard-set-file-icons t)
+;;   ;; 2. Icons & Aesthetics (Matches your nerd-icons setup)
+;;   (setq dashboard-display-icons-p t)
+;;   (setq dashboard-icon-type 'nerd-icons)
+;;   (setq dashboard-set-heading-icons t)
+;;   (setq dashboard-set-file-icons t)
 
-  ;; Modern, minimal heading icons
-  (setq dashboard-heading-icons
-        '((recents   . "nf-oct-history")
-          (bookmarks . "nf-oct-bookmark")
-          (agenda    . "nf-oct-calendar")
-          (projects  . "nf-oct-rocket")
-          (registers . "nf-oct-database")))
+;;   ;; Modern, minimal heading icons
+;;   (setq dashboard-heading-icons
+;;         '((recents   . "nf-oct-history")
+;;           (bookmarks . "nf-oct-bookmark")
+;;           (agenda    . "nf-oct-calendar")
+;;           (projects  . "nf-oct-rocket")
+;;           (registers . "nf-oct-database")))
 
-  ;; 3. Content Management
-  (setq dashboard-items '((recents  . 5)
-                          (projects . 3)
-                          (bookmarks . 3)
-                          (agenda   . 3)))
+;;   ;; 3. Content Management
+;;   (setq dashboard-items '((recents  . 5)
+;;                           (projects . 3)
+;;                           (bookmarks . 3)
+;;                           (agenda   . 3)))
 
-  ;; 4. Project Backend (Defaults to built-in project.el if projectile is missing)
-  (setq dashboard-projects-backend 'project-el)
+;;   ;; 4. Project Backend (Defaults to built-in project.el if projectile is missing)
+;;   (setq dashboard-projects-backend 'project-el)
 
-  ;; 5. Navigator (Customized for your Elpaca & Tabspaces workflow)
-  (setq dashboard-set-navigator t)
-  (setq dashboard-navigator-buttons
-        `(;; Row 1
-          ((,(nerd-icons-octicon "nf-oct-gear" :height 1.1 :v-adjust 0.0)
-            "Config"
-            "Open Configuration (Org)"
-            (lambda (&rest _) (find-file (expand-file-name "emacs.txt" user-emacs-directory))))
+;;   ;; 5. Navigator (Customized for your Elpaca & Tabspaces workflow)
+;;   (setq dashboard-set-navigator t)
+;;   (setq dashboard-navigator-buttons
+;;         `(;; Row 1
+;;           ((,(nerd-icons-octicon "nf-oct-gear" :height 1.1 :v-adjust 0.0)
+;;             "Config"
+;;             "Open Configuration (Org)"
+;;             (lambda (&rest _) (find-file (expand-file-name "emacs.txt" user-emacs-directory))))
 
-           (,(nerd-icons-octicon "nf-oct-package" :height 1.1 :v-adjust 0.0)
-            "Updates"
-            "Elpaca Manager"
-            (lambda (&rest _) (elpaca-manager)))
+;;            (,(nerd-icons-octicon "nf-oct-package" :height 1.1 :v-adjust 0.0)
+;;             "Updates"
+;;             "Elpaca Manager"
+;;             (lambda (&rest _) (elpaca-manager)))
 
-           (,(nerd-icons-octicon "nf-oct-server" :height 1.1 :v-adjust 0.0)
-            "Restore"
-            "Restore Last Session"
-            (lambda (&rest _) (tabspaces-restore-session))))))
+;;            (,(nerd-icons-octicon "nf-oct-server" :height 1.1 :v-adjust 0.0)
+;;             "Restore"
+;;             "Restore Last Session"
+;;             (lambda (&rest _) (tabspaces-restore-session))))))
 
-  ;; 6. Footer
-  (setq dashboard-set-footer nil)
-  (setq dashboard-footer-messages '("Happy Hacking, Ahsanur!"))
+;;   ;; 6. Footer
+;;   (setq dashboard-set-footer nil)
+;;   (setq dashboard-footer-messages '("Happy Hacking, Ahsanur!"))
 
-  ;; 7. Startup Hooks
-  (dashboard-setup-startup-hook)
+;;   ;; 7. Startup Hooks
+;;   (dashboard-setup-startup-hook)
 
-  ;; Ensure dashboard opens in emacsclient
-  (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
+;;   ;; Ensure dashboard opens in emacsclient
+;;   (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
 #+end_src
 
 * Dired
@@ -2636,7 +2642,7 @@ FACE defaults to inheriting from default and highlight."
 
   ;; Session management settings
   (tabspaces-session t)
-  (tabspaces-session-auto-restore (not centaur-dashboard))
+  (tabspaces-session-auto-restore t)
 
   :config
   (with-no-warnings
@@ -3018,3 +3024,1447 @@ Enforce rules for popups
     (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
 #+end_Src
 
+* Treemacs
+#+begin_src emacs-lisp
+(use-package treemacs
+  :defer t
+  :commands (treemacs-follow-mode
+             treemacs-filewatch-mode
+             treemacs-git-mode)
+  :custom-face
+  (cfrs-border-color ((t (:inherit posframe-border))))
+  :custom
+  (treemacs-width 30)
+  (treemacs-position 'left)
+  (treemacs-is-never-other-window t)
+  (treemacs-space-between-root-nodes t)
+  (treemacs-silent-refresh t)
+  (treemacs-silent-filewatch t)
+  (treemacs-file-follow-delay 0.2)
+  :config
+  (treemacs-follow-mode t)
+  (treemacs-filewatch-mode t)
+  (treemacs-fringe-indicator-mode 'always)
+
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null (executable-find "python3"))))
+    (`(t . t) (treemacs-git-mode 'deferred))
+    (`(t . _) (treemacs-git-mode 'simple))))
+
+(use-package treemacs-nerd-icons
+  :functions treemacs-load-theme
+  :config (treemacs-load-theme "nerd-icons"))
+
+(use-package treemacs-magit
+  :after treemacs
+  :hook ((magit-post-commit
+          git-commit-post-finish
+          magit-post-stage
+          magit-post-unstage)
+         . treemacs-magit--schedule-update))
+
+(use-package treemacs-tab-bar
+  :after treemacs
+  :functions treemacs-set-scope-type
+  :config (treemacs-set-scope-type 'Tabs))
+
+(use-package treemacs-evil
+  :after (treemacs evil)
+  :config
+  (evil-define-key 'normal treemacs-mode-map
+    (kbd "TAB") #'treemacs-TAB-action
+    (kbd "o")   #'treemacs-visit-node-ace
+    (kbd "q")   #'treemacs-quit))
+#+end_src
+
+* Markdown
+#+begin_src emacs-lisp
+(use-package markdown-mode
+  :defer t
+  :mode (("README\\.md\\'" . gfm-mode))
+  :init
+  (setq markdown-enable-wiki-links t
+        markdown-italic-underscore t
+        markdown-asymmetric-header t
+        markdown-make-gfm-checkboxes-buttons t
+        markdown-gfm-uppercase-checkbox t
+        markdown-fontify-code-blocks-natively t
+
+        markdown-content-type "application/xhtml+xml"
+        markdown-css-paths '("https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"
+                             "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css")
+        markdown-xhtml-header-content "
+<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
+<style>
+body {
+  box-sizing: border-box;
+  max-width: 740px;
+  width: 100%;
+  margin: 40px auto;
+  padding: 0 10px;
+}
+</style>
+
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/default.min.css'>
+<script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.add('markdown-body');
+  document.querySelectorAll('pre code').forEach((code) => {
+    if (code.className != 'mermaid') {
+      hljs.highlightBlock(code);
+    }
+  });
+});
+</script>
+
+<script src='https://unpkg.com/mermaid@8.4.8/dist/mermaid.min.js'></script>
+<script>
+mermaid.initialize({
+  theme: 'default',  // default, forest, dark, neutral
+  startOnLoad: true
+});
+</script>
+"
+        markdown-gfm-additional-languages "Mermaid")
+
+  ;; `multimarkdown' is necessary for `highlight.js' and `mermaid.js'
+  (when (executable-find "multimarkdown")
+    (setq markdown-command "multimarkdown"))
+  :config
+  ;; Support `mermaid'
+  (add-to-list 'markdown-code-lang-modes '("mermaid" . mermaid-mode))
+
+  (with-no-warnings
+    ;; Use `which-key' instead
+    (advice-add #'markdown--command-map-prompt :override #'ignore)
+    (advice-add #'markdown--style-map-prompt   :override #'ignore)
+
+   ))
+
+;; Table of contents
+(use-package markdown-toc
+  :defer t
+  :bind (:map markdown-mode-command-map
+         ("r" . markdown-toc-generate-or-refresh-toc))
+  :hook (markdown-mode . markdown-toc-mode)
+  :init (setq markdown-toc-indentation-space 2
+              markdown-toc-header-toc-title "\n## Table of Contents"
+              markdown-toc-user-toc-structure-manipulation-fn 'cdr)
+  :config
+  (with-no-warnings
+    (define-advice markdown-toc-generate-toc (:around (fn &rest args) lsp)
+      "Generate or refresh toc after disabling lsp."
+      (cond
+       ((bound-and-true-p lsp-managed-mode)
+        (lsp-managed-mode -1)
+        (apply fn args)
+        (lsp-managed-mode 1))
+       ((bound-and-true-p eglot--manage-mode)
+        (eglot--manage-mode -1)
+        (apply fn args)
+        (eglot--manage-mode 1))
+       (t
+        (apply fn args))))))
+
+;; Preview markdown files
+;; @see https://github.com/seagle0128/grip-mode?tab=readme-ov-file#prerequisite
+(use-package grip-mode
+  :defer t
+  :defines markdown-mode-command-map org-mode-map grip-update-after-change grip-use-mdopen
+  :functions auth-source-user-and-password
+  :autoload grip-mode
+  :init
+  (with-eval-after-load 'markdown-mode
+    (bind-key "g" #'grip-mode markdown-mode-command-map))
+
+  (with-eval-after-load 'org
+    (bind-key "C-c C-g" #'grip-mode org-mode-map))
+
+  (setq grip-update-after-change nil)
+
+  ;; mdopen doesn't need credentials, and only support external browsers
+  (if (executable-find "mdopen")
+      (setq grip-use-mdopen t)
+    (when-let* ((credential (and (require 'auth-source nil t)
+                                 (auth-source-user-and-password "api.github.com"))))
+      (setq grip-github-user (car credential)
+            grip-github-password (cadr credential)))))
+#+end_src
+
+* TODO Org Mode
+*Integrate with evil*
+** Dynamic Directory Structure
+#+begin_src emacs-lisp
+;; Define base directory
+(defvar my/org-directory (expand-file-name "~/org/")
+  "Base directory for all org files.")
+
+;; Define subdirectories relative to base
+(defvar my/org-subdirs
+  '("roam" "downloads" "noter" "archive"
+    "roam/projects" "roam/literature" "roam/ideas" "roam/zettel"
+    "attachments" "reviews" "backups")
+  "List of subdirectories to create under `my/org-directory'.")
+
+;; Helper function to get org subdirectory paths
+(defun my/org-subdir (subdir)
+  "Return full path for SUBDIR under `my/org-directory'."
+  (expand-file-name subdir my/org-directory))
+
+;; Lazy directory creation - only when needed
+(defun my/ensure-org-dir (subdir)
+  "Ensure SUBDIR exists under `my/org-directory'."
+  (let ((dir (my/org-subdir subdir)))
+    (unless (file-directory-p dir)
+      (make-directory dir t))
+    dir))
+
+;; Create all directories at startup
+(mapc #'my/ensure-org-dir my/org-subdirs)
+
+;; Define convenience variables
+(defvar my/org-roam-directory (my/org-subdir "roam/"))
+(defvar my/org-downloads-directory (my/org-subdir "downloads/"))
+(defvar my/org-noter-directory (my/org-subdir "noter/"))
+(defvar my/org-archive-directory (my/org-subdir "archive/"))
+#+end_src
+
+** Better Font Faces
+#+begin_src emacs-lisp
+(defun ar/org-font-setup ()
+  ;; Replace list hyphen with dot
+  (font-lock-add-keywords 'org-mode
+                          '(("^ *\\([-]\\) "
+                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+
+  ;; Set faces for heading levels
+  (dolist (face '((org-level-1 . 1.20)
+                  (org-level-2 . 1.13)
+                  (org-level-3 . 1.10)
+                  (org-level-4 . 1.07)
+                  (org-level-5 . 1.05)
+                  (org-level-6 . 1.03)
+                  (org-level-7 . 1.02)
+                  (org-level-8 . 1)))
+    (set-face-attribute (car face) nil :font "JetBrains Mono" :weight 'bold :height (cdr face))))
+#+end_src
+
+** Core Configuration
+=Disable large file optimizations for now=
+=add redisplay inline images=
+#+begin_src emacs-lisp
+(use-package org
+  :ensure nil
+  :pretty-hydra
+  ;; See `org-structure-template-alist'
+  ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
+    :color blue :quit-key ("q" "C-g"))
+   ("Basic"
+    (("a" (hot-expand "<a") "ascii")
+     ("c" (hot-expand "<c") "center")
+     ("C" (hot-expand "<C") "comment")
+     ("x" (hot-expand "<e") "example")
+     ("E" (hot-expand "<E") "export")
+     ("h" (hot-expand "<h") "html")
+     ("l" (hot-expand "<l") "latex")
+     ("n" (hot-expand "<n") "note")
+     ("o" (hot-expand "<q") "quote")
+     ("v" (hot-expand "<v") "verse"))
+    "Head"
+    (("i" (hot-expand "<i") "index")
+     ("A" (hot-expand "<A") "ASCII")
+     ("I" (hot-expand "<I") "INCLUDE")
+     ("H" (hot-expand "<H") "HTML")
+     ("L" (hot-expand "<L") "LaTeX"))
+    "Source"
+    (("s" (hot-expand "<s") "src")
+     ("e" (hot-expand "<s" "emacs-lisp") "emacs-lisp")
+     ("y" (hot-expand "<s" "python :results output") "python")
+     ("p" (hot-expand "<s" "perl") "perl")
+     ("w" (hot-expand "<s" "powershell") "powershell")
+     ("r" (hot-expand "<s" "ruby") "ruby")
+     ("S" (hot-expand "<s" "sh") "sh")
+     ("g" (hot-expand "<s" "go :imports '\(\"fmt\"\)") "golang"))
+    "Misc"
+    (("m" (hot-expand "<s" "mermaid :file chart.png") "mermaid")
+     ("u" (hot-expand "<s" "plantuml :file chart.png") "plantuml")
+     ("Y" (hot-expand "<s" "ipython :session :exports both :results raw drawer\n$0") "ipython")
+     ("P" (progn
+            (insert "#+HEADERS: :results output :exports both :shebang \"#!/usr/bin/env perl\"\n")
+            (hot-expand "<s" "perl")) "Perl tangled")
+     ("<" self-insert-command "ins"))))
+
+  :bind (:map org-mode-map
+         ("<" . (lambda ()
+                  "Insert org template."
+                  (interactive)
+                  (if (or (region-active-p) (looking-back "^\s*" 1))
+                      (org-hydra/body)
+                    (self-insert-command 1)))))
+
+  :hook ((org-mode . (lambda ()
+                       (electric-indent-local-mode -1)
+                       (evil-define-key 'normal org-mode-map (kbd "TAB") 'org-cycle)))
+
+	     (org-mode . visual-line-mode)
+	     (org-mode . ar/org-font-setup)
+	     (org-mode . auto-fill-mode)
+         (org-mode . (lambda () (setq-local yas-parents '(latex-mode))))
+	     (org-agenda-mode . (lambda ()
+                              (visual-line-mode -1)
+                              (toggle-truncate-lines 1)
+                              (display-line-numbers-mode -1)
+                              (setq mode-line-format nil)
+                              (setq header-line-format nil)))
+	     (org-capture-mode . (lambda ()
+                               (setq mode-line-format nil)
+                               (setq header-line-format nil))))
+
+  :custom
+  (org-modules nil)
+  (org-directory my/org-directory)
+  (org-log-done 'time)
+  (org-pretty-entities t)
+  (org-log-into-drawer t)
+  (org-return-follows-link t)
+  (org-src-fontify-natively t)
+  (org-element-use-cache t)
+  (org-hide-leading-stars t)
+  (org-hide-emphasis-markers t)
+  (org-element-cache-persistent t)
+  ;; (org-fontify-quote-and-verse-blocks nil)
+  ;; (org-fontify-whole-heading-line nil)
+  ;; (org-fontify-done-headline nil)
+  (org-highlight-latex-and-related nil)
+  (org-src-preserve-indentation t)
+  (org-edit-src-content-indentation 0)
+  (org-startup-folded 'overview)
+  (org-startup-with-inline-images nil)
+  (org-startup-with-latex-preview nil)
+  (org-cycle-separator-lines 2)
+
+  (org-todo-keywords
+   '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w@/!)" "|" "DONE(d!)" "CANCEL(c@)")
+	 (sequence "PLAN(P)" "ACTIVE(A)" "PAUSED(x)" "|" "ACHIEVED(a)" "DROPPED(D)")))
+
+  (org-todo-keyword-faces
+   '(("TODO"      . (:foreground "#f7768e" :weight bold))
+     ("NEXT"      . (:foreground "#ff9e64" :weight bold))
+     ("PROG"      . (:foreground "#7aa2f7" :weight bold))
+     ("WAIT"      . (:foreground "#e0af68" :weight bold))
+     ("DONE"      . (:foreground "#9ece6a" :weight bold))
+     ("CANCEL"    . (:foreground "#565f89" :weight bold))
+     ("PLAN"      . (:foreground "#7dcfff" :weight bold))
+     ("ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+     ("PAUSED"    . (:foreground "#a9b1d6" :weight bold))
+     ("ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
+     ("DROPPED"   . (:foreground "#565f89" :weight bold))))
+
+  (org-tag-alist '(("@work"      . ?w)
+		   ("@home"      . ?h)
+		   ("@computer"  . ?c)
+		   ("@errands"   . ?e)
+		   ("read"       . ?r)
+		   ("meeting"    . ?m)
+		   ("urgent"     . ?u)
+		   ("someday"    . ?s)))
+
+
+  (org-priority-faces '((?A . error)
+                        (?B . warning)
+                        (?C . success)))
+
+  ;; Agenda styling
+  (org-agenda-files (list my/org-directory))
+  (org-agenda-block-separator ?─)
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (800 1000 1200 1400 1600 1800 2000)
+     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+  (org-agenda-current-time-string
+   "⭠ now ─────────────────────────────────────────────────")
+  (org-agenda-inhibit-startup t)
+  (org-agenda-dim-blocked-tasks nil)
+  (org-agenda-use-tag-inheritance nil)
+  (org-agenda-ignore-properties '(effort appt category))
+  (org-agenda-span 'day)
+  (org-tags-column -80)
+  (org-catch-invisible-edits 'smart)
+
+  :config
+  (defun hot-expand (str &optional mod)
+    (let (text)
+      (when (region-active-p)
+        (setq text (buffer-substring (region-beginning) (region-end)))
+        (delete-region (region-beginning) (region-end)))
+      (insert str)
+      (if (fboundp 'org-try-structure-completion)
+          (org-try-structure-completion) ; < org 9
+        (progn
+          ;; New template expansion since org 9
+          (require 'org-tempo nil t)
+          (org-tempo-complete-tag)))
+      (when mod (insert mod) (forward-line))
+      (when text (insert text))))
+
+  ;; Babel
+  (setq org-confirm-babel-evaluate nil
+        org-src-fontify-natively t
+        org-src-tab-acts-natively t)
+
+  (defconst load-language-alist
+    '((emacs-lisp . t)
+      (perl       . t)
+      (python     . t)
+      (ruby       . t)
+      (js         . t)
+      (css        . t)
+      (sass       . t)
+      (C          . t)
+      (java       . t)
+      (shell      . t)
+      (plantuml   . t))
+    "Alist of org ob languages.")
+
+  (org-babel-do-load-languages 'org-babel-load-languages
+                               load-language-alist)
+
+  (org-babel-do-load-languages 'org-babel-load-languages
+                               load-language-alist)
+
+  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+  (add-to-list 'org-structure-template-alist '("py" . "src python"))
+  (add-to-list 'org-structure-template-alist '("jpy" . "src jupyter-python"))
+  (add-to-list 'org-structure-template-alist '("tex" . "src latex")))
+#+end_src
+
+** Org Rich Yank
+#+begin_src emacs-lisp
+(use-package org-rich-yank
+  :defer t
+  :after org
+  :bind (:map org-mode-map
+         ("C-M-y" . org-rich-yank)))
+#+end_src
+
+** Org Appear
+#+begin_src emacs-lisp
+(use-package org-appear
+  :hook (org-mode . org-appear-mode)
+  :custom
+  (org-appear-autoentities t)
+  (org-appear-autokeywords t)
+  (org-appear-autolinks t)
+  (org-appear-autosubmarkers t)
+  (org-appear-inside-latex t)
+  (org-appear-manual-linger t)
+  (org-appear-delay 0.5))
+#+end_src
+
+** Org Roam
+#+begin_src emacs-lisp
+;; Org-Roam Configuration
+(when (and (fboundp 'sqlite-available-p) (sqlite-available-p))
+  (use-package org-roam
+    :defer t
+    :functions org-roam-db-autosync-enable
+    :defines org-roam-graph-viewer
+    :init
+    (setq org-roam-directory (expand-file-name "roam/" my/org-directory))
+    :custom
+    (org-roam-completion-everywhere t)
+    (org-roam-node-display-template
+     (concat "${title:*} "
+             (propertize "${tags:20}" 'face 'org-tag)))
+    :config
+    (add-to-list 'org-agenda-files org-roam-directory)
+    (org-roam-db-autosync-enable)
+
+    ;; Templates for different kinds of notes (Zettelkasten)
+    (setq org-roam-capture-templates
+          '(("d" "default" plain "%?"
+             :target (file+head "${slug}.org"
+                                "#+title: ${title}\n#+filetags: \n\n")
+             :unnarrowed t)
+
+            ("p" "project" plain "* Goal\n\n%?\n\n* Tasks\n\n* Notes\n\n* Log\n"
+             :target (file+head "projects/${slug}.org"
+                                "#+title: Project: ${title}\n#+filetags: project\n")
+             :unnarrowed t)
+
+            ("l" "literature note" plain "* Source\n- Author: %?\n- Title: \n- Year: \n\n* Summary\n\n* Key Takeaways\n\n* Quotes\n"
+             :target (file+head "literature/${slug}.org"
+                                "#+title: ${title}\n#+filetags: literature\n")
+             :unnarrowed t)
+
+            ("i" "idea" plain "* %?"
+             :target (file+head "ideas/${slug}.org"
+                                "#+title: ${title}\n#+filetags: idea fleeting\n")
+             :unnarrowed t)
+
+            ("z" "zettel" plain "* %?\n\n* References\n\n"
+             :target (file+head "zettel/${slug}.org"
+                                "#+title: ${title}\n#+filetags: zettel permanent\n")
+             :unnarrowed t)))
+
+    ;; Dailies configuration
+    (setq org-roam-dailies-directory "daily/"
+          org-roam-dailies-capture-templates
+          '(("d" "default" entry "* %?"
+             :target (file+head "%<%Y-%m-%d>.org"
+                                "#+title: %<%Y-%m-%d %A>\n\n"))
+
+            ("j" "journal" entry "* %<%H:%M> - Journal\n\n%?"
+             :target (file+head "%<%Y-%m-%d>.org"
+                                "#+title: %<%Y-%m-%d %A>\n\n"))
+
+            ("m" "meeting" entry "* %<%H:%M> - %^{Meeting Title}\n\n** Attendees\n- %?\n\n** Notes\n\n** Action Items\n"
+             :target (file+head "%<%Y-%m-%d>.org"
+                                "#+title: %<%Y-%m-%d %A>\n\n"))))))
+
+(use-package org-roam-ui
+  :after org-roam
+  :commands (org-roam-ui-mode org-roam-ui-open)
+  :custom
+  (org-roam-ui-sync-theme t)
+  (org-roam-ui-follow t)
+  (org-roam-ui-update-on-save t)
+  (org-roam-ui-open-on-start nil))
+
+(use-package consult-org-roam
+   :after org-roam
+   :init
+   (require 'consult-org-roam)
+   ;; Activate the minor mode
+   (consult-org-roam-mode 1)
+   :custom
+   ;; Use `ripgrep' for searching with `consult-org-roam-search'
+   (consult-org-roam-grep-func #'consult-ripgrep)
+   ;; Configure a custom narrow key for `consult-buffer'
+   (consult-org-roam-buffer-narrow-key ?r)
+   ;; Display org-roam buffers right after non-org-roam buffers
+   ;; in consult-buffer (and not down at the bottom)
+   (consult-org-roam-buffer-after-buffers t)
+   :config
+   ;; Eventually suppress previewing for certain functions
+   (consult-customize
+    consult-org-roam-forward-links
+    :preview-key "M-."))
+#+end_src
+
+** Capture: The Gateway to Org
+*Use dynamic directory*
+#+begin_src emacs-lisp
+(defun my/find-org-projects ()
+  "Find all org files in the projects directory."
+  (directory-files (expand-file-name "projects" my/org-directory) t "\\.org$"))
+
+(use-package org-capture
+  :defer t
+  :ensure nil
+  :after org
+  :custom
+  (org-capture-templates
+   `(("t" "Task" entry
+      (file+headline ,(expand-file-name "inbox.org" my/org-directory) "Tasks")
+      "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n")
+
+     ("n" "Note" entry
+      (file+headline ,(expand-file-name "inbox.org" my/org-directory) "Notes")
+      "* %? :note:\n:PROPERTIES:\n:CREATED: %U\n:SOURCE:\n:END:\n")
+
+     ("j" "Journal" entry
+      (file+olp+datetree ,(expand-file-name "journal.org" my/org-directory))
+      "* %U %?\n")
+
+     ("m" "Meeting" entry
+      (file+headline ,(expand-file-name "inbox.org" my/org-directory) "Meetings")
+      "* Meeting: %? :meeting:\n:PROPERTIES:\n:CREATED: %U\n:ATTENDEES:\n:END:\n** Agenda\n** Notes\n** Action Items\n")
+
+     ("p" "Project" entry
+      (file+headline ,(expand-file-name "projects.org" my/org-directory) "Projects")
+      "* PLAN %? :project:\n:PROPERTIES:\n:CREATED: %U\n:GOAL:\n:DEADLINE:\n:END:\n** Goals\n** Tasks\n*** TODO Define project scope\n** Resources\n** Notes\n")
+
+     ("P" "Project Task" entry
+      (file (lambda ()
+              (let* ((files (my/find-org-projects))
+                     (file (completing-read "Select Project: "
+                                           (mapcar #'file-name-nondirectory files)
+                                           nil t)))
+                (car (seq-filter
+                      (lambda (f) (string= (file-name-nondirectory f) file))
+                      files)))))
+      "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n"
+      :prepend t
+      :headline "Tasks")
+
+     ("b" "Book" entry
+      (file+headline ,(expand-file-name "reading.org" my/org-directory) "Reading List")
+      "* %? :book:read:\n:PROPERTIES:\n:CREATED: %U\n:AUTHOR:\n:GENRE:\n:PAGES:\n:STARTED:\n:FINISHED:\n:RATING:\n:END:\n** Summary\n** Key Takeaways\n** Quotes\n")
+
+     ("h" "Habit" entry
+      (file+headline ,(expand-file-name "habits.org" my/org-directory) "Habits")
+      "* TODO %? :habit:\nSCHEDULED: %(format-time-string \"<%Y-%m-%d %a .+1d>\")\n:PROPERTIES:\n:CREATED: %U\n:STYLE: habit\n:END:\n")
+
+     ("g" "Goal" entry
+      (file+headline ,(expand-file-name "goals.org" my/org-directory) "Goals")
+      "* GOAL %? :goal:\nDEADLINE: %(org-read-date nil nil \"+1y\")\n:PROPERTIES:\n:CREATED: %U\n:TYPE:\n:END:\n** Why this goal?\n** Success criteria\n** Action steps\n*** TODO Break down into smaller tasks\n** Resources needed\n** Potential obstacles\n** Progress tracking\n"))))
+#+end_src
+
+** Org Habit
+#+begin_src emacs-lisp
+(use-package org-habit
+  :ensure nil
+  :defer t
+  :after org
+  :custom
+  (org-habit-graph-column 60)
+  (org-habit-show-habits-only-for-today t)
+  (org-habit-preceding-days 21)
+  (org-habit-following-days 7)
+  (org-habit-completed-glyph
+   (string-to-char (nerd-icons-codicon "nf-cod-check")))
+  (org-habit-today-glyph
+   (string-to-char (nerd-icons-codicon "nf-cod-circle_filled"))))
+#+end_src
+
+** Org Download
+#+begin_src emacs-lisp
+(use-package org-download
+  :defer t
+  :after org
+  :custom
+  (org-download-screenshot-method "grim -g \"$(slurp)\" - | swappy -f - -o -")
+  (org-download-image-dir "assets")
+  (org-download-method 'attach)
+  (org-download-timestamp "%Y-%m-%d-%H%M%S_")
+  (org-download-display-inline t)
+  (org-image-actual-width 600)
+  :config
+  (advice-add 'org-download-dnd :after #'org-download-display-inline-images))
+#+end_src
+
+** Org Modern
+#+begin_src emacs-lisp
+(use-package org-modern
+  :hook (org-mode . org-modern-mode)
+  :config
+  (setq org-modern-hide-stars nil
+        org-modern-star '("◉" "○" "◈" "◇" "◆" "▷")
+        org-modern-list '((43 . "➤") (45 . "–") (42 . "•"))
+        org-modern-table-vertical 1
+        org-modern-table-horizontal 0.1
+        org-modern-block-name
+        '(("src" "»" "«")
+          ("example" "»" "«")
+          ("quote" """ """))
+
+        org-modern-todo-faces
+        '(("TODO"      . (:foreground "#f7768e" :weight bold))
+          ("NEXT"      . (:foreground "#ff9e64" :weight bold))
+          ("PROG"      . (:foreground "#7aa2f7" :weight bold))
+          ("WAIT"      . (:foreground "#e0af68" :weight bold))
+          ("DONE"      . (:background "#20293a" :foreground "#9ece6a" :weight bold))
+          ("CANCEL"    . (:strike-through t :foreground "#565f89"))
+          ("PLAN"      . (:foreground "#7dcfff" :weight bold))
+          ("ACTIVE"    . (:foreground "#bb9af7" :weight bold))
+          ("PAUSED"    . (:foreground "#a9b1d6" :weight bold))
+          ("ACHIEVED"  . (:background "#20293a" :foreground "#9ece6a" :weight bold :box t))
+          ("DROPPED"   . (:strike-through t :foreground "#565f89")))
+
+        org-modern-tag-faces
+        `((:foreground "#a9b1d6" :weight bold :box (:line-width (1 . -1) :color "#414868")))
+        org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☑") (priority . "⚑") (on . "◉") (off . "◯"))))
+#+end_src
+
+** Evil Integration
+#+begin_src emacs-lisp
+(use-package evil-org
+  :hook (org-mode . evil-org-mode)
+  :config
+  (add-hook 'evil-org-mode-hook
+            (lambda ()
+              (evil-org-set-key-theme '(navigation insert textobjects additional calendar todo))))
+  (add-to-list 'evil-emacs-state-modes 'org-agenda-mode)
+  (require 'evil-org-agenda)
+  (evil-org-agenda-set-keys))
+#+end_src
+
+* Utils
+** Which Key
+#+begin_src emacs-lisp
+(use-package which-key
+  :defer 0.5
+  :hook (after-init . which-key-mode)
+  :custom
+  (which-key-idle-delay 0.1)
+  (which-key-separator " → ")
+  (which-key-popup-type 'minibuffer))
+#+end_src
+
+** Persistent Search
+Persistent the scratch buffer
+#+begin_src emacs-lisp
+(use-package persistent-scratch
+  :defer t
+  :bind (:map persistent-scratch-mode-map
+         ([remap kill-buffer] . (lambda (&rest _)
+                                  (interactive)
+                                  (user-error "Scratch buffer cannot be killed")))
+         ([remap revert-buffer] . persistent-scratch-restore)
+         ([remap revert-buffer-quick] . persistent-scratch-restore))
+  :hook ((after-init . persistent-scratch-autosave-mode)
+         (lisp-interaction-mode . persistent-scratch-mode))
+  :init (setq persistent-scratch-backup-file-name-format "%Y-%m-%d"
+              persistent-scratch-backup-directory
+              (expand-file-name "persistent-scratch" user-emacs-directory)))
+#+end_src
+
+** Grep
+Search tools
+#+begin_src emacs-lisp
+(use-package grep
+  :defer t
+  :ensure nil
+  :autoload grep-apply-setting
+  :init
+  (when (executable-find "rg")
+    (grep-apply-setting
+     'grep-command "rg --color=auto --null -nH --no-heading -e ")
+    (grep-apply-setting
+     'grep-template "rg --color=auto --null --no-heading -g '!*/' -e <R> <D>")
+    (grep-apply-setting
+     'grep-find-command '("rg --color=auto --null -nH --no-heading -e ''" . 38))
+    (grep-apply-setting
+     'grep-find-template "rg --color=auto --null -nH --no-heading -e <R> <D>")))
+#+end_src
+
+** Wgrep
+Writable `grep' buffer
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t
+  :init (setq wgrep-auto-save-buffer t
+              wgrep-change-readonly-file t))
+#+end_src
+
+** Rg
+Fast search tool `ripgrep'
+#+begin_src emacs-lisp
+(use-package rg
+  :defer t
+  :hook (after-init . rg-enable-default-bindings)
+  :bind (:map rg-global-map
+         ("c" . rg-dwim-current-dir)
+         ("f" . rg-dwim-current-file)
+         ("m" . rg-menu))
+  :init (setq rg-show-columns t)
+  :config (add-to-list 'rg-custom-type-aliases '("tmpl" . "*.tmpl")))
+#+end_src
+
+** Olivetti
+Nice writing
+#+begin_src emacs-lisp
+(use-package olivetti
+  :defer t
+  :init (setq olivetti-body-width 0.62))
+#+end_src
+
+** ztree
+text mode directory tree
+#+begin_src emacs-lisp
+(use-package ztree
+  :defer t
+  :custom-face
+  (ztreep-header-face ((t (:inherit diff-header :foreground unspecified))))
+  (ztreep-arrow-face ((t (:inherit font-lock-comment-face :foreground unspecified))))
+  (ztreep-leaf-face ((t (:inherit diff-index :foreground unspecified))))
+  (ztreep-node-face ((t (:inherit font-lock-variable-name-face :foreground unspecified))))
+  (ztreep-expand-sign-face ((t (:inherit font-lock-function-name-face))))
+  (ztreep-diff-header-face ((t (:inherit (diff-header bold :foreground unspecified)))))
+  (ztreep-diff-header-small-face ((t (:inherit diff-file-header :foreground unspecified))))
+  (ztreep-diff-model-normal-face ((t (:inherit font-lock-doc-face :foreground unspecified))))
+  (ztreep-diff-model-ignored-face ((t (:inherit font-lock-doc-face :strike-through t :foreground unspecified))))
+  (ztreep-diff-model-diff-face ((t (:inherit diff-removed :foreground unspecified))))
+  (ztreep-diff-model-add-face ((t (:inherit diff-nonexistent :foreground unspecified))))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Ztree" 'octicon "nf-oct-diff" :face 'nerd-icons-green)
+    :color pink :quit-key ("q" "C-g"))
+   ("Diff"
+    (("C" ztree-diff-copy "copy" :exit t)
+     ("h" ztree-diff-toggle-show-equal-files "show/hide equals" :exit t)
+     ("H" ztree-diff-toggle-show-filtered-files "show/hide ignores" :exit t)
+     ("D" ztree-diff-delete-file "delete" :exit t)
+     ("v" ztree-diff-view-file "view" :exit t)
+     ("d" ztree-diff-simple-diff-files "simple diff" :exit t)
+     ("r" ztree-diff-partial-rescan "partial rescan" :exit t)
+     ("R" ztree-diff-full-rescan "full rescan" :exit t))
+    "View"
+    (("RET" ztree-perform-action "expand/collapse or view" :exit t)
+     ("SPC" ztree-perform-soft-action "expand/collapse or view in other" :exit t)
+     ("TAB" ztree-jump-side "jump side" :exit t)
+     ("g" ztree-refresh-buffer "refresh" :exit t)
+     ("x" ztree-toggle-expand-subtree "expand/collapse" :exit t)
+     ("<backspace>" ztree-move-up-in-tree "go to parent" :exit t))))
+  :bind (:map ztreediff-mode-map
+         ("C-<f5>" . ztree-hydra/body))
+  :init (setq ztree-draw-unicode-lines t
+              ztree-show-number-of-children t))
+#+end_src
+
+** Casual Suite
+A suite of opinionated Transient UIs
+#+begin_src emacs-lisp
+(use-package casual-suite
+  :defer t
+  :init
+  (with-no-warnings
+    (with-eval-after-load 'ibuffer
+      (bind-keys :map ibuffer-mode-map
+        ("C-o" . casual-ibuffer-tmenu)
+        ("F" . casual-ibuffer-filter-tmenu)
+        ("s" . casual-ibuffer-sortby-tmenu)))
+
+    (with-eval-after-load 're-builder
+      (bind-keys :map reb-mode-map
+        ("C-o" . casual-re-builder-tmenu))
+      (bind-keys :map reb-lisp-mode-map
+        ("C-o" . casual-re-builder-tmenu)))
+
+    (with-eval-after-load 'symbol-overlay
+      (bind-keys :map symbol-overlay-map
+        ("C-o" . casual-symbol-overlay-tmenu)))
+
+    (with-eval-after-load 'org-agenda
+      (bind-keys :map org-agenda-mode-map
+        ("C-o" . casual-agenda-tmenu)))))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+(use-package reveal-in-folder :defer t)
+
+(use-package list-environment
+  :defer t
+  :init
+  (with-no-warnings
+    (defun my-list-environment-entries ()
+      "Generate environment variable entries list for tabulated-list."
+      (mapcar (lambda (env)
+                (let* ((kv (split-string env "="))
+                       (key (car kv))
+                       (val (mapconcat #'identity (cdr kv) "=")))
+                  (list key (vector
+                             `(,key face font-lock-keyword-face)
+                             `(,val face font-lock-string-face)))))
+              process-environment))
+    (advice-add #'list-environment-entries :override #'my-list-environment-entries)))
+#+end_src
+
+* Reader
+** PDF Tools
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  (use-package pdf-view
+    :ensure pdf-tools
+    :defines pdf-annot-activate-created-annotations
+    :functions pdf-tools-install
+    :hook ((pdf-tools-enabled . pdf-view-auto-slice-minor-mode)
+           (pdf-tools-enabled . pdf-isearch-minor-mode))
+    :mode ("\\.[pP][dD][fF]\\'" . pdf-view-mode)
+    :magic ("%PDF" . pdf-view-mode)
+    :init
+    (setq pdf-view-use-scaling t
+          pdf-view-use-imagemagick nil
+          pdf-annot-activate-created-annotations t
+          ;; Tokyo Night theme colors
+          pdf-view-midnight-colors '("#c0caf5" . "#1a1b26"))
+    :config
+    (pdf-tools-install t nil t nil)
+
+    ;; Tokyo Night theme custom faces
+    (custom-set-faces
+     '(pdf-view-rectangle-face ((t (:background "#7aa2f7" :foreground "#1a1b26"))))
+     '(pdf-isearch-match ((t (:background "#e0af68" :foreground "#1a1b26"))))
+     '(pdf-isearch-lazy ((t (:background "#414868" :foreground "#c0caf5"))))
+     '(pdf-isearch-batch ((t (:background "#414868" :foreground "#c0caf5"))))
+     '(pdf-view-region ((t (:background "#364a82"))))
+     '(pdf-links-read-link ((t (:background "#7aa2f7" :foreground "#1a1b26"))))
+     '(pdf-occur-document-face ((t (:foreground "#7aa2f7"))))
+     '(pdf-occur-page-face ((t (:foreground "#9ece6a"))))
+     '(pdf-annot-list-annotation-face ((t (:foreground "#bb9af7"))))
+     '(pdf-annot-list-location-face ((t (:foreground "#565f89"))))
+     '(pdf-history-debug-message-face ((t (:foreground "#565f89"))))
+     '(pdf-sync-forward-matching-page-label ((t (:foreground "#e0af68"))))
+     '(pdf-sync-backward-matching-page-label ((t (:foreground "#e0af68")))))
+
+    (with-eval-after-load 'org
+      (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
+      (setq org-pdftools-link-prefix "pdf"))))
+#+end_src
+
+** Save PDF View
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  (use-package saveplace-pdf-view
+    :when (ignore-errors (pdf-info-check-epdfinfo) t)
+    :autoload (saveplace-pdf-view-find-file-advice saveplace-pdf-view-to-alist-advice)
+    :functions pdf-info-check-epdfinfo
+    :init
+    (advice-add 'save-place-find-file-hook :around #'saveplace-pdf-view-find-file-advice)
+    (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice)))
+#+end_src
+* General Keybindings
+#+begin_src emacs-lisp
+(use-package general
+  :after evil
+  :ensure (:wait t)
+  :demand t
+  :config
+  ;; Set up leader keys
+  (general-create-definer ar/global-leader
+    :states '(normal insert visual emacs)
+    :prefix "SPC"
+    :global-prefix "C-SPC")
+
+  (general-create-definer ar/local-leader
+    :states '(normal insert visual emacs)
+    :prefix "SPC m"
+    :global-prefix "C-SPC m")
+
+  (ar/global-leader
+    "SPC" '(execute-extended-command :wk "M-x")
+    ":" '(eval-expression :wk "Eval")
+    ";" '(evilnc-comment-or-uncomment-lines :wk "Comment")
+    "u" '(universal-argument :wk "Universal arg")
+    "!" '(shell-command :wk "Shell cmd")
+    "X" '(org-capture :wk "Org capture"))
+
+  ;; File operations (SPC f)
+  (ar/global-leader
+    "f" '(:ignore t :wk "file")
+    "f f" '(find-file :wk "Find file")
+    "f r" '(consult-recent-file :wk "Recent files")
+    "f s" '(save-buffer :wk "Save file")
+    "f S" '(write-file :wk "Save as")
+    "f D" '(delete-this-file :wk "Delete file")
+    "f R" '(rename-this-file :wk "Rename file")
+    "f c" '(copy-file-name :wk "Copy filename")
+    "f y" '(copy-file-name :wk "Yank filename")
+    "f E" '(sudo-edit :wk "Sudo edit")
+    "f l" '(reload-init-file :wk "Reload config")
+    "f e" '(:ignore t :wk "emacs")
+    "f e d" '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Open emacs.d")
+    "f e i" '((lambda () (interactive) (find-file user-init-file)) :wk "Open init.el")
+    "f e c" '(find-custom-file :wk "Open custom.el")
+    "f d" '(consult-dir :wk "Change directory")
+    "f j" '(consult-dir-jump-file :wk "Jump to file in dir"))
+
+  ;; Buffer operations (SPC b)
+  (ar/global-leader
+    "b" '(:ignore t :wk "buffer")
+    "b b" '(consult-buffer :wk "Switch buffer")
+    "b i" '(ibuffer :wk "Ibuffer")
+    "b k" '(kill-current-buffer :wk "Kill buffer")
+    "b K" '(kill-buffer :wk "Kill buffer (choose)")
+    "b n" '(next-buffer :wk "Next buffer")
+    "b p" '(previous-buffer :wk "Previous buffer")
+    "b r" '(revert-buffer-quick :wk "Revert buffer")
+    "b R" '(rename-buffer :wk "Rename buffer")
+    "b s" '(create-scratch-buffer :wk "Scratch buffer")
+    "b S" '(save-buffer :wk "Save buffer")
+    "b y" '(copy-file-name :wk "Copy buffer name")
+    "b z" '(bury-buffer :wk "Bury buffer")
+    "b [" '(previous-buffer :wk "Previous buffer")
+    "b ]" '(next-buffer :wk "Next buffer"))
+
+  ;; Search operations (SPC s)
+  (ar/global-leader
+    "s" '(:ignore t :wk "search")
+    "s s" '(consult-line :wk "Search buffer")
+    "s S" '(consult-line-multi :wk "Search buffers")
+    "s p" '(consult-ripgrep :wk "Search project")
+    "s d" '(consult-dir :wk "Search directory")
+    "s i" '(consult-imenu :wk "Imenu")
+    "s I" '(consult-imenu-multi :wk "Imenu multi")
+    "s o" '(consult-outline :wk "Outline")
+    "s b" '(consult-line :wk "Search buffer")
+    "s j" '(evil-show-jumps :wk "Jump list")
+    "s m" '(consult-mark :wk "Mark ring")
+    "s r" '(rg :wk "Ripgrep")
+    "s e" '(consult-isearch-history :wk "Search history")
+    "s y" '(consult-yasnippet :wk "Yasnippet")
+    "s t" '(hl-todo-occur :wk "Todo list")
+    "s T" '(hl-todo-rg-project :wk "Todo in project"))
+
+  ;; Window operations (SPC w)
+  (ar/global-leader
+    "w" '(:ignore t :wk "window")
+    "w w" '(other-window :wk "Other window")
+    "w d" '(delete-window :wk "Delete window")
+    "w D" '(delete-other-windows :wk "Delete other windows")
+    "w s" '(split-window-below :wk "Split below")
+    "w v" '(split-window-right :wk "Split right")
+    "w h" '(evil-window-left :wk "Window left")
+    "w j" '(evil-window-down :wk "Window down")
+    "w k" '(evil-window-up :wk "Window up")
+    "w l" '(evil-window-right :wk "Window right")
+    "w H" '(evil-window-move-far-left :wk "Move far left")
+    "w J" '(evil-window-move-very-bottom :wk "Move bottom")
+    "w K" '(evil-window-move-very-top :wk "Move top")
+    "w L" '(evil-window-move-far-right :wk "Move far right")
+    "w =" '(balance-windows :wk "Balance windows")
+    "w m" '(delete-other-windows :wk "Maximize")
+    "w o" '(other-window :wk "Other window")
+    "w u" '(winner-undo :wk "Winner undo")
+    "w r" '(winner-redo :wk "Winner redo")
+    "w t" '(toggle-window-split :wk "Toggle split")
+    "w _" '(split-window-vertically-instead :wk "Split vertically instead")
+    "w |" '(split-window-horizontally-instead :wk "Split horizontally instead"))
+
+  ;; Project operations (SPC p)
+  (ar/global-leader
+    "p" '(:ignore t :wk "project")
+    "p p" '(project-switch-project :wk "Switch project")
+    "p f" '(project-find-file :wk "Find file in project")
+    "p s" '(consult-ripgrep :wk "Search project")
+    "p b" '(consult-project-buffer :wk "Project buffers")
+    "p k" '(project-kill-buffers :wk "Kill project buffers")
+    "p c" '(project-compile :wk "Compile project")
+    "p d" '(project-dired :wk "Dired project root")
+    "p e" '(project-eshell :wk "Eshell in project")
+    "p t" '(treemacs :wk "Treemacs"))
+
+  ;; Toggle operations (SPC t)
+  (ar/global-leader
+    "t" '(:ignore t :wk "toggle")
+    "t l" '(display-line-numbers-mode :wk "Line numbers")
+    "t w" '(whitespace-mode :wk "Whitespace")
+    "t f" '(toggle-frame-fullscreen :wk "Fullscreen")
+    "t m" '(toggle-frame-maximized :wk "Maximize")
+    "t t" '(consult-theme :wk "Theme")
+    "t v" '(visual-line-mode :wk "Visual line mode")
+    "t i" '(highlight-indent-guides-mode :wk "Indent guides")
+    "t r" '(rainbow-mode :wk "Rainbow mode")
+    "t h" '(global-hl-line-mode :wk "Highlight line")
+    "t p" '(show-paren-mode :wk "Show paren")
+    "t T" '(toggles-hydra/body :wk "Toggles hydra")
+    "t o" '(olivetti-mode :wk "Olivetti mode")
+    "t z" '(:ignore t :wk "transparency")
+    "t z i" '(transwin-inc :wk "Increase")
+    "t z d" '(transwin-dec :wk "Decrease")
+    "t z t" '(transwin-toggle :wk "Toggle"))
+
+  ;; Open operations (SPC o)
+  (ar/global-leader
+    "o" '(:ignore t :wk "open")
+    "o p" '(treemacs :wk "Treemacs")
+    "o t" '(vterm :wk "Terminal")
+    "o e" '(eshell :wk "Eshell")
+    "o s" '(shell :wk "Shell")
+    "o d" '(dired :wk "Dired")
+    "o D" '(dashboard-open :wk "Dashboard")
+    "o b" '(ibuffer :wk "Ibuffer")
+    "o P" '(popper-toggle :wk "Toggle popup"))
+
+  ;; Help operations (SPC h)
+  (ar/global-leader
+    "h" '(:ignore t :wk "help")
+    "h f" '(helpful-callable :wk "Describe function")
+    "h v" '(helpful-variable :wk "Describe variable")
+    "h k" '(helpful-key :wk "Describe key")
+    "h m" '(describe-mode :wk "Describe mode")
+    "h o" '(helpful-symbol :wk "Describe symbol")
+    "h c" '(helpful-command :wk "Describe command")
+    "h ." '(helpful-at-point :wk "Describe at point")
+    "h i" '(info :wk "Info")
+    "h I" '(consult-info :wk "Consult info")
+    "h p" '(describe-package :wk "Describe package")
+    "h a" '(apropos :wk "Apropos")
+    "h w" '(woman :wk "Woman")
+    "h r" '(:ignore t :wk "reload")
+    "h r r" '(reload-init-file :wk "Reload config"))
+
+  ;; Code operations (SPC c)
+  (ar/global-leader
+    "c" '(:ignore t :wk "code")
+    "c a" '(lsp-execute-code-action :wk "Code action")
+    "c d" '(lsp-find-definition :wk "Definition")
+    "c D" '(lsp-find-declaration :wk "Declaration")
+    "c r" '(lsp-find-references :wk "References")
+    "c i" '(lsp-find-implementation :wk "Implementation")
+    "c t" '(lsp-find-type-definition :wk "Type definition")
+    "c s" '(consult-lsp-symbols :wk "Symbols")
+    "c S" '(lsp-ui-doc-show :wk "Show doc")
+    "c f" '(lsp-format-buffer :wk "Format buffer")
+    "c F" '(lsp-format-region :wk "Format region")
+    "c o" '(lsp-organize-imports :wk "Organize imports")
+    "c R" '(lsp-rename :wk "Rename")
+    "c e" '(consult-flymake :wk "Errors")
+    "c x" '(quickrun :wk "Quickrun")
+    "c X" '(quickrun-shell :wk "Quickrun shell")
+    "c c" '(compile :wk "Compile")
+    "c C" '(recompile :wk "Recompile")
+    "c l" '(:ignore t :wk "lsp")
+    "c l r" '(lsp-workspace-restart :wk "Restart workspace")
+    "c l s" '(lsp-workspace-shutdown :wk "Shutdown workspace")
+    "c l d" '(lsp-describe-session :wk "Describe session")
+    "c l D" '(lsp-disconnect :wk "Disconnect")
+    "c l u" '(lsp-ui-hydra/body :wk "LSP UI hydra")
+    "c l i" '(lsp-ui-imenu :wk "LSP Imenu")
+    "c l t" '(lsp-treemacs-symbols :wk "Treemacs symbols")
+    "c l e" '(lsp-treemacs-errors-list :wk "Treemacs errors"))
+
+  ;; Git operations (SPC g)
+  (ar/global-leader
+    "g" '(:ignore t :wk "git")
+    "g g" '(magit-status :wk "Magit status")
+    "g s" '(magit-status :wk "Status")
+    "g d" '(magit-diff :wk "Diff")
+    "g D" '(magit-diff-buffer-file :wk "Diff file")
+    "g l" '(magit-log :wk "Log")
+    "g L" '(magit-log-buffer-file :wk "Log file")
+    "g b" '(magit-blame :wk "Blame")
+    "g c" '(magit-clone :wk "Clone")
+    "g i" '(magit-init :wk "Init")
+    "g f" '(:ignore t :wk "file")
+    "g f f" '(magit-find-file :wk "Find file")
+    "g f l" '(magit-log-buffer-file :wk "Log file")
+    "g f d" '(magit-diff-buffer-file :wk "Diff file")
+    "g [" '(diff-hl-previous-hunk :wk "Previous hunk")
+    "g ]" '(diff-hl-next-hunk :wk "Next hunk")
+    "g h" '(:ignore t :wk "hunk")
+    "g h s" '(diff-hl-stage-current-hunk :wk "Stage hunk")
+    "g h r" '(diff-hl-revert-hunk :wk "Revert hunk")
+    "g h m" '(diff-hl-mark-hunk :wk "Mark hunk"))
+
+  ;; Register/Bookmark operations (SPC r)
+  (ar/global-leader
+    "r" '(:ignore t :wk "register/bookmark")
+    "r r" '(consult-register :wk "Registers")
+    "r s" '(consult-register-store :wk "Store register")
+    "r l" '(consult-register-load :wk "Load register")
+    "r b" '(consult-bookmark :wk "Bookmarks")
+    "r B" '(bookmark-set :wk "Set bookmark")
+    "r d" '(bookmark-delete :wk "Delete bookmark")
+    "r m" '(bookmark-bmenu-list :wk "Bookmark menu"))
+
+  ;; Notes operations (SPC n)
+  (ar/global-leader
+    "n" '(:ignore t :wk "notes")
+    "n a" '(org-agenda :wk "Agenda")
+    "n c" '(org-capture :wk "Capture")
+    "n f" '(org-roam-node-find :wk "Find node")
+    "n F" '(consult-org-roam-file-find :wk "Find file")
+    "n i" '(org-roam-node-insert :wk "Insert node")
+    "n l" '(org-roam-buffer-toggle :wk "Roam buffer")
+    "n g" '(org-roam-graph :wk "Roam graph")
+    "n u" '(org-roam-ui-open :wk "Roam UI")
+    "n j" '(org-roam-dailies-capture-today :wk "Daily note")
+    "n b" '(consult-org-roam-backlinks :wk "Backlinks")
+    "n B" '(consult-org-roam-backlinks-recursive :wk "Backlinks recursive")
+    "n L" '(consult-org-roam-forward-links :wk "Forward links")
+    "n s" '(consult-org-roam-search :wk "Search roam")
+    "n t" '(:ignore t :wk "table")
+    "n t c" '(org-table-create :wk "Create table")
+    "n t a" '(org-table-align :wk "Align table")
+    "n t r" '(org-table-recalculate :wk "Recalculate"))
+
+  ;; Quit/Session operations (SPC q)
+  (ar/global-leader
+    "q" '(:ignore t :wk "quit/session")
+    "q q" '(save-buffers-kill-terminal :wk "Quit Emacs")
+    "q Q" '(kill-emacs :wk "Quit (no save)")
+    "q r" '(restart-emacs :wk "Restart Emacs")
+    "q f" '(delete-frame :wk "Delete frame")
+    "q s" '(tabspaces-save-session :wk "Save session")
+    "q l" '(tabspaces-restore-session :wk "Load session"))
+
+  ;; Insert operations (SPC i)
+  (ar/global-leader
+    "i" '(:ignore t :wk "insert")
+    "i s" '(consult-yasnippet :wk "Snippet")
+    "i u" '(insert-char :wk "Unicode char")
+    "i e" '(emoji-insert :wk "Emoji")
+    "i t" '(insert-time :wk "Timestamp"))
+
+  ;; Zoom operations (SPC z)
+  (ar/global-leader
+    "z" '(:ignore t :wk "zoom")
+    "z +" '(text-scale-increase :wk "Zoom in")
+    "z -" '(text-scale-decrease :wk "Zoom out")
+    "z 0" '((lambda () (interactive) (text-scale-set 0)) :wk "Reset zoom")
+    "z f" '(toggle-frame-fullscreen :wk "Fullscreen")
+    "z m" '(toggle-frame-maximized :wk "Maximize")
+    "z l" '(centaur-frame-left-half :wk "Left half")
+    "z r" '(centaur-frame-right-half :wk "Right half")
+    "z t" '(centaur-frame-top-half :wk "Top half")
+    "z b" '(centaur-frame-bottom-half :wk "Bottom half")
+    "z R" '(centaur-frame-restore :wk "Restore frame"))
+
+  ;; Workspace operations (SPC TAB)
+  (ar/global-leader
+    "TAB" '(:ignore t :wk "workspace")
+    "TAB TAB" '(tabspaces-switch-or-create-workspace :wk "Switch workspace")
+    "TAB n" '(tabspaces-switch-or-create-workspace :wk "New workspace")
+    "TAB d" '(tabspaces-close-workspace :wk "Delete workspace")
+    "TAB r" '(tabspaces-switch-or-create-workspace :wk "Rename workspace")
+    "TAB [" '(tabspaces-switch-buffer-and-tab :wk "Previous workspace")
+    "TAB ]" '(tabspaces-switch-buffer-and-tab :wk "Next workspace")
+    "TAB s" '(tabspaces-save-session :wk "Save session")
+    "TAB l" '(tabspaces-restore-session :wk "Load session"))
+
+  ;; Macro operations (SPC @)
+  (ar/global-leader
+    "@" '(:ignore t :wk "macro")
+    "@ @" '(kmacro-end-and-call-macro :wk "End and call")
+    "@ s" '(kmacro-start-macro :wk "Start recording")
+    "@ e" '(kmacro-end-macro :wk "End recording")
+    "@ c" '(kmacro-call-macro :wk "Call macro")
+    "@ n" '(kmacro-name-last-macro :wk "Name last")
+    "@ b" '(kmacro-bind-to-key :wk "Bind to key")
+    "@ v" '(kmacro-view-macro :wk "View macro")
+    "@ d" '(kmacro-delete-ring-head :wk "Delete"))
+
+  ;; Kill ring (SPC k)
+  (ar/global-leader
+    "k" '(browse-kill-ring :wk "Kill ring"))
+
+  ;; Multiple cursors (SPC M)
+  (ar/global-leader
+    "M" '(:ignore t :wk "multiple-cursors")
+    "M m" '(multiple-cursors-hydra/body :wk "MC hydra")
+    "M l" '(mc/edit-lines :wk "Edit lines")
+    "M n" '(mc/mark-next-like-this :wk "Mark next")
+    "M p" '(mc/mark-previous-like-this :wk "Mark previous")
+    "M a" '(mc/mark-all-like-this :wk "Mark all"))
+
+  ;; Expand region (SPC v)
+  (ar/global-leader
+    "v" '(er/expand-region :wk "Expand region"))
+
+  ;; Iedit (SPC e)
+  (ar/global-leader
+    "e" '(:ignore t :wk "iedit")
+    "e e" '(iedit-mode :wk "Iedit mode")
+    "e r" '(iedit-rectangle-mode :wk "Rectangle mode"))
+
+  ;; Symbol overlay (SPC s o)
+  (ar/global-leader
+    "s o" '(:ignore t :wk "overlay")
+    "s o o" '(symbol-overlay-put :wk "Overlay symbol")
+    "s o r" '(symbol-overlay-remove-all :wk "Remove overlays")
+    "s o n" '(symbol-overlay-jump-next :wk "Next symbol")
+    "s o p" '(symbol-overlay-jump-prev :wk "Previous symbol"))
+
+  ;; Casual suite (SPC ?)
+  (ar/global-leader
+    "?" '(:ignore t :wk "casual")
+    "? a" '(casual-avy-tmenu :wk "Avy")
+    "? e" '(casual-editkit-main-tmenu :wk "Editkit")
+    "? d" '(casual-dired-tmenu :wk "Dired")
+    "? i" '(casual-isearch-tmenu :wk "Isearch")
+    "? I" '(casual-info-tmenu :wk "Info")
+    "? b" '(casual-bookmarks-tmenu :wk "Bookmarks")
+    "? c" '(casual-calc-tmenu :wk "Calc"))
+
+  ;; Treemacs (SPC 0)
+  (ar/global-leader
+    "0" '(treemacs-select-window :wk "Select treemacs"))
+
+  ;; ========================
+  ;; MOTION STATE BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states 'motion
+   ;; Avy bindings
+   "g s" 'avy-goto-char-2
+   "g S" 'avy-goto-line
+   "g w" 'avy-goto-word-1
+   "g e" 'avy-goto-word-0
+
+   ;; Expand region
+   "v" 'er/expand-region
+
+   ;; Multiple cursors
+   "g z" 'evil-mc-make-all-cursors
+
+   ;; Xref/LSP navigation
+   "g d" 'xref-find-definitions
+   "g D" 'xref-find-references
+   "g i" 'lsp-find-implementation
+   "g t" 'lsp-find-type-definition
+   "g [" 'diff-hl-previous-hunk
+   "g ]" 'diff-hl-next-hunk
+   "g ," 'xref-go-back
+   "g ." 'xref-find-definitions)
+
+  ;; ========================
+  ;; NORMAL/VISUAL BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states '(normal visual)
+   ;; Better navigation
+   "j" 'evil-next-visual-line
+   "k" 'evil-previous-visual-line
+   "gj" 'evil-next-line
+   "gk" 'evil-previous-line
+
+   ;; Avy zap
+   "z" 'avy-zap-to-char-dwim
+   "Z" 'avy-zap-up-to-char-dwim)
+
+  ;; ========================
+  ;; NORMAL STATE BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states 'normal
+   ;; Undo-fu
+   "u" 'undo-fu-only-undo
+   "C-r" 'undo-fu-only-redo)
+
+  ;; ========================
+  ;; INSERT STATE BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states 'insert
+   ;; Yasnippet navigation with Tab conflict resolution handled by yasnippet itself
+   )
+
+  ;; ========================
+  ;; GLOBAL BINDINGS
+  ;; ========================
+
+  (general-define-key
+   ;; Ace-link
+   "M-o" 'ace-link-addr
+
+   ;; Popper
+   "C-`" 'popper-toggle
+   "C-~" 'popper-cycle
+   "M-`" 'popper-toggle-type)
+
+  ;; ========================
+  ;; DIRED MODE BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states 'normal
+   :keymaps 'dired-mode-map
+   "h" 'dired-up-directory
+   "l" 'dired-find-file
+   "o" 'dired-find-file-other-window
+   "v" 'dired-view-file
+   "m" 'dired-mark
+   "u" 'dired-unmark
+   "U" 'dired-unmark-all-marks
+   "c" 'dired-create-directory
+   "C" 'dired-do-copy
+   "D" 'dired-do-delete
+   "R" 'dired-do-rename
+   "Y" 'dired-do-copy
+   "!" 'dired-do-shell-command
+   "&" 'dired-do-async-shell-command
+   "q" 'quit-window
+   "g r" 'revert-buffer
+   "g g" 'evil-goto-first-line
+   "G" 'evil-goto-line
+   "s" 'dired-sort-toggle-or-edit
+   "(" 'dired-hide-details-mode
+   ")" 'dired-omit-mode)
+
+  ;; ========================
+  ;; HELPFUL MODE BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states 'normal
+   :keymaps 'helpful-mode-map
+   "q" 'quit-window
+   "g r" 'helpful-update
+   "TAB" 'forward-button
+   "S-TAB" 'backward-button
+   "RET" 'push-button)
+
+  ;; ========================
+  ;; PDF-VIEW MODE BINDINGS
+  ;; ========================
+
+  (general-define-key
+   :states 'normal
+   :keymaps 'pdf-view-mode-map
+   "j" 'pdf-view-next-line-or-next-page
+   "k" 'pdf-view-previous-line-or-previous-page
+   "h" 'image-backward-hscroll
+   "l" 'image-forward-hscroll
+   "J" 'pdf-view-next-page
+   "K" 'pdf-view-previous-page
+   "g g" 'pdf-view-first-page
+   "G" 'pdf-view-last-page
+   "g t" 'pdf-view-goto-page
+   "g l" 'pdf-view-goto-label
+   "+" 'pdf-view-enlarge
+   "=" 'pdf-view-enlarge
+   "-" 'pdf-view-shrink
+   "0" 'pdf-view-scale-reset
+   "W" 'pdf-view-fit-width-to-window
+   "H" 'pdf-view-fit-height-to-window
+   "P" 'pdf-view-fit-page-to-window
+   "n" 'pdf-view-next-page-command
+   "p" 'pdf-view-previous-page-command
+   "d" 'pdf-view-midnight-minor-mode
+   "/" 'isearch-forward
+   "?" 'isearch-backward
+   "o" 'pdf-outline
+   "m" 'pdf-view-set-slice-using-mouse
+   "b" 'pdf-view-set-slice-from-bounding-box
+   "r" 'pdf-view-reset-slice
+   "q" 'quit-window)
+
+  ;; ========================
+  ;; ORG MODE LOCAL LEADER
+  ;; ========================
+
+  (ar/local-leader
+    :keymaps 'org-mode-map
+    "," '(org-ctrl-c-ctrl-c :wk "Ctrl-c Ctrl-c")
+    "." '(org-time-stamp :wk "Timestamp")
+    "*" '(org-ctrl-c-star :wk "Heading")
+    "-" '(org-ctrl-c-minus :wk "List")
+    "a" '(org-agenda :wk "Agenda")
+    "c" '(org-capture :wk "Capture")
+    "e" '(org-export-dispatch :wk "Export")
+    "i" '(:ignore t :wk "insert")
+    "i l" '(org-insert-link :wk "Link")
+    "i s" '(org-download-screenshot :wk "Screenshot")
+    "i y" '(org-download-yank :wk "Yank image")
+    "i t" '(org-table-create :wk "Table")
+    "i h" '(org-insert-heading :wk "Heading")
+    "t" '(org-todo :wk "Todo")
+    "T" '(org-show-todo-tree :wk "Todo tree")
+    "s" '(org-schedule :wk "Schedule")
+    "d" '(org-deadline :wk "Deadline")
+    "p" '(org-priority :wk "Priority")
+    "r" '(org-refile :wk "Refile")
+    "A" '(org-archive-subtree :wk "Archive")
+    "l" '(:ignore t :wk "link")
+    "l l" '(org-insert-link :wk "Insert link")
+    "l s" '(org-store-link :wk "Store link")
+    "l i" '(org-id-get-create :wk "Insert ID")
+    "b" '(:ignore t :wk "babel")
+    "b t" '(org-babel-tangle :wk "Tangle")
+    "b e" '(org-babel-execute-src-block :wk "Execute")
+    "b b" '(org-babel-execute-buffer :wk "Execute buffer")
+    "b c" '(org-babel-check-src-block :wk "Check")
+    "x" '(:ignore t :wk "text")
+    "x b" '(org-toggle-checkbox :wk "Toggle checkbox")
+    "x i" '(org-toggle-item :wk "Toggle item")
+    "x p" '(org-set-property :wk "Set property")
+    "x t" '(org-set-tags-command :wk "Set tags")))
+#+end_src

@@ -3157,7 +3157,6 @@ A tree layout file explorer
      (treemacs-git-mode 'simple)))
 
   (use-package treemacs-nerd-icons
-    :demand t
     :functions treemacs-load-theme
     :config (treemacs-load-theme "nerd-icons"))
 
