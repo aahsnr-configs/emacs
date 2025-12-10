@@ -1334,6 +1334,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Transient Posframe
 #+begin_src emacs-lisp
 (use-package transient :defer t)
+
 (use-package transient-posframe
   :defer t
   :defines posframe-border-width
@@ -1670,4 +1671,696 @@ Lower this if you experience freezing, raise if stuttering.")
 ;; Hanlde minified code
 (use-package so-long
   :hook (after-init . global-so-long-mode))
+#+end_src
+
+* Completion Framework
+** Orderless
+#+begin_src emacs-lisp
+(use-package orderless
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
+  (completion-category-overrides '((file (styles basic partial-completion))))
+  (orderless-component-separator #'orderless-escapable-split-on-space))
+#+end_src
+
+** Vertico
+VERTical Interactive COmpletion
+#+begin_src emacs-lisp
+(use-package vertico
+  :custom
+  (vertico-count 10)
+  (vertico-resize nil)
+  (vertico-cycle t)
+  :bind (:map vertico-map
+         ("RET" . vertico-directory-enter)
+         ("DEL" . vertico-directory-delete-char)
+         ("M-DEL" . vertico-directory-delete-word))
+  :hook ((after-init . vertico-mode)
+         (rfn-eshadow-update-overlay . vertico-directory-tidy)))
+#+end_src
+
+** Marginalia
+Enrich existing commands with completion annotations
+#+begin_src emacs-lisp
+(use-package marginalia
+  :hook (after-init . marginalia-mode)
+  :config
+  (setq marginalia-max-relative-age 0 ; Always show absolute time
+        marginalia-align 'right))
+#+end_src
+
+** Nerd Icons Completion
+Add icons to completion candidates
+#+begin_src emacs-lisp
+(use-package nerd-icons-completion
+  :after marginalia
+  :hook (marginalia-mode . nerd-icons-completion-marginalia-setup)
+  :config
+  (nerd-icons-completion-mode))
+#+end_src
+
+** TODO Consult
+Consulting completing-read
+#+begin_src emacs-lisp
+(use-package consult
+  :defines (xref-show-xrefs-function xref-show-definitions-function)
+  :defines shr-color-html-colors-alist
+  :autoload (consult-register-format consult-register-window consult-xref)
+  :autoload (consult--read consult--customize-put)
+  :commands (consult-narrow-help)
+  :functions (list-colors-duplicates consult-colors--web-list)
+  :bind (([remap switch-to-buffer] . consult-buffer)
+	 ([remap switch-to-buffer-other-window] . consult-buffer-other-window)
+	 ([remap switch-to-buffer-other-frame] . consult-buffer-other-frame)
+	 ([remap bookmark-jump] . consult-bookmark)
+	 ([remap evil-show-marks] . consult-mark)
+	 ([remap evil-show-jumps] . consult-jump-list)
+	 ([remap goto-line] . consult-goto-line)
+	 ([remap imenu] . consult-imenu)
+	 ([remap load-theme] . consult-theme)
+	 ([remap recentf-open-files] . consult-recent-file)
+	 ([remap yank-pop] . consult-yank-pop)
+         ([remap Info-search]        . consult-info)
+         ([remap isearch-forward]    . consult-line))
+  ;; Enable automatic preview at point in the *Completions* buffer. This is
+  ;; relevant when you use the default completion UI.
+  :hook (completion-list-mode . consult-preview-at-point-mode)
+  :init
+  ;; Optionally configure the register formatting. This improves the register
+  ;; preview for `consult-register', `consult-register-load',
+  ;; `consult-register-store' and the Emacs built-ins.
+  (setq register-preview-delay 0.5
+        register-preview-function #'consult-register-format)
+
+  ;; Tweak the register preview window.
+  ;; This adds thin lines, sorting and hides the mode line of the window.
+  (advice-add #'register-preview :override #'consult-register-window)
+
+  ;; Use Consult to select xref locations with preview
+  (with-eval-after-load 'xref
+    (setq xref-show-xrefs-function #'consult-xref
+          xref-show-definitions-function #'consult-xref))
+
+  (defvar consult-colors-history nil
+    "History for `consult-colors-emacs' and `consult-colors-web'.")
+
+  (autoload 'list-colors-duplicates "facemenu")
+  (autoload 'consult--read "consult")
+
+  (defun consult-colors-emacs (color)
+    "Show a list of all supported colors for a particular frame.
+
+You can insert the name (default), or insert or kill the hexadecimal or RGB
+value of the selected COLOR."
+    (interactive
+     (list (consult--read (list-colors-duplicates (defined-colors))
+                          :prompt "Emacs color: "
+                          :require-match t
+                          :category 'color
+                          :history '(:input consult-colors-history))))
+    (insert color))
+
+  ;; Adapted from counsel.el to get web colors.
+  (defun consult-colors--web-list nil
+    "Return list of CSS colors for `counsult-colors-web'."
+    (require 'shr-color)
+    (sort (mapcar #'downcase (mapcar #'car shr-color-html-colors-alist)) #'string-lessp))
+
+  (defun consult-colors-web (color)
+    "Show a list of all CSS colors.\
+
+You can insert the name (default), or insert or kill the hexadecimal or RGB
+value of the selected COLOR."
+    (interactive
+     (list (consult--read (consult-colors--web-list)
+                          :prompt "Color: "
+                          :require-match t
+                          :category 'color
+                          :history '(:input consult-colors-history))))
+    (insert color))
+  :config
+  ;; Optionally configure preview. The default value
+  ;; is 'any, such that any key triggers the preview.
+  ;; (setq consult-preview-key 'any)
+  ;; (setq consult-preview-key '("S-<down>" "S-<up>"))
+  (setq consult-preview-key nil)
+
+  ;; Define a custom buffer source that only shows file-visiting buffers
+  ;; This mimics Doom Emacs behavior where only "real" file buffers are shown
+  (defvar consult--source-file-visiting-buffer
+    `(:name "Main"
+      :narrow ?f
+      :category buffer
+      :face consult-buffer
+      :history buffer-name-history
+      :state ,#'consult--buffer-state
+      :default t
+      :items ,(lambda ()
+                (consult--buffer-query
+                 :sort 'visibility
+                 :predicate (lambda (buf)
+                              ;; Only show buffers that are visiting files
+                              (buffer-file-name buf))
+                 :as #'buffer-name)))
+    "Buffer source for file-visiting buffers only.")
+
+  (setq consult-buffer-sources
+        '(consult--source-file-visiting-buffer))
+
+  ;; For some commands and buffer sources it is useful to configure the
+  ;; :preview-key on a per-command basis using the `consult-customize' macro.
+  (consult-customize
+   consult-line consult-line-multi :preview-key 'any
+   consult-buffer consult-recent-file consult-theme :preview-key '(:debounce 1.0 any)
+   consult-goto-line :preview-key '(:debounce 0.5 any)
+   consult-ripgrep consult-git-grep consult-grep
+   :initial (selected-region-or-symbol-at-point)
+   :preview-key '(:debounce 0.5 any))
+
+  ;; Optionally configure the narrowing key.
+  ;; Both < and C-+ work reasonably well.
+  (setq consult-narrow-key "<") ;; "C-+"
+
+  ;; Optionally make narrowing help available in the minibuffer.
+  ;; You may want to use `embark-prefix-help-command' or which-key instead.
+  (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help))
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package consult-dir
+  :defer t)
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package consult-yasnippet
+  :defer t)
+#+end_src
+
+** Embark
+#+begin_src emacs-lisp
+(use-package embark
+  :commands embark-prefix-help-command
+  :init
+  ;; Optionally replace the key help with a completing-read interface
+  (setq prefix-help-command #'embark-prefix-help-command)
+  :config
+  ;; Manual preview for non-Consult commands using Embark
+  (defun my-embark-preview ()
+    "Previews candidate in vertico buffer, unless it's a consult command."
+    (interactive)
+    (unless (bound-and-true-p consult--preview-function)
+      (save-selected-window
+        (let ((embark-quit-after-action nil))
+          (embark-dwim)))))
+
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none))))
+
+  (with-no-warnings
+    (with-eval-after-load 'which-key
+      (defun embark-which-key-indicator ()
+        "An embark indicator that displays keymaps using which-key.
+The which-key help message will show the type and value of the
+current target followed by an ellipsis if there are further
+targets."
+        (lambda (&optional keymap targets prefix)
+          (if (null keymap)
+              (which-key--hide-popup-ignore-command)
+            (which-key--show-keymap
+             (if (eq (plist-get (car targets) :type) 'embark-become)
+                 "Become"
+               (format "Act on %s '%s'%s"
+                       (plist-get (car targets) :type)
+                       (embark--truncate-target (plist-get (car targets) :target))
+                       (if (cdr targets) "…" "")))
+             (if prefix
+                 (pcase (lookup-key keymap prefix 'accept-default)
+                   ((and (pred keymapp) km) km)
+                   (_ (key-binding prefix 'accept-default)))
+               keymap)
+             nil nil t (lambda (binding)
+                         (not (string-suffix-p "-argument" (cdr binding))))))))
+
+      (setq embark-indicators
+            '(embark-which-key-indicator
+              embark-highlight-indicator
+              embark-isearch-highlight-indicator))
+
+      (defun embark-hide-which-key-indicator (fn &rest args)
+        "Hide the which-key indicator immediately when using the completing-read prompter."
+        (which-key--hide-popup-ignore-command)
+        (let ((embark-indicators
+               (remq #'embark-which-key-indicator embark-indicators)))
+          (apply fn args)))
+
+      (advice-add #'embark-completing-read-prompter
+                  :around #'embark-hide-which-key-indicator))))
+#+end_src
+
+** Embark Consult
+#+begin_src emacs-lisp
+(use-package embark-consult
+  :defer t
+  :after (embark consult)
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
+#+end_src
+
+** Corfu
+#+begin_src emacs-lisp
+(use-package corfu
+  :autoload (corfu-quit consult-completion-in-region)
+  :functions (persistent-scratch-save corfu-move-to-minibuffer)
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-prefix 2)
+  (corfu-count 12)
+  (corfu-preview-current nil)
+  (corfu-on-exact-match nil)
+  (corfu-auto-delay 0.2)
+  (corfu-popupinfo-delay '(0.1 . 0.1))
+  (global-corfu-modes '((not erc-mode
+                             circe-mode
+                             help-mode
+                             gud-mode
+                             vterm-mode)
+                        t))
+  :custom-face
+  (corfu-border ((t (:inherit region :background unspecified))))
+  :bind
+  (:map corfu-map
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous)
+        ("M-h" . corfu-info-documentation))
+  :hook ((after-init . global-corfu-mode)
+         (global-corfu-mode . corfu-history-mode))
+  :config
+  ;;Quit completion before saving
+  (add-hook 'before-save-hook #'corfu-quit)
+  (advice-add #'persistent-scratch-save :before #'corfu-quit)
+
+  ;; Move completions to minibuffer
+  (defun corfu-move-to-minibuffer ()
+    (interactive)
+    (pcase completion-in-region--data
+      (`(,beg ,end ,table ,pred ,extras)
+       (let ((completion-extra-properties extras)
+             completion-cycle-threshold completion-cycling)
+         (consult-completion-in-region beg end table pred)))))
+  (keymap-set corfu-map "M-m" #'corfu-move-to-minibuffer)
+  (add-to-list 'corfu-continue-commands #'corfu-move-to-minibuffer))
+#+end_src
+
+** Basic Completion
+#+begin_src emacs-lisp
+(use-package emacs
+  :ensure nil
+  :custom
+  (tab-always-indent 'complete)
+  (text-mode-ispell-word-completion nil)
+  (read-extended-command-predicate #'command-completion-default-include-p))
+#+end_src
+
+** Nerd Icons Corfu
+#+begin_src emacs-lisp
+(use-package nerd-icons-corfu
+  :autoload nerd-icons-corfu-formatter
+  :after corfu
+  :init (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+#+end_src
+
+** Cape
+#+begin_src emacs-lisp
+(use-package cape
+  :commands (cape-file cape-elisp-block cape-keyword)
+  :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
+  :autoload (cape-wrap-silent cape-wrap-purify)
+  :init
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
+  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;; (add-to-list 'completion-at-point-functions #'cape-abbrev)
+
+  ;; Make these capfs composable.
+  (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
+  (advice-add 'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add 'comint-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
+  (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
+#+end_src
+
+* Snippet Engine
+#+begin_src emacs-lisp
+(defvar my/snippets-directory (expand-file-name "snippets" user-emacs-directory)
+  "Directory for personal yasnippet snippets.")
+
+;; Create the custom snippets directory if it doesn't exist.
+(unless (file-directory-p my/snippets-directory)
+  (make-directory my/snippets-directory t))
+
+(use-package yasnippet
+  :defer t
+  :hook (after-init . yas-global-mode)
+  :config
+  (add-to-list 'yas-snippet-dirs my/snippets-directory))
+
+;; Collection of yasnippet snippets
+(use-package yasnippet-snippets)
+
+;; Yasnippet Completion At Point Function
+(use-package yasnippet-capf
+  :after cape
+  :commands yasnippet-capf
+  ;; TODO: Replace this with lsp-mode completions
+  ;;:functions cape-capf-super eglot-completion-at-point my-eglot-capf-with-yasnippet
+  :init
+  (add-to-list 'completion-at-point-functions #'yasnippet-capf))
+#+end_src
+
+* Bookmarks
+#+begin_src emacs-lisp
+(use-package bookmark
+  :ensure nil
+  :config
+  (with-no-warnings
+    ;; Display icons for bookmarks
+    (defun my-bookmark-bmenu--revert ()
+      "Re-populate `tabulated-list-entries'."
+      (let (entries)
+        (dolist (full-record (bookmark-maybe-sort-alist))
+          (let* ((name       (bookmark-name-from-full-record full-record))
+                 (annotation (bookmark-get-annotation full-record))
+                 (location   (bookmark-location full-record))
+                 (file       (file-name-nondirectory location))
+                 (type       (let ((fmt "%-8.8s"))
+                               (cond ((null location)
+                                      (propertize (format fmt "NOFILE") 'face 'warning))
+                                     ((file-remote-p location)
+                                      (propertize (format fmt "REMOTE") 'face 'mode-line-buffer-id))
+                                     ((not (file-exists-p location))
+                                      (propertize (format fmt "NOTFOUND") 'face 'error))
+                                     ((file-directory-p location)
+                                      (propertize (format fmt "DIRED") 'face 'warning))
+                                     (t (propertize (format fmt "FILE") 'face 'success)))))
+                 (icon       (if (icons-displayable-p)
+                                 (cond
+                                  ((file-remote-p location)
+                                   (nerd-icons-codicon "nf-cod-radio_tower"))
+                                  ((file-directory-p location)
+                                   (nerd-icons-icon-for-dir location))
+                                  ((not (string-empty-p file))
+                                   (nerd-icons-icon-for-file file)))
+                               "")))
+            (push (list
+                   full-record
+                   `[,(if (and annotation (not (string-equal annotation "")))
+                          "*" "")
+                     ,icon
+                     ,(if (display-mouse-p)
+                          (propertize name
+                                      'font-lock-face 'bookmark-menu-bookmark
+                                      'mouse-face 'highlight
+                                      'follow-link t
+                                      'help-echo "mouse-2: go to this bookmark in other window")
+                        name)
+                     ,type
+                     ,@(if bookmark-bmenu-toggle-filenames
+                           (list (propertize location 'face 'completions-annotations)))])
+                  entries)))
+        (tabulated-list-init-header)
+        (setq tabulated-list-entries entries))
+      (tabulated-list-print t))
+    (advice-add #'bookmark-bmenu--revert :override #'my-bookmark-bmenu--revert)
+
+    (defun my-bookmark-bmenu-list ()
+      "Display a list of existing bookmarks.
+The list is displayed in a buffer named `*Bookmark List*'.
+The leftmost column displays a D if the bookmark is flagged for
+deletion, or > if it is flagged for displaying."
+      (interactive)
+      (bookmark-maybe-load-default-file)
+      (let ((buf (get-buffer-create bookmark-bmenu-buffer)))
+        (if (called-interactively-p 'interactive)
+            (pop-to-buffer buf)
+          (set-buffer buf)))
+      (bookmark-bmenu-mode)
+      (bookmark-bmenu--revert))
+    (advice-add #'bookmark-bmenu-list :override #'my-bookmark-bmenu-list)
+
+    (define-derived-mode bookmark-bmenu-mode tabulated-list-mode "Bookmark Menu"
+      (setq truncate-lines t)
+      (setq buffer-read-only t)
+      (setq tabulated-list-format
+            `[("" 1) ;; Space to add "*" for bookmark with annotation
+              ("" ,(if (icons-displayable-p) 2 0)) ;; Icons
+              ("Bookmark" ,bookmark-bmenu-file-column bookmark-bmenu--name-predicate)
+              ("Type" 9)
+              ,@(if bookmark-bmenu-toggle-filenames
+                    '(("File" 0 bookmark-bmenu--file-predicate)))])
+      (setq tabulated-list-padding bookmark-bmenu-marks-width)
+      (setq tabulated-list-sort-key '("Bookmark" . nil))
+      (add-hook 'tabulated-list-revert-hook #'bookmark-bmenu--revert nil t)
+      (setq revert-buffer-function #'bookmark-bmenu--revert)
+      (tabulated-list-init-header))))
+#+end_src
+
+* Dashboard
+#+begin_src emacs-lisp
+;; (use-package dashboard
+;;   :custom-face
+;;   (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
+;;   (dashboard-items-face ((t (:weight normal))))
+;;   (dashboard-no-items-face ((t (:weight normal))))
+;;   :pretty-hydra
+;;   ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
+;;     :color pink :quit-key ("q" "C-g"))
+;;    ("Navigator"
+;;     (("U" update-config-and-packages "update" :exit t)
+;;      ("H" browse-homepage "homepage" :exit t)
+;;      ("R" restore-session "recover session" :exit t)
+;;      ("S" find-custom-file "settings" :exit t))
+;;     "Section"
+;;     (("}" dashboard-next-section "next")
+;;      ("{" dashboard-previous-section "previous")
+;;      ("r" dashboard-goto-recent-files "recent files")
+;;      ("m" dashboard-goto-bookmarks "bookmarks")
+;;      ("p" dashboard-goto-projects "projects"))
+;;     "Item"
+;;     (("RET" widget-button-press "open" :exit t)
+;;      ("<tab>" widget-forward "next")
+;;      ("C-i" widget-forward "next")
+;;      ("<backtab>" widget-backward "previous")
+;;      ("C-n" next-line "next line")
+;;      ("C-p" previous-line "previous  line"))
+;;     "Misc"
+;;     (("<f2>" open-dashboard "open" :exit t)
+;;      ("g" dashboard-refresh-buffer "refresh" :exit t)
+;;      ("Q" quit-dashboard "quit" :exit t))))
+;;   :bind (("<f2>" . open-dashboard)
+;;          :map dashboard-mode-map
+;;          ("H" . browse-homepage)
+;;          ("R" . restore-session)
+;;          ("S" . find-custom-file)
+;;          ("U" . update-config-and-packages)
+;;          ("q" . quit-dashboard)
+;;          ("h" . dashboard-hydra/body)
+;;          ("?" . dashboard-hydra/body))
+;;   :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
+;;   :init
+;;   (setq dashboard-page-separator "\n\f\n"
+;;         dashboard-projects-backend 'project-el
+;;         dashboard-path-style 'truncate-middle
+;;         dashboard-path-max-length 60
+;;         dashboard-center-content t
+;;         dashboard-vertically-center-content t
+;;         dashboard-show-shortcuts nil
+;;         dashboard-items '((recents  . 10)
+;;                           (bookmarks . 5)
+;;                           (projects . 5))
+
+;;         dashboard-startupify-list '(dashboard-insert-banner
+;;                                     dashboard-insert-newline
+;;                                     dashboard-insert-banner-title
+;;                                     dashboard-insert-newline
+;;                                     dashboard-insert-navigator
+;;                                     dashboard-insert-newline
+;;                                     dashboard-insert-init-info
+;;                                     dashboard-insert-items
+;;                                     dashboard-insert-newline
+;;                                     dashboard-insert-footer)
+
+;;         dashboard-display-icons-p #'icons-displayable-p
+;;         dashboard-set-file-icons centaur-icon
+;;         dashboard-set-heading-icons centaur-icon
+;;         dashboard-heading-icons '((recents   . "nf-oct-history")
+;;                                   (bookmarks . "nf-oct-bookmark")
+;;                                   (agenda    . "nf-oct-calendar")
+;;                                   (projects  . "nf-oct-briefcase")
+;;                                   (registers . "nf-oct-database"))
+
+;;         dashboard-navigator-buttons
+;;         `(((,(when (icons-displayable-p)
+;;                (nerd-icons-mdicon "nf-md-github" :height 1.1))
+;;             "Homepage" "Browse homepage"
+;;             (lambda (&rest _) (browse-url centaur-homepage)))
+;;            (,(when (icons-displayable-p)
+;;                (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
+;;             "Restore" "Restore previous session"
+;;             (lambda (&rest _) (restore-session)))
+;;            (,(when (icons-displayable-p)
+;;                (nerd-icons-mdicon "nf-md-tools" :height 1.1))
+;;             "Settings" "Open custom file"
+;;             (lambda (&rest _) (find-file custom-file)))
+;;            (,(when (icons-displayable-p)
+;;                (nerd-icons-mdicon "nf-md-update" :height 1.1))
+;;             "Update" "Update Centaur Emacs"
+;;             (lambda (&rest _) (centaur-update)))
+;;            (,(if (icons-displayable-p)
+;;                  (nerd-icons-mdicon "nf-md-help" :height 1.1)
+;;                "?")
+;;             "" "Help (?/h)"
+;;             (lambda (&rest _) (dashboard-hydra/body)))))
+
+;;         dashboard-footer-icon
+;;         (if (icons-displayable-p)
+;;             (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
+;;           (propertize ">" 'face 'dashboard-footer)))
+
+;;   (dashboard-setup-startup-hook)
+;;   :config
+;;   ;; Insert copyright
+;;   ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
+;;   (defun my-dashboard-insert-copyright ()
+;;     "Insert copyright in the footer."
+;;     (dashboard-insert-center
+;;      (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
+;;                  'face 'font-lock-comment-face)))
+;;   (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
+
+;;   (defun restore-session ()
+;;     "Restore the previous session."
+;;     (interactive)
+;;     (message "Restoring previous session...")
+;;     (quit-window t)
+
+;;     (when (fboundp 'tabspaces-mode)
+;;       (unless tabspaces-mode
+;;         (tabspaces-mode t))
+;;       (tabspaces-restore-session))
+
+;;     (message "Restoring previous session...done"))
+
+;;   (defun dashboard-goto-recent-files ()
+;;     "Go to recent files."
+;;     (interactive)
+;;     (let ((func (local-key-binding "r")))
+;;       (and func (funcall func))))
+
+;;   (defun dashboard-goto-projects ()
+;;     "Go to projects."
+;;     (interactive)
+;;     (let ((func (local-key-binding "p")))
+;;       (and func (funcall func))))
+
+;;   (defun dashboard-goto-bookmarks ()
+;;     "Go to bookmarks."
+;;     (interactive)
+;;     (let ((func (local-key-binding "m")))
+;;       (and func (funcall func))))
+
+;;   (defvar dashboard-recover-layout-p nil
+;;     "Wether recovers the layout.")
+
+;;   (defun open-dashboard ()
+;;     "Open the *dashboard* buffer and jump to the first widget."
+;;     (interactive)
+;;     ;; Check if need to recover layout
+;;     (if (length> (window-list-1)
+;;                  ;; exclude `treemacs' window
+;;                  (if (and (fboundp 'treemacs-current-visibility)
+;;                           (eq (treemacs-current-visibility) 'visible))
+;;                      2
+;;                    1))
+;;         (setq dashboard-recover-layout-p t))
+
+;;     ;; Display dashboard in maximized window
+;;     (delete-other-windows)
+
+;;     ;; Refresh dashboard buffer
+;;     (dashboard-refresh-buffer)
+
+;;     ;; Jump to the first section
+;;     (dashboard-goto-recent-files))
+
+;;   (defun quit-dashboard ()
+;;     "Quit dashboard window."
+;;     (interactive)
+;;     (quit-window t)
+
+;;     ;; Create workspace
+;;     (when (fboundp 'tabspaces-mode)
+;;       (unless tabspaces-mode
+;;         (tabspaces-mode t)
+;;         (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
+
+;;     ;; Recover layout
+;;     (and dashboard-recover-layout-p
+;;          (and (bound-and-true-p winner-mode) (winner-undo))
+;;          (setq dashboard-recover-layout-p nil))))
+#+end_src
+
+* Dired
+#+begin_src emacs-lisp
+(use-package dired
+  :ensure nil
+  :config
+  ;; Guess a default target directory
+  (setq dired-dwim-target t)
+
+  ;; Always delete and copy recursively
+  (setq dired-recursive-deletes 'always
+        dired-recursive-copies 'always)
+
+  ;; Show directory first
+  (setq dired-listing-switches "-alh --group-directories-first")
+
+ ;; Quick sort dired buffers via hydra
+  (use-package dired-quick-sort
+    :bind (:map dired-mode-map
+           ("S" . hydra-dired-quick-sort/body)))
+
+  ;; Show git info in dired
+  (use-package dired-git-info)
+
+  ;; Allow rsync from dired buffers
+  (use-package dired-rsync)
+
+  ;; Colorful dired
+  (use-package diredfl
+    :hook (dired-mode . diredfl-mode))
+
+  ;; Shows icons in dired
+  (use-package nerd-icons-dired
+    :functions (nerd-icons-icon-for-dir my-nerd-icons-icon-for-dir)
+    :hook (dired-mode . nerd-icons-dired-mode)
+    :init
+    (defface nerd-icons-dired-dir-face
+      '((t (:inherit 'font-lock-doc-face)))
+      "Face for the directory icon."
+      :group 'nerd-icons-faces)
+    (defun my-nerd-icons-icon-for-dir (dir)
+      (nerd-icons-icon-for-dir dir :face 'nerd-icons-dired-dir-face))
+    (setq nerd-icons-dired-dir-icon-function #'my-nerd-icons-icon-for-dir))
+
+  ;; Extra Dired functionality
+  (use-package dired-aux :ensure nil))
 #+end_src
