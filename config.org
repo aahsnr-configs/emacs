@@ -3,4 +3,1314 @@
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
+* Core Emacs Configuration
+** Lexical Binding
+#+begin_src emacs-lisp
+;;; post-init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+#+end_src
 
+** Garbage Collections
+#+begin_src emacs-lisp
+;; CRITICAL: Restore GC after startup with optimized values
+(defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
+  "Optimal GC threshold for modern LSP-heavy workflows.
+Lower this if you experience freezing, raise if stuttering.")
+
+(defvar better-gc-cons-percentage 0.1
+  "GC percentage of heap to trigger collection.")
+
+;; Restore GC settings after startup
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold better-gc-cons-threshold
+                  gc-cons-percentage better-gc-cons-percentage)
+
+            ;; FIX: Only restore file handlers if the original variable actually exists
+            (when (boundp 'file-name-handler-alist-original)
+              (setq file-name-handler-alist file-name-handler-alist-original)
+              (makunbound 'file-name-handler-alist-original))
+
+            ;; Report startup time
+            (message "Emacs loaded in %.2fs with %d GCs"
+                     (float-time (time-subtract after-init-time before-init-time))
+                     gcs-done))
+          100) ;; Run late to ensure accurate timing
+
+;; Increase GC threshold in minibuffer to prevent slowdowns during completion
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (defun gc-minibuffer-setup-hook ()
+              (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
+
+            (defun gc-minibuffer-exit-hook ()
+              (garbage-collect)
+              (setq gc-cons-threshold better-gc-cons-threshold))
+
+            (add-hook 'minibuffer-setup-hook #'gc-minibuffer-setup-hook)
+            (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
+#+end_src
+
+** Custom Functions
+#+begin_src emacs-lisp
+(defun childframe-workable-p ()
+  "Whether childframe is workable."
+  (and (>= emacs-major-version 26)
+       (not noninteractive)
+       (not emacs-basic-display)
+       (or (display-graphic-p)
+           (featurep 'tty-child-frames))
+       (eq (frame-parameter (selected-frame) 'minibuffer) 't)))
+
+(defun childframe-completion-workable-p ()
+  "Whether childframe completion is workable."
+  (and (eq centaur-completion-style 'childframe)
+       (childframe-workable-p)))
+
+(defun icons-displayable-p ()
+  "Return non-nil if icons are displayable."
+  (and centaur-icon
+       (or (featurep 'nerd-icons)
+           (require 'nerd-icons nil t))))
+
+(defun too-long-file-p ()
+  "Check whether the file is too long."
+  (or (> (buffer-size) 500000)
+      (and (fboundp 'buffer-line-statistics)
+           (> (car (buffer-line-statistics)) 10000))))
+#+end_src
+
+** Constants
+#+begin_src emacs-lisp
+;; init-const.el --- Define constants.	-*- lexical-binding: t -*-
+
+;; Copyright (C) 2006-2025 Vincent Zhang
+
+;; Author: Vincent Zhang <seagle0128@gmail.com>
+;; URL: https://github.com/seagle0128/.emacs.d
+
+;; This file is not part of GNU Emacs.
+;;
+;; This program is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU General Public License as
+;; published by the Free Software Foundation; either version 3, or
+;; (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License
+;; along with this program; see the file COPYING.  If not, write to
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+;; Floor, Boston, MA 02110-1301, USA.
+;;
+
+;;; Commentary:
+;;
+;; Define constants.
+;;
+
+;;; Code:
+
+(defconst sys/linuxp
+  (eq system-type 'gnu/linux)
+  "Are we running on a GNU/Linux system?")
+
+(defconst sys/rootp
+  (string-equal "root" (getenv "USER"))
+  "Are you using ROOT user?")
+
+(defconst emacs/>=29p
+  (>= emacs-major-version 29)
+  "Emacs is 29 or above.")
+
+(defconst emacs/>=29.2p
+  (and (>= emacs-major-version 29)
+       (>= emacs-minor-version 2))
+  "Emacs is 29.2 or above.")
+
+(defconst emacs/>=30p
+  (>= emacs-major-version 30)
+  "Emacs is 30 or above.")
+
+(defconst emacs/>=31p
+  (>= emacs-major-version 31)
+  "Emacs is 31 or above.")
+#+end_src
+
+** Package Management
+#+begin_src emacs-lisp
+(defvar bootstrap-version)
+(let ((bootstrap-file
+       (expand-file-name
+        "straight/repos/straight.el/bootstrap.el"
+        (or (bound-and-true-p straight-base-dir)
+            user-emacs-directory)))
+      (bootstrap-version 7))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
+         'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
+
+(straight-use-package 'use-package)
+(setq straight-use-package-by-default t)
+
+(eval-and-compile
+  (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
+        use-package-expand-minimally t
+        use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
+        ;;use-package-always-defer t
+        use-package-enable-imenu-support t))
+
+(eval-when-compile
+  (require 'use-package)
+  (require 'bind-key))
+#+end_src
+
+** Performance Tuning
+#+begin_src emacs-lisp
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
+
+
+(setq-default bidi-display-reordering nil
+              bidi-paragraph-direction 'left-to-right
+              bidi-inhibit-bpa t)
+
+;; Apply to common modes
+(defun my/bidi-optimizations ()
+  "Apply bidi optimizations for current buffer."
+  (setq-local bidi-paragraph-direction 'left-to-right
+              bidi-inhibit-bpa t))
+
+(add-hook 'org-mode-hook #'my/bidi-optimizations)
+(add-hook 'text-mode-hook #'my/bidi-optimizations)
+(add-hook 'prog-mode-hook #'my/bidi-optimizations)
+
+(setq-default long-line-threshold 1000
+              large-hscroll-threshold 1000
+              syntax-wholeline-max 1000)
+
+(setq undo-limit 800000           ;; 800KB (default: 160KB)
+      undo-strong-limit 1200000   ;; 1.2MB (default: 240KB)
+      undo-outer-limit 120000000) ;; 120MB (default: 24MB)
+
+(setq scroll-conservatively 101
+      scroll-margin 0
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil
+      fast-but-imprecise-scrolling t  ;; Trade accuracy for speed
+      redisplay-skip-fontification-on-input t)  ;; Skip during rapid input
+
+(setq highlight-nonselected-windows nil)
+(setq blink-cursor-mode nil)
+
+(setq frame-resize-pixelwise t)
+(setq window-resize-pixelwise nil)
+
+(setq byte-compile-warnings '(not obsolete))
+(setq native-comp-async-report-warnings-errors 'silent)
+
+(setq ffap-machine-p-known 'reject)
+
+(setq inhibit-compacting-font-caches t)  ;; Don't compact font cache
+#+end_src
+
+** Small Configs
+#+begin_src emacs-lisp
+;; Move backup files to dedicated directory
+(setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+
+;; Confirmation settings
+(setq confirm-kill-processes nil)  ;; Auto-kill processes on exit
+
+;; Faster echo of keystrokes
+(setq echo-keystrokes 0.1)
+
+;; Don't create lockfiles
+(setq-default create-lockfiles nil)
+
+;; Compilation settings
+(setq-default compilation-always-kill t
+              compilation-ask-about-save nil
+              compilation-scroll-output t)
+
+;; Suppress redefinition warnings
+(setq ad-redefinition-action 'accept)
+
+;; Custom file location
+(setq custom-file (concat user-emacs-directory "custom.el"))
+(load custom-file 'noerror)
+
+;; Require final newline
+(setq require-final-newline t)
+
+;; Enable commands
+(put 'erase-buffer 'disabled nil)
+
+;; Global modes
+(global-hl-line-mode 1)
+(delete-selection-mode 1)
+
+;; File associations
+(add-to-list 'auto-mode-alist '("\\.in\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.out\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.args\\'" . text-mode))
+(add-to-list 'auto-mode-alist '("\\.bb\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.bbclass\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.Rmd\\'" . markdown-mode))
+
+;; Alt key mapping
+(setq x-alt-keysym 'meta)
+#+end_src
+
+** Garbage Collector Magic Hack
+#+begin_src emacs-lisp
+(use-package gcmh
+  :hook (emacs-startup . gcmh-mode)
+  :init
+  (setq gcmh-idle-delay 'auto
+        gcmh-auto-idle-delay-factor 10
+        gcmh-high-cons-threshold #x1000000)) ; 16MB
+#+end_src
+
+** UTF-8 Coding System
+#+begin_src emacs-lisp
+(set-selection-coding-system 'utf-8)
+(prefer-coding-system 'utf-8)
+(set-language-environment "UTF-8")
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(setq locale-coding-system 'utf-8)
+;; Treat clipboard input as UTF-8 string first; compound text next, etc.
+(when (display-graphic-p)
+  (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
+#+end_src
+
+** Environment
+#+begin_src emacs-lisp
+(use-package exec-path-from-shell
+  :defer t
+  :custom
+  (exec-path-from-shell-variables
+   '("PATH" "MANPATH"
+     "OPENAI_API_KEY" "ANTHROPIC_API_KEY"
+     "XAI_API_KEY" "DEEPSEEK_API_KEY"
+     "OPENROUTER_API_KEY" "GEMINI_API_KEY"))
+  :config
+  (when (daemonp)
+    (exec-path-from-shell-initialize)))
+#+end_src
+
+** Session Management
+#+begin_src emacs-lisp
+;; Save place
+(use-package saveplace
+  :ensure nil
+  :hook (after-init . save-place-mode))
+
+;; History
+(use-package recentf
+  :ensure nil
+  :hook (after-init . recentf-mode)
+  :init (setq recentf-max-saved-items 300
+              recentf-exclude
+              '("\\.?cache" ".cask" "url" "COMMIT_EDITMSG\\'" "bookmarks"
+                "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
+                "\\.?ido\\.last$" "\\.revive$" "/G?TAGS$" "/.elfeed/"
+                "^/tmp/" "^/var/folders/.+$" "^/ssh:" "/persp-confs/"
+                (lambda (file) (file-in-directory-p file package-user-dir))))
+  :config
+  (push (expand-file-name recentf-save-file) recentf-exclude)
+  (add-to-list 'recentf-filename-handlers #'abbreviate-file-name))
+
+(use-package savehist
+  :ensure nil
+  :hook (after-init . savehist-mode)
+  :init (setq enable-recursive-minibuffers t ; Allow commands in minibuffers
+              history-length 1000
+              savehist-additional-variables '(mark-ring
+                                              global-mark-ring
+                                              search-ring
+                                              regexp-search-ring
+                                              extended-command-history)
+              savehist-autosave-interval 300))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+ ;; ;; Start server
+;; (use-package server
+;;   :if centaur-server
+;;   :hook (after-init . server-mode))
+
+;; ;; Misc.
+(use-package simple
+  :ensure nil
+  :hook ((after-init . size-indication-mode)
+         (text-mode . visual-line-mode)
+         ((prog-mode markdown-mode conf-mode) . enable-trailing-whitespace))
+  :init
+  (setq column-number-mode t
+        line-number-mode t
+        kill-whole-line t               ; Kill line including '\n'
+        line-move-visual nil
+        track-eol t                     ; Keep cursor at end of lines. Require line-move-visual is nil.
+        set-mark-command-repeat-pop t)  ; Repeating C-SPC after popping mark pops it again
+
+  ;; Visualize TAB, (HARD) SPACE, NEWLINE
+  (setq-default show-trailing-whitespace nil) ; Don't show trailing whitespace by default
+  (defun enable-trailing-whitespace ()
+    "Show trailing spaces and delete on saving."
+    (setq show-trailing-whitespace t)
+    (add-hook 'before-save-hook #'delete-trailing-whitespace nil t))
+
+  ;; Prettify the process list
+  (with-no-warnings
+    (defun my-list-processes--prettify ()
+      "Prettify process list."
+      (when-let* ((entries tabulated-list-entries))
+        (setq tabulated-list-entries nil)
+        (dolist (p (process-list))
+          (when-let* ((val (cadr (assoc p entries)))
+                      (name (aref val 0))
+                      (pid (aref val 1))
+                      (status (aref val 2))
+                      (status (list status
+                                    'face
+                                    (if (memq status '(stop exit closed failed))
+                                        'error
+                                      'success)))
+                      (buf-label (aref val 3))
+                      (tty (list (aref val 4) 'face 'font-lock-doc-face))
+                      (thread (list (aref val 5) 'face 'font-lock-doc-face))
+                      (cmd (list (aref val 6) 'face 'completions-annotations)))
+            (push (list p (vector name pid status buf-label tty thread cmd))
+		          tabulated-list-entries)))))
+    (advice-add #'list-processes--refresh :after #'my-list-processes--prettify)))
+
+;; Misc
+(if (boundp 'use-short-answers)
+    (setq use-short-answers t)
+  (fset 'yes-or-no-p 'y-or-n-p))
+(setq-default major-mode 'text-mode
+              fill-column 80
+              tab-width 4
+              indent-tabs-mode nil)     ; Permanently indent with spaces, never with TABs
+
+(setq visible-bell t
+      inhibit-compacting-font-caches t  ; Don’t compact font caches during GC
+      delete-by-moving-to-trash t       ; Deleting files go to OS's trash folder
+      make-backup-files nil             ; Forbide to make backup files
+      auto-save-default nil             ; Disable auto save
+
+      uniquify-buffer-name-style 'post-forward-angle-brackets ; Show path if names are same
+      adaptive-fill-regexp "[ t]+|[ t]*([0-9]+.|*+)[ t]*"
+      adaptive-fill-first-line-regexp "^* *$"
+      sentence-end "\\([。！？]\\|……\\|[.?!][]\"')}]*\\($\\|[ \t]\\)\\)[ \t\n]*"
+      sentence-end-double-space nil
+      word-wrap-by-category t)
+#+end_src
+
+** Async
+#+begin_src emacs-lisp
+(use-package async
+  :functions (async-bytecomp-package-mode dired-async-mode)
+  :init
+  (async-bytecomp-package-mode 1)
+  (dired-async-mode 1))
+#+end_src
+
+** Frame
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  ;; Frame transparence
+  (use-package transwin))
+#+end_src
+
+** Child Frame
+#+begin_src emacs-lisp
+(use-package posframe
+  :hook (after-load-theme . posframe-delete-all)
+  :init
+  (defface posframe-border
+    `((t (:inherit region)))
+    "Face used by the `posframe' border."
+    :group 'posframe)
+  (defvar posframe-border-width 2
+    "Default posframe border width.")
+  :config
+  (with-no-warnings
+    (defun my-posframe--prettify-frame (&rest _)
+      (set-face-background 'fringe nil posframe--frame))
+    (advice-add #'posframe--create-posframe :after #'my-posframe--prettify-frame)
+
+    (defun posframe-poshandler-frame-center-near-bottom (info)
+      (cons (/ (- (plist-get info :parent-frame-width)
+                  (plist-get info :posframe-width))
+               2)
+            (/ (+ (plist-get info :parent-frame-height)
+                  (* 2 (plist-get info :font-height)))
+               2)))))
+#+end_src
+
+** Setup User
+#+begin_src emacs-lisp
+(setq user-full-name "Ahsanur Rahman"
+      user-mail-address "ahsanur041@proton.me")
+#+end_src
+
+* Hydra Setup
+#+begin_src emacs-lisp
+(use-package hydra
+  :demand t
+  :defines posframe-border-width
+  :hook (emacs-lisp-mode . hydra-add-imenu)
+  :init
+  (setq hydra-hint-display-type 'lv)
+  :config
+  ;; Use posframe if available and graphical
+  (when (and (display-graphic-p)
+             (require 'posframe nil t))
+    (setq hydra-hint-display-type 'posframe)
+    (setq hydra-posframe-show-params
+          `(:left-fringe 8
+            :right-fringe 8
+            :internal-border-width 2
+            :internal-border-color ,(face-background 'region nil t)
+            :background-color ,(face-background 'tooltip nil t)
+            :foreground-color ,(face-foreground 'tooltip nil t)
+            :lines-truncate t
+            :poshandler posframe-poshandler-frame-center-near-bottom))
+
+    ;; Update colors on theme change
+    (defun my-hydra-update-posframe-params ()
+      "Update hydra posframe parameters after theme change."
+      (setq hydra-posframe-show-params
+            `(:left-fringe 8
+              :right-fringe 8
+              :internal-border-width 2
+              :internal-border-color ,(face-background 'region nil t)
+              :background-color ,(face-background 'tooltip nil t)
+              :foreground-color ,(face-foreground 'tooltip nil t)
+              :lines-truncate t
+              :poshandler posframe-poshandler-frame-center-near-bottom)))
+    (add-hook 'after-load-theme-hook #'my-hydra-update-posframe-params t)))
+
+(use-package pretty-hydra
+  :demand t
+  :functions icons-displayable-p
+  :bind ("<f6>" . toggles-hydra/body)
+  :hook (emacs-lisp-mode . (lambda ()
+                             (add-to-list
+                              'imenu-generic-expression
+                              '("Hydras"
+                                "^.*(\\(pretty-hydra-define\\) \\([a-zA-Z-]+\\)"
+                                2))))
+  :init
+  (cl-defun pretty-hydra-title (title &optional icon-type icon-name
+                                      &key face height v-adjust)
+    "Add an icon in the hydra title."
+    (let ((face (or face 'mode-line-emphasis))
+          (height (or height 1.2))
+          (v-adjust (or v-adjust 0.0)))
+      (concat
+       (when (and (display-graphic-p)
+                  (or (featurep 'nerd-icons) (require 'nerd-icons nil t))
+                  icon-type icon-name)
+         (let ((f (intern (format "nerd-icons-%s" icon-type))))
+           (when (fboundp f)
+             (concat
+              (apply f (list icon-name :face face :height height :v-adjust v-adjust))
+              " "))))
+       (propertize title 'face face))))
+
+  ;; Global toggles
+  (with-no-warnings
+    (pretty-hydra-define toggles-hydra (:title (pretty-hydra-title "Toggles" 'faicon "nf-fa-toggle_on")
+                                        :color amaranth :quit-key ("q" "C-g"))
+      ("Basic"
+       (("n" (cond ((fboundp 'display-line-numbers-mode)
+                    (display-line-numbers-mode (if display-line-numbers-mode -1 1)))
+                   ((fboundp 'gblobal-linum-mode)
+                    (global-linum-mode (if global-linum-mode -1 1))))
+         "line number"
+         :toggle (or (bound-and-true-p display-line-numbers-mode)
+                     (bound-and-true-p global-linum-mode)))
+        ("a" global-aggressive-indent-mode "aggressive indent" :toggle t)
+        ("d" global-hungry-delete-mode "hungry delete" :toggle t)
+        ("e" electric-pair-mode "electric pair" :toggle t)
+        ("c" flyspell-mode "spell check" :toggle t)
+        ("s" prettify-symbols-mode "pretty symbol" :toggle t)
+        ("l" global-page-break-lines-mode "page break lines" :toggle t)
+        ("b" display-battery-mode "battery" :toggle t)
+        ("i" display-time-mode "time" :toggle t)
+        ("m" doom-modeline-mode "modern mode-line" :toggle t))
+       "Highlight"
+       (("h l" global-hl-line-mode "line" :toggle t)
+        ("h p" show-paren-mode "paren" :toggle t)
+        ("h s" symbol-overlay-mode "symbol" :toggle t)
+        ("h r" rainbow-mode "rainbow" :toggle t)
+        ("h w" (setq-default show-trailing-whitespace (not show-trailing-whitespace))
+         "whitespace" :toggle show-trailing-whitespace)
+        ("h d" rainbow-delimiters-mode "delimiter" :toggle t)
+        ("h i" highlight-indent-guides-mode "indent" :toggle t)
+        ("h t" global-hl-todo-mode "todo" :toggle t))
+       "Program"
+       (("f" flymake-mode "flymake" :toggle t)
+        ("O" hs-minor-mode "hideshow" :toggle t)
+        ("u" subword-mode "subword" :toggle t)
+        ("W" which-function-mode "which function" :toggle t)
+        ("E" toggle-debug-on-error "debug on error" :toggle (default-value 'debug-on-error))
+        ("Q" toggle-debug-on-quit "debug on quit" :toggle (default-value 'debug-on-quit))
+        ("v" global-diff-hl-mode "gutter" :toggle t)
+        ("V" diff-hl-flydiff-mode "live gutter" :toggle t)
+        ("M" diff-hl-margin-mode "margin gutter" :toggle t)
+        ("D" diff-hl-dired-mode "dired gutter" :toggle t))
+       "Theme"
+       (("t a" (centaur-load-theme 'auto) "auto"
+         :toggle (eq centaur-theme 'auto) :exit t)
+        ("t r" (centaur-load-theme 'random) "random"
+         :toggle (eq centaur-theme 'random) :exit t)
+        ("t s" (centaur-load-theme 'system) "system"
+         :toggle (eq centaur-theme 'system) :exit t)
+        ("t d" (centaur-load-theme 'default) "default"
+         :toggle (centaur-theme-enable-p 'default) :exit t)
+        ("t p" (centaur-load-theme 'pro) "pro"
+         :toggle (centaur-theme-enable-p 'pro) :exit t)
+        ("t k" (centaur-load-theme 'dark) "dark"
+         :toggle (centaur-theme-enable-p 'dark) :exit t)
+        ("t l" (centaur-load-theme 'light) "light"
+         :toggle (centaur-theme-enable-p 'light) :exit t)
+        ("t w" (centaur-load-theme 'warm) "warm"
+         :toggle (centaur-theme-enable-p 'warm) :exit t)
+        ("t c" (centaur-load-theme 'cold) "cold"
+         :toggle (centaur-theme-enable-p 'cold) :exit t)
+        ("t y" (centaur-load-theme 'day) "day"
+         :toggle (centaur-theme-enable-p 'day) :exit t)
+        ("t n" (centaur-load-theme 'night) "night"
+         :toggle (centaur-theme-enable-p 'night) :exit t)
+        ("t o" (centaur-load-theme
+                (intern (completing-read "Load custom theme: "
+                                         (mapcar #'symbol-name
+				                                 (custom-available-themes)))))
+         "others"
+         :toggle (not (or (rassoc (car custom-enabled-themes) centaur-theme-alist)
+                          (rassoc (cadr custom-enabled-themes) centaur-theme-alist)))
+         :exit t))
+       "Package Archive"
+       (("p m" (centaur-set-package-archives 'melpa t)
+         "melpa" :toggle (eq centaur-package-archives 'melpa) :exit t)
+        ("p b" (centaur-set-package-archives 'bfsu t)
+         "bfsu" :toggle (eq centaur-package-archives 'bfsu) :exit t)
+        ("p i" (centaur-set-package-archives 'iscas t)
+         "iscas" :toggle (eq centaur-package-archives 'iscas) :exit t)
+        ("p n" (centaur-set-package-archives 'netease t)
+         "netease" :toggle (eq centaur-package-archives 'netease) :exit t)
+        ("p s" (centaur-set-package-archives 'sjtu t)
+         "sjtu" :toggle (eq centaur-package-archives 'sjtu) :exit t)
+        ("p t" (centaur-set-package-archives 'tuna t)
+         "tuna" :toggle (eq centaur-package-archives 'tuna) :exit t)
+        ("p u" (centaur-set-package-archives 'ustc t)
+         "ustc" :toggle (eq centaur-package-archives 'ustc) :exit t)
+        ("p T" (centaur-test-package-archives) "speed test" :exit t))))))
+#+end_src
+* Evil
+** Undo System
+#+begin_src emacs-lisp
+(use-package undo-fu
+  :commands (undo-fu-only-undo
+             undo-fu-only-redo
+             undo-fu-only-redo-all
+             undo-fu-disable-checkpoint))
+
+(use-package undo-fu-session :commands undo-fu-session-global-mode)
+#+end_src
+
+** Core Evil
+#+begin_src emacs-lisp
+(setq evil-undo-system 'undo-fu)
+
+(use-package evil
+  :demand t
+  :init
+  ;; Core behavior
+  (setq evil-want-C-g-bindings t
+        evil-want-C-i-jump nil
+        evil-want-C-u-scroll t
+        evil-want-C-u-delete t
+        evil-want-C-w-delete t
+        evil-want-Y-yank-to-eol t
+        evil-want-abbrev-expand-on-insert-exit nil
+        evil-want-integration t
+        evil-want-keybinding nil
+        evil-symbol-word-search t
+
+        ;; Cursor appearance
+        evil-default-cursor t
+        evil-normal-state-cursor 'box
+        evil-emacs-state-cursor 'box
+        evil-insert-state-cursor 'bar
+        evil-visual-state-cursor 'hollow
+        evil-replace-state-cursor 'hbar
+        evil-operator-state-cursor 'hollow
+
+        ;; Search
+        evil-ex-search-vim-style-regexp t
+        evil-ex-visual-char-range t
+        evil-ex-interactive-search-highlight 'selected-window
+
+        ;; Behavior
+        evil-kbd-macro-suppress-motion-error t
+        evil-move-cursor-back nil
+        evil-want-fine-undo t
+        evil-move-beyond-eol nil
+        evil-search-wrap t
+        evil-magic t
+        evil-echo-state t
+        evil-indent-convert-tabs t
+        evil-ex-substitute-global t
+        evil-insert-skip-empty-lines t
+        evil-v$-excludes-newline t
+        evil-respect-visual-line-mode t
+
+        ;; Split behavior
+        evil-split-window-below t
+        evil-vsplit-window-right t)
+
+  :config
+  (evil-mode 1)
+  (evil-select-search-module 'evil-search-module 'evil-search)
+
+  ;; Set shift width
+  (setq-default evil-shift-width tab-width)
+
+  ;; Initial states
+  (evil-set-initial-state 'special-mode 'motion)
+  (evil-set-initial-state 'messages-buffer-mode 'normal)
+  (evil-set-initial-state 'dashboard-mode 'normal)
+
+  ;; Don't interfere with localleader
+  (define-key evil-motion-state-map "\\" nil)
+
+  ;; Visual line movement
+  (define-key evil-motion-state-map "j" 'evil-next-visual-line)
+  (define-key evil-motion-state-map "k" 'evil-previous-visual-line)
+  (define-key evil-motion-state-map "gj" 'evil-next-line)
+  (define-key evil-motion-state-map "gk" 'evil-previous-line))
+#+end_src
+
+** Evil Collection
+#+begin_src emacs-lisp
+(use-package evil-collection
+  :after evil
+  :init
+  (setq evil-collection-setup-minibuffer t
+        evil-collection-want-unimpaired-p nil)
+  :config
+  (evil-collection-init))
+#+end_src
+
+** Evil Extensions
+#+begin_src emacs-lisp
+(use-package evil-nerd-commenter :after evil)
+
+(use-package evil-surround
+  :after evil
+  :commands global-evil-surround-mode
+  :custom
+  (evil-surround-pairs-alist
+   '((?\( . ("(" . ")"))
+     (?\[ . ("[" . "]"))
+     (?\{ . ("{" . "}"))
+     (?\) . ("(" . ")"))
+     (?\] . ("[" . "]"))
+     (?\} . ("{" . "}"))
+     (?< . ("<" . ">"))
+     (?> . ("<" . ">"))))
+  :hook (after-init . global-evil-surround-mode))
+
+(use-package evil-matchit
+  :after evil
+  :hook (after-init . global-evil-matchit-mode))
+
+(use-package evil-embrace
+  :after evil-surround
+  :config
+  (evil-embrace-enable-evil-surround-integration))
+
+(use-package goto-chg
+  :after evil
+  :commands (goto-last-change goto-last-change-reverse)
+  :config
+  (evil-define-key 'normal 'global (kbd "g;") 'goto-last-change)
+  (evil-define-key 'normal 'global (kbd "g,") 'goto-last-change-reverse))
+#+end_src
+
+** Evil Ex Commands
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil-ex
+  (evil-ex-define-cmd "g[lobal]" #'evil-ex-global)
+  (evil-ex-define-cmd "al[ign]" #'align-regexp)
+  (evil-ex-define-cmd "retab" #'ar/evil-retab))
+
+(defun ar/evil-retab (&optional beg end)
+  "Convert tabs to spaces or vice versa in region or buffer."
+  (interactive
+   (if (use-region-p)
+       (list (region-beginning) (region-end))
+     (list (point-min) (point-max))))
+  (unless (and beg end)
+    (setq beg (point-min)
+          end (point-max)))
+  (if indent-tabs-mode
+      (tabify beg end)
+    (untabify beg end)))
+#+end_src
+
+** Evil Comment Keybinding
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil-maps
+  (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
+#+end_src
+
+** Minibuffer Evil Integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil
+  (define-key evil-ex-completion-map (kbd "C-a") #'evil-beginning-of-line)
+  (define-key evil-ex-completion-map (kbd "C-b") #'evil-backward-char)
+  (define-key evil-ex-completion-map (kbd "C-f") #'evil-forward-char)
+
+  (define-key evil-ex-search-keymap (kbd "C-a") #'evil-beginning-of-line)
+  (define-key evil-ex-search-keymap (kbd "C-b") #'evil-backward-char)
+  (define-key evil-ex-search-keymap (kbd "C-f") #'evil-forward-char))
+#+end_src
+
+* Elisp
+#+begin_src emacs-lisp
+(use-package elisp-mode
+  :ensure nil
+  :config
+  (with-no-warnings
+    (defun my-lisp-indent-function (indent-point state)
+      (let ((normal-indent (current-column))
+            (orig-point (point)))
+        (goto-char (1+ (elt state 1)))
+        (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+        (cond
+         ;; cargo-process-mode of form doesn't seem to be a symbol, or is a keyword
+         ((and (elt state 2)
+               (or (not (looking-at "\\sw\\|\\s_"))
+                   (looking-at ":")))
+          (if (not (> (save-excursion (forward-line 1) (point))
+                     calculate-lisp-indent-last-sexp))
+              (progn (goto-char calculate-lisp-indent-last-sexp)
+                     (beginning-of-line)
+                     (parse-partial-sexp (point)
+                                         calculate-lisp-indent-last-sexp 0 t)))
+          ;; Indent under the list or under the first sexp on the same
+          ;; line as calculate-lisp-indent-last-sexp.  Note that first
+          ;; thing on that line has to be complete sexp since we are
+          ;; inside the innermost containing sexp.
+          (backward-prefix-chars)
+          (current-column))
+         ((and (save-excursion
+                 (goto-char indent-point)
+                 (skip-syntax-forward " ")
+                 (not (looking-at ":")))
+               (save-excursion
+                 (goto-char orig-point)
+                (looking-at ":")))
+         (save-excursion
+           (goto-char (+ 2 (elt state 1)))
+           (current-column)))
+        (t
+         (let ((function (buffer-substring (point)
+                                           (progn (forward-sexp 1) (point))))
+               method)
+           (setq method (or (function-get (intern-soft function)
+                                          'lisp-indent-function)
+                            (get (intern-soft function) 'lisp-indent-hook)))
+           (cond ((or (eq method 'defun)
+                      (and (null method)
+                           (length> function 3)
+                           (string-match "\\`def" function)))
+                  (lisp-indent-defform state indent-point))
+                 ((integerp method)
+                  (lisp-indent-specform method state
+                                        indent-point normal-indent))
+                 (method
+                  (funcall method indent-point state))))))))
+   (add-hook 'emacs-lisp-mode-hook
+             (lambda () (setq-local lisp-indent-function #'my-lisp-indent-function)))
+
+   ;; Add remove buttons for advices
+   (add-hook 'help-mode-hook 'cursor-sensor-mode)
+
+   (defun function-advices (function)
+     "Return FUNCTION's advices."
+     (let ((flist (indirect-function function)) advices)
+       (while (advice--p flist)
+         (setq advices `(,@advices ,(advice--car flist)))
+         (setq flist (advice--cdr flist)))
+       advices))
+
+   (defun add-remove-advice-button (advice function)
+     (when (and (functionp advice) (functionp function))
+       (let ((inhibit-read-only t)
+             (msg (format "Remove advice `%s'" advice)))
+         (insert "\t")
+         (insert-button
+          "Remove"
+          'face 'custom-button
+          'cursor-sensor-functions `((lambda (&rest _) ,msg))
+          'help-echo msg
+          'action (lambda (_)
+                    (when (yes-or-no-p msg)
+                      (message "%s from function `%s'" msg function)
+                      (advice-remove function advice)
+                      (if (eq major-mode 'helpful-mode)
+                          (helpful-update)
+                        (revert-buffer nil t))))
+          'follow-link t))))
+
+   (defun add-button-to-remove-advice (buffer-or-name function)
+     "Add a button to remove advice."
+     (with-current-buffer buffer-or-name
+       (save-excursion
+         (goto-char (point-min))
+         (let ((ad-list (function-advices function)))
+           (while (re-search-forward "^\\(?:This function has \\)?:[-a-z]+ advice: \\(.+\\)$" nil t)
+             (let ((advice (car ad-list)))
+               (add-remove-advice-button advice function)
+               (setq ad-list (delq advice ad-list))))))))
+
+   (define-advice describe-function-1 (:after (function) advice-remove-button)
+     (add-button-to-remove-advice (help-buffer) function))
+   (with-eval-after-load 'helpful
+     (define-advice helpful-update (:after () advice-remove-button)
+       (when helpful--callable-p
+         (add-button-to-remove-advice (current-buffer) helpful--sym))))
+
+   ;; Remove hooks
+   (defun remove-hook-at-point ()
+     "Remove the hook at the point in the *Help* buffer."
+     (interactive)
+     (unless (memq major-mode '(help-mode helpful-mode))
+       (error "Only for help-mode or helpful-mode"))
+
+     (let ((orig-point (point)))
+       (save-excursion
+         (when-let*
+             ((hook (progn (goto-char (point-min)) (symbol-at-point)))
+              (func (when (and
+                           (or (re-search-forward (format "^Value:?[\s|\n]") nil t)
+                               (goto-char orig-point))
+                           (sexp-at-point))
+                      (end-of-sexp)
+                      (backward-char 1)
+                      (catch 'break
+                        (while t
+                          (condition-case _err
+                              (backward-sexp)
+                            (scan-error (throw 'break nil)))
+                          (let ((bounds (bounds-of-thing-at-point 'sexp)))
+                            (when (<= (car bounds) orig-point (cdr bounds))
+                              (throw 'break (sexp-at-point)))))))))
+           (when (yes-or-no-p (format "Remove %s from %s? " func hook))
+             (remove-hook hook func)
+             (if (eq major-mode 'helpful-mode)
+                 (helpful-update)
+               (revert-buffer nil t)))))))
+   (bind-key "r" #'remove-hook-at-point help-mode-map)))
+
+;; Syntax highlighting of known Elisp symbols
+(if (boundp 'elisp-fontify-semantically)
+    (setq elisp-fontify-semantically t)
+  (use-package highlight-defined
+    :hook ((emacs-lisp-mode inferior-emacs-lisp-mode) . highlight-defined-mode)))
+
+(use-package macrostep)
+
+;; A better *Help* buffer
+(use-package helpful
+  :bind (([remap describe-function] . helpful-callable)
+         ([remap describe-command]  . helpful-command)
+         ([remap describe-variable] . helpful-variable)
+         ([remap describe-key]      . helpful-key)
+         ([remap describe-symbol]   . helpful-symbol))
+  :hook (helpful-mode . cursor-sensor-mode) ; for remove-advice button
+  :init
+  (with-no-warnings
+    (with-eval-after-load 'apropos
+      ;; patch apropos buttons to call helpful instead of help
+      (dolist (fun-bt '(apropos-function apropos-macro apropos-command))
+        (button-type-put
+         fun-bt 'action
+         (lambda (button)
+           (helpful-callable (button-get button 'apropos-symbol)))))
+      (dolist (var-bt '(apropos-variable apropos-user-option))
+        (button-type-put
+         var-bt 'action
+         (lambda (button)
+           (helpful-variable (button-get button 'apropos-symbol))))))))
+#+end_src
+
+* UI and Theming
+** Fonts
+#+begin_src emacs-lisp
+(defun ar/set-fonts ()
+  "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
+  (set-face-attribute 'default nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  ;; Apply italic slant to comments and keywords
+  (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
+  (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
+
+;; Set fonts on startup and for new frames in daemon mode
+(if (daemonp)
+    (add-hook 'after-make-frame-functions
+              (lambda (frame)
+                (with-selected-frame frame (ar/set-fonts))))
+  (ar/set-fonts))
+
+;; Line spacing
+(setq-default line-spacing 0.02)
+
+;; Font settings
+(setq font-lock-maximum-decoration t
+      inhibit-compacting-font-caches t)
+#+end_src
+
+** Optimization
+#+begin_src emacs-lisp
+(setq idle-update-delay 0.3)
+
+(setq-default cursor-in-non-selected-windows nil)
+(setq highlight-nonselected-windows nil)
+
+(setq fast-but-imprecise-scrolling t)
+(setq redisplay-skip-fontification-on-input t)
+#+end_src
+
+** Frame
+#+begin_src emacs-lisp
+(setq-default internal-border-width 5)
+(add-to-list 'default-frame-alist '(internal-border-width . 5))
+
+;; Inhibit resizing frame
+(setq frame-inhibit-implied-resize t
+      frame-resize-pixelwise t)
+
+;; Initial frame
+(setq initial-frame-alist '((top . 0.5)
+                            (left . 0.5)
+                            (width . 0.7)
+                            (height . 0.85)
+                            (fullscreen)))
+#+end_src
+
+** Title
+#+begin_src emacs-lisp
+(setq frame-title-format '("Emacs - %b")
+      icon-title-format frame-title-format)
+#+end_src
+
+** Solaire Mode
+#+begin_src emacs-lisp
+(use-package solaire-mode
+  :hook (after-init . solaire-global-mode))
+#+end_src
+
+** Doom Themes
+#+begin_src emacs-lisp
+(use-package doom-themes
+  :demand t
+  :custom
+  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
+  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
+  ;; for treemacs users
+  (doom-themes-treemacs-theme "doom-colors") ; use "doom-colors" for less minimal icon theme
+  :config
+  (load-theme 'doom-tokyo-night t)
+
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+  ;; Enable custom neotree theme (nerd-icons must be installed!)
+  (doom-themes-neotree-config)
+  ;; or for treemacs users
+  (doom-themes-treemacs-config)
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+#+end_src
+
+** Modeline
+#+begin_src emacs-lisp
+(use-package doom-modeline
+  :hook (after-init . doom-modeline-mode)
+  :hook (doom-modeline-mode . column-number-mode)
+  :init
+  (setq doom-modeline-bar-width 3
+        doom-modeline-github nil
+        doom-modeline-mu4e nil
+        doom-modeline-persp-name nil
+        doom-modeline-minor-modes nil
+        doom-modeline-major-mode-icon nil
+        doom-modeline-buffer-file-name-style 'relative-from-project)
+  :config
+  (setq doom-modeline-height 25
+        doom-modeline-column-zero-based nil
+        doom-modeline-bar-width 3
+        doom-modeline-buffer-file-size nil
+        doom-modeline-buffer-encoding nil
+        doom-modeline-percent-position nil
+        doom-modeline-vcs-icon t
+        doom-modeline-vcs-max-length 0)
+
+  :bind (:map doom-modeline-mode-map
+         ("C-<f6>" . doom-modeline-hydra/body))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Mode Line" 'sucicon "nf-custom-emacs" :face 'nerd-icons-purple)
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Icon"
+    (("i" (setq doom-modeline-icon (not doom-modeline-icon))
+      "display icons" :toggle doom-modeline-icon)
+     ("u" (setq doom-modeline-unicode-fallback (not doom-modeline-unicode-fallback))
+      "unicode fallback" :toggle doom-modeline-unicode-fallback)
+     ("m" (setq doom-modeline-major-mode-icon (not doom-modeline-major-mode-icon))
+      "major mode" :toggle doom-modeline-major-mode-icon)
+     ("c" (setq doom-modeline-major-mode-color-icon (not doom-modeline-major-mode-color-icon))
+      "colorful major mode" :toggle doom-modeline-major-mode-color-icon)
+     ("s" (setq doom-modeline-buffer-state-icon (not doom-modeline-buffer-state-icon))
+      "buffer state" :toggle doom-modeline-buffer-state-icon)
+     ("o" (setq doom-modeline-buffer-modification-icon (not doom-modeline-buffer-modification-icon))
+      "modification" :toggle doom-modeline-buffer-modification-icon)
+     ("x" (setq doom-modeline-time-icon (not doom-modeline-time-icon))
+      "time" :toggle doom-modeline-time-icon)
+     ("v" (setq doom-modeline-modal-icon (not doom-modeline-modal-icon))
+      "modal" :toggle doom-modeline-modal-icon))
+    "Segment"
+    (("g h" (setq doom-modeline-hud (not doom-modeline-hud))
+      "hud" :toggle doom-modeline-hud)
+     ("g m" (setq doom-modeline-minor-modes (not doom-modeline-minor-modes))
+      "minor modes" :toggle doom-modeline-minor-modes)
+     ("g w" (setq doom-modeline-enable-word-count (not doom-modeline-enable-word-count))
+      "word count" :toggle doom-modeline-enable-word-count)
+     ("g e" (setq doom-modeline-buffer-encoding (not doom-modeline-buffer-encoding))
+      "encoding" :toggle doom-modeline-buffer-encoding)
+     ("g i" (setq doom-modeline-indent-info (not doom-modeline-indent-info))
+      "indent" :toggle doom-modeline-indent-info)
+     ("g c" (setq doom-modeline-display-misc-in-all-mode-lines (not doom-modeline-display-misc-in-all-mode-lines))
+      "misc info" :toggle doom-modeline-display-misc-in-all-mode-lines)
+     ("g l" (setq doom-modeline-lsp (not doom-modeline-lsp))
+      "lsp" :toggle doom-modeline-lsp)
+     ("g k" (setq doom-modeline-workspace-name (not doom-modeline-workspace-name))
+      "workspace" :toggle doom-modeline-workspace-name)
+     ("g g" (setq doom-modeline-github (not doom-modeline-github))
+      "github" :toggle doom-modeline-github)
+     ("g n" (setq doom-modeline-gnus (not doom-modeline-gnus))
+      "gnus" :toggle doom-modeline-gnus)
+     ("g u" (setq doom-modeline-mu4e (not doom-modeline-mu4e))
+      "mu4e" :toggle doom-modeline-mu4e)
+     ("g r" (setq doom-modeline-irc (not doom-modeline-irc))
+      "irc" :toggle doom-modeline-irc)
+     ("g f" (setq doom-modeline-irc-buffers (not doom-modeline-irc-buffers))
+      "irc buffers" :toggle doom-modeline-irc-buffers)
+     ("g s" (progn
+              (setq doom-modeline-check-simple-format (not doom-modeline-check-simple-format))
+              (and (bound-and-true-p flycheck-mode) (flycheck-buffer)))
+      "simple check format" :toggle doom-modeline-check-simple-format)
+     ("g t" (setq doom-modeline-time (not doom-modeline-time))
+      "time" :toggle doom-modeline-time)
+     ("g v" (setq doom-modeline-env-version (not doom-modeline-env-version))
+      "version" :toggle doom-modeline-env-version))
+    "Style"
+    (("a" (setq doom-modeline-buffer-file-name-style 'auto)
+      "auto"
+      :toggle (eq doom-modeline-buffer-file-name-style 'auto))
+     ("b" (setq doom-modeline-buffer-file-name-style 'buffer-name)
+      "buffer name"
+      :toggle (eq doom-modeline-buffer-file-name-style 'buffer-name))
+     ("f" (setq doom-modeline-buffer-file-name-style 'file-name)
+      "file name"
+      :toggle (eq doom-modeline-buffer-file-name-style 'file-name))
+     ("F" (setq doom-modeline-buffer-file-name-style 'file-name-with-project)
+      "file name with project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'file-name-with-project))
+     ("t u" (setq doom-modeline-buffer-file-name-style 'truncate-upto-project)
+      "truncate upto project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-upto-project))
+     ("t f" (setq doom-modeline-buffer-file-name-style 'truncate-from-project)
+      "truncate from project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-from-project))
+     ("t w" (setq doom-modeline-buffer-file-name-style 'truncate-with-project)
+      "truncate with project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-with-project))
+     ("t e" (setq doom-modeline-buffer-file-name-style 'truncate-except-project)
+      "truncate except project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-except-project))
+     ("t r" (setq doom-modeline-buffer-file-name-style 'truncate-upto-root)
+      "truncate upto root"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-upto-root))
+     ("t a" (setq doom-modeline-buffer-file-name-style 'truncate-all)
+      "truncate all"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-all))
+     ("t n" (setq doom-modeline-buffer-file-name-style 'truncate-nil)
+      "truncate none"
+      :toggle (eq doom-modeline-buffer-file-name-style 'truncate-nil))
+     ("r f" (setq doom-modeline-buffer-file-name-style 'relative-from-project)
+      "relative from project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'relative-from-project))
+     ("r t" (setq doom-modeline-buffer-file-name-style 'relative-to-project)
+      "relative to project"
+      :toggle (eq doom-modeline-buffer-file-name-style 'relative-to-project)))
+    "Project Detection"
+    (("p a" (setq doom-modeline-project-detection 'auto)
+      "auto"
+      :toggle (eq doom-modeline-project-detection 'auto))
+     ("p f" (setq doom-modeline-project-detection 'ffip)
+      "ffip"
+      :toggle (eq doom-modeline-project-detection 'ffip))
+     ("p i" (setq doom-modeline-project-detection 'projectile)
+      "projectile"
+      :toggle (eq doom-modeline-project-detection 'projectile))
+     ("p p" (setq doom-modeline-project-detection 'project)
+      "project"
+      :toggle (eq doom-modeline-project-detection 'project))
+     ("p n" (setq doom-modeline-project-detection nil)
+      "disable"
+      :toggle (eq doom-modeline-project-detection nil)))
+    "Misc"
+    (("n" (progn
+            (message "Fetching GitHub notifications...")
+            (run-with-timer 300 nil #'doom-modeline--github-fetch-notifications)
+            (browse-url "https://github.com/notifications"))
+      "github notifications" :exit t)
+     ("e" (cond ((bound-and-true-p flycheck-mode)
+                 (flycheck-list-errors))
+                ((bound-and-true-p flymake-mode)
+                 (flymake-show-diagnostics-buffer)))
+      "list errors" :exit t)
+     ("w" (if (bound-and-true-p grip-mode)
+              (grip-browse-preview)
+            (message "Not in preview"))
+      "browse preview" :exit t)
+     ("z h" (set-from-minibuffer 'doom-modeline-height)
+      "set height" :exit t)
+     ("z w" (set-from-minibuffer 'doom-modeline-bar-width)
+      "set bar width" :exit t)
+     ("z g" (set-from-minibuffer 'doom-modeline-github-interval)
+      "set github interval" :exit t)
+     ("z n" (set-from-minibuffer 'doom-modeline-gnus-timer)
+      "set gnus interval" :exit t)))))
+#+end_src
+
+** Hide Modeline
+#+begin_src emacs-lisp
+(use-package hide-mode-line
+  :autoload turn-off-hide-mode-line-mode
+  :hook (((eat-mode
+           eshell-mode shell-mode
+           term-mode vterm-mode
+           embark-collect-mode lsp-ui-imenu-mode
+           pdf-annot-list-mode) . turn-on-hide-mode-line-mode)))
+#+end_src
+
+** Nerd Icons
+#+begin_src emacs-lisp
+(use-package nerd-icons
+  :custom
+  (nerd-icons-font-family "Symbols Nerd Font Mono")
+  (nerd-icons-color-icons t)
+  :config
+  (setq inhibit-compacting-font-caches t))
+#+end_src
+
+** Line Numbers
+#+begin_src emacs-lisp
+(use-package display-line-numbers
+  :ensure nil
+  :hook ((prog-mode
+          conf-mode toml-ts-mode
+          yaml-mode yaml-ts-mode)
+         . display-line-numbers-mode)
+  :init (setq display-line-numbers-width-start t))
+#+end_src
+
+** Suppress GUI features
+#+begin_src emacs-lisp
+(setq use-file-dialog nil
+      use-dialog-box nil
+      inhibit-startup-screen t
+      inhibit-startup-echo-area-message user-login-name
+      inhibit-default-init t
+      initial-scratch-message nil)
+(unless (daemonp)
+  (advice-add #'display-startup-echo-area-message :override #'ignore))
+#+end_src
+
+** Display dividers between windows
+#+begin_src emacs-lisp
+(setq window-divider-default-places t
+      window-divider-default-bottom-width 1
+      window-divider-default-right-width 1)
+(add-hook 'window-setup-hook #'window-divider-mode)
+#+end_src
+
+** Text Scaling
+#+begin_src emacs-lisp
+(use-package default-text-scale
+  :hook (after-init . default-text-scale-mode))
+#+end_src
+
+** Scrolling
+#+begin_src emacs-lisp
+;; Scroll one line at a time (less "jumpy" than defaults)
+(setq hscroll-step 1
+      hscroll-margin 2
+      scroll-step 1
+      scroll-margin 0
+      scroll-conservatively 100000
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil
+      ;; mouse
+      mouse-wheel-scroll-amount-horizontal 1
+      mouse-wheel-progressive-speed nil)
+
+;; Smooth scrolling
+(when (fboundp 'pixel-scroll-precision-mode) ;; 29+
+  (use-package ultra-scroll
+    :functions (hl-todo-mode diff-hl-flydiff-mode)
+    :hook (after-init . ultra-scroll-mode)
+    :config
+    (add-hook 'ultra-scroll-hide-functions #'diff-hl-flydiff-mode)
+    (add-hook 'ultra-scroll-hide-functions #'hl-todo-mode)
+    (add-hook 'ultra-scroll-hide-functions #'jit-lock-mode)))
+
+#+end_src
+
+** Transient Posframe
+#+begin_src emacs-lisp
+(use-package transient-posframe
+  :defer t
+  :defines posframe-border-width
+  :custom-face
+  (transient-posframe ((t (:inherit tooltip))))
+  (transient-posframe-border ((t (:inherit posframe-border :background unspecified))))
+  :hook (after-init . transient-posframe-mode)
+  :init (setq transient-mode-line-format nil
+              transient-posframe-border-width posframe-border-width
+              transient-posframe-poshandler 'posframe-poshandler-frame-center
+              transient-posframe-parameters '((left-fringe . 8)
+                                              (right-fringe . 8))))
+#+end_src
