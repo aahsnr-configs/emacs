@@ -1084,6 +1084,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ** Modeline
 #+begin_src emacs-lisp
 (use-package doom-modeline
+  :demand t
   :hook (after-init . doom-modeline-mode)
   :hook (doom-modeline-mode . column-number-mode)
   :init

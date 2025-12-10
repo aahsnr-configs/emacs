@@ -2132,187 +2132,69 @@ deletion, or > if it is flagged for displaying."
 
 * Dashboard
 #+begin_src emacs-lisp
-;; (use-package dashboard
-;;   :custom-face
-;;   (dashboard-heading ((t (:inherit (font-lock-string-face bold)))))
-;;   (dashboard-items-face ((t (:weight normal))))
-;;   (dashboard-no-items-face ((t (:weight normal))))
-;;   :pretty-hydra
-;;   ((:title (pretty-hydra-title "Dashboard" 'mdicon "nf-md-view_dashboard")
-;;     :color pink :quit-key ("q" "C-g"))
-;;    ("Navigator"
-;;     (("U" update-config-and-packages "update" :exit t)
-;;      ("H" browse-homepage "homepage" :exit t)
-;;      ("R" restore-session "recover session" :exit t)
-;;      ("S" find-custom-file "settings" :exit t))
-;;     "Section"
-;;     (("}" dashboard-next-section "next")
-;;      ("{" dashboard-previous-section "previous")
-;;      ("r" dashboard-goto-recent-files "recent files")
-;;      ("m" dashboard-goto-bookmarks "bookmarks")
-;;      ("p" dashboard-goto-projects "projects"))
-;;     "Item"
-;;     (("RET" widget-button-press "open" :exit t)
-;;      ("<tab>" widget-forward "next")
-;;      ("C-i" widget-forward "next")
-;;      ("<backtab>" widget-backward "previous")
-;;      ("C-n" next-line "next line")
-;;      ("C-p" previous-line "previous  line"))
-;;     "Misc"
-;;     (("<f2>" open-dashboard "open" :exit t)
-;;      ("g" dashboard-refresh-buffer "refresh" :exit t)
-;;      ("Q" quit-dashboard "quit" :exit t))))
-;;   :bind (("<f2>" . open-dashboard)
-;;          :map dashboard-mode-map
-;;          ("H" . browse-homepage)
-;;          ("R" . restore-session)
-;;          ("S" . find-custom-file)
-;;          ("U" . update-config-and-packages)
-;;          ("q" . quit-dashboard)
-;;          ("h" . dashboard-hydra/body)
-;;          ("?" . dashboard-hydra/body))
-;;   :hook (dashboard-mode . (lambda () (setq-local frame-title-format nil)))
-;;   :init
-;;   (setq dashboard-page-separator "\n\f\n"
-;;         dashboard-projects-backend 'project-el
-;;         dashboard-path-style 'truncate-middle
-;;         dashboard-path-max-length 60
-;;         dashboard-center-content t
-;;         dashboard-vertically-center-content t
-;;         dashboard-show-shortcuts nil
-;;         dashboard-items '((recents  . 10)
-;;                           (bookmarks . 5)
-;;                           (projects . 5))
+(use-package dashboard
+  :ensure t
+  :custom-face
+  (dashboard-heading ((t (:inherit default :weight bold))))
+  (dashboard-items-face ((t (:inherit default :height 0.9))))
+  :config
+  ;; 1. Layout & Basic Settings
+  (setq dashboard-startup-banner 'logo)
+  (setq dashboard-center-content t)
+  (setq dashboard-vertically-center-content t)
+  (setq dashboard-init-info-message-format "Loaded %d packages in %.2f seconds")
 
-;;         dashboard-startupify-list '(dashboard-insert-banner
-;;                                     dashboard-insert-newline
-;;                                     dashboard-insert-banner-title
-;;                                     dashboard-insert-newline
-;;                                     dashboard-insert-navigator
-;;                                     dashboard-insert-newline
-;;                                     dashboard-insert-init-info
-;;                                     dashboard-insert-items
-;;                                     dashboard-insert-newline
-;;                                     dashboard-insert-footer)
+  ;; 2. Icons & Aesthetics (Matches your nerd-icons setup)
+  (setq dashboard-display-icons-p t)
+  (setq dashboard-icon-type 'nerd-icons)
+  (setq dashboard-set-heading-icons t)
+  (setq dashboard-set-file-icons t)
 
-;;         dashboard-display-icons-p #'icons-displayable-p
-;;         dashboard-set-file-icons centaur-icon
-;;         dashboard-set-heading-icons centaur-icon
-;;         dashboard-heading-icons '((recents   . "nf-oct-history")
-;;                                   (bookmarks . "nf-oct-bookmark")
-;;                                   (agenda    . "nf-oct-calendar")
-;;                                   (projects  . "nf-oct-briefcase")
-;;                                   (registers . "nf-oct-database"))
+  ;; Modern, minimal heading icons
+  (setq dashboard-heading-icons
+        '((recents   . "nf-oct-history")
+          (bookmarks . "nf-oct-bookmark")
+          (agenda    . "nf-oct-calendar")
+          (projects  . "nf-oct-rocket")
+          (registers . "nf-oct-database")))
 
-;;         dashboard-navigator-buttons
-;;         `(((,(when (icons-displayable-p)
-;;                (nerd-icons-mdicon "nf-md-github" :height 1.1))
-;;             "Homepage" "Browse homepage"
-;;             (lambda (&rest _) (browse-url centaur-homepage)))
-;;            (,(when (icons-displayable-p)
-;;                (nerd-icons-mdicon "nf-md-backup_restore" :height 1.1))
-;;             "Restore" "Restore previous session"
-;;             (lambda (&rest _) (restore-session)))
-;;            (,(when (icons-displayable-p)
-;;                (nerd-icons-mdicon "nf-md-tools" :height 1.1))
-;;             "Settings" "Open custom file"
-;;             (lambda (&rest _) (find-file custom-file)))
-;;            (,(when (icons-displayable-p)
-;;                (nerd-icons-mdicon "nf-md-update" :height 1.1))
-;;             "Update" "Update Centaur Emacs"
-;;             (lambda (&rest _) (centaur-update)))
-;;            (,(if (icons-displayable-p)
-;;                  (nerd-icons-mdicon "nf-md-help" :height 1.1)
-;;                "?")
-;;             "" "Help (?/h)"
-;;             (lambda (&rest _) (dashboard-hydra/body)))))
+  ;; 3. Content Management
+  (setq dashboard-items '((recents  . 5)
+                          (projects . 3)
+                          (bookmarks . 3)
+                          (agenda   . 3)))
 
-;;         dashboard-footer-icon
-;;         (if (icons-displayable-p)
-;;             (nerd-icons-octicon "nf-oct-heart" :height 1.2 :face 'nerd-icons-lred)
-;;           (propertize ">" 'face 'dashboard-footer)))
+  ;; 4. Project Backend (Defaults to built-in project.el if projectile is missing)
+  (setq dashboard-projects-backend 'project-el)
 
-;;   (dashboard-setup-startup-hook)
-;;   :config
-;;   ;; Insert copyright
-;;   ;; @see https://github.com/emacs-dashboard/emacs-dashboard/issues/219
-;;   (defun my-dashboard-insert-copyright ()
-;;     "Insert copyright in the footer."
-;;     (dashboard-insert-center
-;;      (propertize (format "\nPowered by Vincent Zhang, %s\n" (format-time-string "%Y"))
-;;                  'face 'font-lock-comment-face)))
-;;   (advice-add #'dashboard-insert-footer :after #'my-dashboard-insert-copyright)
+  ;; 5. Navigator (Customized for your Elpaca & Tabspaces workflow)
+  (setq dashboard-set-navigator t)
+  (setq dashboard-navigator-buttons
+        `(;; Row 1
+          ((,(nerd-icons-octicon "nf-oct-gear" :height 1.1 :v-adjust 0.0)
+            "Config"
+            "Open Configuration (Org)"
+            (lambda (&rest _) (find-file (expand-file-name "emacs.txt" user-emacs-directory))))
 
-;;   (defun restore-session ()
-;;     "Restore the previous session."
-;;     (interactive)
-;;     (message "Restoring previous session...")
-;;     (quit-window t)
+           (,(nerd-icons-octicon "nf-oct-package" :height 1.1 :v-adjust 0.0)
+            "Updates"
+            "Elpaca Manager"
+            (lambda (&rest _) (elpaca-manager)))
 
-;;     (when (fboundp 'tabspaces-mode)
-;;       (unless tabspaces-mode
-;;         (tabspaces-mode t))
-;;       (tabspaces-restore-session))
+           (,(nerd-icons-octicon "nf-oct-server" :height 1.1 :v-adjust 0.0)
+            "Restore"
+            "Restore Last Session"
+            (lambda (&rest _) (tabspaces-restore-session))))))
 
-;;     (message "Restoring previous session...done"))
+  ;; 6. Footer
+  (setq dashboard-set-footer nil)
+  (setq dashboard-footer-messages '("Happy Hacking, Ahsanur!"))
 
-;;   (defun dashboard-goto-recent-files ()
-;;     "Go to recent files."
-;;     (interactive)
-;;     (let ((func (local-key-binding "r")))
-;;       (and func (funcall func))))
+  ;; 7. Startup Hooks
+  (dashboard-setup-startup-hook)
 
-;;   (defun dashboard-goto-projects ()
-;;     "Go to projects."
-;;     (interactive)
-;;     (let ((func (local-key-binding "p")))
-;;       (and func (funcall func))))
-
-;;   (defun dashboard-goto-bookmarks ()
-;;     "Go to bookmarks."
-;;     (interactive)
-;;     (let ((func (local-key-binding "m")))
-;;       (and func (funcall func))))
-
-;;   (defvar dashboard-recover-layout-p nil
-;;     "Wether recovers the layout.")
-
-;;   (defun open-dashboard ()
-;;     "Open the *dashboard* buffer and jump to the first widget."
-;;     (interactive)
-;;     ;; Check if need to recover layout
-;;     (if (length> (window-list-1)
-;;                  ;; exclude `treemacs' window
-;;                  (if (and (fboundp 'treemacs-current-visibility)
-;;                           (eq (treemacs-current-visibility) 'visible))
-;;                      2
-;;                    1))
-;;         (setq dashboard-recover-layout-p t))
-
-;;     ;; Display dashboard in maximized window
-;;     (delete-other-windows)
-
-;;     ;; Refresh dashboard buffer
-;;     (dashboard-refresh-buffer)
-
-;;     ;; Jump to the first section
-;;     (dashboard-goto-recent-files))
-
-;;   (defun quit-dashboard ()
-;;     "Quit dashboard window."
-;;     (interactive)
-;;     (quit-window t)
-
-;;     ;; Create workspace
-;;     (when (fboundp 'tabspaces-mode)
-;;       (unless tabspaces-mode
-;;         (tabspaces-mode t)
-;;         (tabspaces-switch-or-create-workspace tabspaces-default-tab)))
-
-;;     ;; Recover layout
-;;     (and dashboard-recover-layout-p
-;;          (and (bound-and-true-p winner-mode) (winner-undo))
-;;          (setq dashboard-recover-layout-p nil))))
+  ;; Ensure dashboard opens in emacsclient
+  (setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*"))))
 #+end_src
 
 * Dired
@@ -2682,17 +2564,9 @@ FACE defaults to inheriting from default and highlight."
   :defer t
   :hook (ibuffer-mode . nerd-icons-ibuffer-mode)
   :init
-  ;; Whether display the icons.
   (setq nerd-icons-ibuffer-icon t)
-
-  ;; Whether display the colorful icons.
-  ;; It respects `nerd-icons-color-icons'.
   (setq nerd-icons-ibuffer-color-icon t)
-
-  ;; The default icon size in ibuffer.
   (setq nerd-icons-ibuffer-icon-size 1.0)
-
-  ;; Use human readable file size in ibuffer.
   (setq  nerd-icons-ibuffer-human-readable-size t))
 
 ;; Group ibuffer's list by project
@@ -2725,3 +2599,422 @@ FACE defaults to inheriting from default and highlight."
               '((ibuffer-project-project-root . "Project")
                 (file-remote-p . "Remote")))))))
 #+end_src
+
+* Kill Ring
+#+begin_src emacs-lisp
+(setq kill-ring-max 200)
+
+;; Save clipboard contents into kill-ring before replace them
+(setq save-interprogram-paste-before-kill t)
+
+;; Kill & Mark things easily
+(use-package easy-kill
+  :defer t
+  :bind (([remap kill-ring-save] . easy-kill)
+         ([remap mark-sexp] . easy-mark)))
+
+;; Interactively insert and edit items from kill-ring
+(use-package browse-kill-ring
+  :defer t
+  :hook (after-init . browse-kill-ring-default-keybindings)
+  :init (setq browse-kill-ring-separator "────────────────"
+              browse-kill-ring-separator-face 'shadow))
+#+end_src
+
+* Workspace
+#+begin_src emacs-lisp
+(use-package tabspaces
+  :functions tabspaces-mode
+  :hook (after-init . tabspaces-mode)
+  :custom
+  (tab-bar-show nil)
+  (tabspaces-use-filtered-buffers-as-default t)
+  (tabspaces-default-tab "Default")
+  (tabspaces-remove-to-default t)
+  (tabspaces-include-buffers '("*scratch*" "*Messages*"))
+  (tabspaces-exclude-buffers '("*eat*" "*vterm*" "*shell*" "*eshell*"))
+
+  ;; Session management settings
+  (tabspaces-session t)
+  (tabspaces-session-auto-restore (not centaur-dashboard))
+
+  :config
+  (with-no-warnings
+    (with-eval-after-load 'consult
+      (consult-customize consult--source-buffer :hidden t :default nil)
+      (defvar consult--source-workspace
+        (list :name     "Workspace Buffer"
+              :narrow   ?w
+              :history  'buffer-name-history
+              :category 'buffer
+              :state    #'consult--buffer-state
+              :default  t
+              :items    (lambda () (consult--buffer-query
+                               :predicate #'tabspaces--local-buffer-p
+                               :sort 'visibility
+                               :as #'buffer-name)))
+        "Set workspace buffer list for consult-buffer.")
+      (add-to-list 'consult-buffer-sources 'consult--source-workspace))
+
+    (defun my-tabspaces-delete-childframe (&rest _)
+      "Delete all child frames before saving tabspaces session.
+This prevents issues with posframe popups being saved in the session."
+      (when (fboundp 'posframe-delete-all)
+        (ignore-errors
+          (posframe-delete-all))))
+    (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
+
+    ;; Helper function to bury Messages buffer after restoring session
+    (defun my-tabspaces-bury-window (&rest _)
+      "Bury *Messages* buffer after restoring tabspaces session.
+This provides a cleaner workspace after session restoration."
+      (ignore-errors
+        ;; Use the standard messages buffer name
+        (let ((msg-buf (get-buffer "*Messages*")))
+          (when msg-buf
+            (quit-windows-on msg-buf)))))
+
+    ;; Advice to clean up Messages buffer after session restore
+    (advice-add #'tabspaces-restore-session :after #'my-tabspaces-bury-window)))
+#+end_src
+
+* Window
+** Windmove
+Directional window-selection routines
+#+begin_src emacs-lisp
+(use-package windmove
+  :ensure nil
+  :hook (after-init . (lambda ()
+                        (windmove-default-keybindings 'super))))
+#+end_src
+
+** Winner
+Restore old window configurations
+#+begin_src emacs-lisp
+(use-package winner
+  :ensure nil
+  :commands (winner-undo winner-redo)
+  :hook (after-init . winner-mode)
+  :init (setq winner-boring-buffers '("*Completions*"
+                                      "*Compile-Log*"
+                                      "*inferior-lisp*"
+                                      "*Fuzzy Completions*"
+                                      "*Apropos*"
+                                      "*Help*"
+                                      "*cvs*"
+                                      "*Buffer List*"
+                                      "*Ibuffer*"
+                                      "*esh command on file*")))
+#+end_src
+
+** Ace Window
+Quickly switch windows
+#+begin_src emacs-lisp
+(use-package ace-window
+  :defer t
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Window Management" 'faicon "nf-fa-th")
+    :foreign-keys warn :quit-key ("q" "C-g"))
+   ("Actions"
+    (("TAB" other-window "switch")
+     ("x" ace-delete-window "delete")
+     ("X" ace-delete-other-windows "delete other" :exit t)
+     ("s" ace-swap-window "swap")
+     ("a" ace-select-window "select" :exit t)
+     ("m" toggle-frame-maximized "maximize" :exit t)
+     ("u" toggle-frame-fullscreen "fullscreen" :exit t))
+    "Resize"
+    (("h" shrink-window-horizontally "←")
+     ("j" enlarge-window "↓")
+     ("k" shrink-window "↑")
+     ("l" enlarge-window-horizontally "→")
+     ("n" balance-windows "balance"))
+    "Split"
+    (("r" split-window-right "horizontally")
+     ("R" split-window-horizontally-instead "horizontally instead")
+     ("v" split-window-below "vertically")
+     ("V" split-window-vertically-instead "vertically instead")
+     ("t" toggle-window-split "toggle"))
+    "Zoom"
+    (("+" text-scale-increase "in")
+     ("=" text-scale-increase "in")
+     ("-" text-scale-decrease "out")
+     ("0" (text-scale-increase 0) "reset"))
+    "Misc"
+    (("o" set-frame-font "frame font")
+     ("f" make-frame-command "new frame")
+     ("d" delete-frame "delete frame")
+     ("<left>" winner-undo "winner undo")
+     ("<right>" winner-redo "winner redo"))))
+  :custom-face
+  (aw-leading-char-face ((t (:inherit font-lock-keyword-face :foreground unspecified :bold t :height 3.0))))
+  (aw-minibuffer-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 1.0))))
+  (aw-mode-line-face ((t (:inherit mode-line-emphasis :bold t))))
+  :bind (([remap other-window] . ace-window)
+         ("C-c w" . ace-window-hydra/body)
+         ("C-x |" . split-window-horizontally-instead)
+         ("C-x _" . split-window-vertically-instead))
+  :hook (emacs-startup . ace-window-display-mode)
+  :config
+  (defun toggle-window-split ()
+    (interactive)
+    (if (= (count-windows) 2)
+        (let* ((this-win-buffer (window-buffer))
+               (next-win-buffer (window-buffer (next-window)))
+               (this-win-edges (window-edges (selected-window)))
+               (next-win-edges (window-edges (next-window)))
+               (this-win-2nd (not (and (<= (car this-win-edges)
+                                           (car next-win-edges))
+                                       (<= (cadr this-win-edges)
+                                           (cadr next-win-edges)))))
+               (splitter
+                (if (= (car this-win-edges)
+                       (car (window-edges (next-window))))
+                    'split-window-horizontally
+                  'split-window-vertically)))
+          (delete-other-windows)
+          (let ((first-win (selected-window)))
+            (funcall splitter)
+            (if this-win-2nd (other-window 1))
+            (set-window-buffer (selected-window) this-win-buffer)
+            (set-window-buffer (next-window) next-win-buffer)
+            (select-window first-win)
+            (if this-win-2nd (other-window 1))))
+      (user-error "`toggle-window-split' only supports two windows")))
+
+  ;; Bind hydra to dispatch list
+  (add-to-list 'aw-dispatch-alist '(?w ace-window-hydra/body) t)
+
+  ;; Select widnow via `M-1'...`M-9'
+  (defun aw--select-window (number)
+    "Slecet the specified window."
+    (when (numberp number)
+      (let ((found nil))
+        (dolist (win (aw-window-list))
+          (when (and (window-live-p win)
+                     (eq number
+                         (string-to-number
+                          (window-parameter win 'ace-window-path))))
+            (setq found t)
+            (aw-switch-to-window win)))
+        (unless found
+          (message "No specified window: %d" number)))))
+  (dotimes (n 9)
+    (bind-key (format "M-%d" (1+ n))
+              (lambda ()
+                (interactive)
+                (aw--select-window (1+ n))))))
+#+end_src
+
+** Popper
+Enforce rules for popups
+#+begin_src emacs-lisp
+(use-package popper
+  :custom
+  (popper-group-function #'popper-group-by-directory)
+  (popper-echo-dispatch-actions t)
+  :hook (emacs-startup . popper-echo-mode)
+  :init
+  (setq popper-mode-line ""
+        popper-reference-buffers
+        '("\\*Messages\\*$"
+          "\\*Warnings\\*$"
+          "Output\\*$"
+          "\\*Pp Eval Output\\*$"
+          "\\*Pp Macroexpand Output\\*$"
+          "^\\*eldoc.*\\*$"
+          "\\*Compile-Log\\*$"
+          "\\*compilation\\*$"
+          "\\*Completions\\*$"
+          "\\*Async Shell Command\\*$"
+          "\\*Shell Command Output\\*$"
+          "\\*Apropos\\*$"
+          "\\*Backtrace\\*$"
+          "\\*Calendar\\*$"
+          "\\*Calculator\\*$"
+          "\\*Calc Trail\\*$"
+          "\\*Fd\\*$"
+          "\\*Find\\*$"
+          "\\*Finder\\*$"
+          "\\*Kill Ring\\*$"
+          "\\*Occur\\*$"
+          "\\*xref\\*$"
+          "\\*Embark \\(Collect\\|Live\\|Export\\):.*\\*$"
+          "\\*Embark Actions\\*$"
+          "\\*Org Select\\*$"
+          "\\*Org Agenda.*\\*$"
+          "\\*Agenda Commands\\*$"
+          "\\*Capture\\*$"
+          "^CAPTURE-.*\\.org*"
+          "\\*Local variables\\*$"
+          "\\*Org-Babel Error Output\\*$"
+          "\\*Org Export Dispatcher\\*$"
+          "\\*Org Note\\*$"
+
+          ;; Helpful, Help, Info
+          bookmark-bmenu-mode
+          comint-mode
+          compilation-mode
+          help-mode
+          helpful-mode
+          tabulated-list-mode
+          Buffer-menu-mode
+          Info-mode
+          Custom-mode
+          special-mode
+
+          ;; Flycheck/Flymake
+          flymake-diagnostics-buffer-mode
+          flymake-project-diagnostics-mode
+          flycheck-error-list-mode
+          flycheck-verify-mode
+
+          ;; Dictionary and translation
+          gnus-article-mode
+          devdocs-mode
+          dictionary-mode
+          youdao-dictionary-mode
+          osx-dictionary-mode
+          fanyi-mode
+          "^\\*gt-result\\*$"
+          "^\\*gt-log\\*$"
+          "^\\*DeepL\\*$"
+          "^\\*Google Translate\\*$"
+
+          ;; Search results
+          grep-mode
+          occur-mode
+          rg-mode
+          deadgrep-mode
+          ag-mode
+          pt-mode
+          ivy-occur-grep-mode
+          ivy-occur-mode
+
+          ;; Process and environment
+          "^\\*Process List\\*$"
+          process-menu-mode
+          list-environment-mode
+          cargo-process-mode
+
+          ;; Terminals
+          "^\\*.*eat.*\\*.*$"
+          "^\\*.*eshell.*\\*.*$"
+          "^\\*.*shell.*\\*.*$"
+          "^\\*.*terminal.*\\*.*$"
+          "^\\*.*vterm[inal]*.*\\*.*$"
+          "^\\*.*ansi-term.*\\*.*$"
+
+          ;; Development tools
+          "\\*DAP Templates\\*$"
+          dap-server-log-mode
+          "^\\*dap-ui.*\\*$"
+          "\\*ELP Profiling Results\\*$"
+          profiler-report-mode
+          "\\*package update results\\*$"
+          "\\*Package-Lint\\*$"
+          "\\*Packages\\*$"
+          "\\*Native-compile-Log\\*$"
+          "\\*Paradox Report\\*$"
+          "^\\*straight-.*\\*$"
+          "^\\*elpaca-.*\\*$"
+
+          ;; Documentation
+          "\\*[Wo]*Man.*\\*$"
+          woman-mode
+          Man-mode
+
+          ;; Testing
+          "\\*ert\\*$"
+          overseer-buffer-mode
+          "^\\*Buttercup\\*$"
+          "\\*cider-test-report\\*$"
+
+          ;; Debugging
+          "\\*gud-debug\\*$"
+          "\\*LLDB.*\\*$"
+          "\\*breakpoints of.*\\*$"
+          "\\*gdb-.*\\*$"
+
+          ;; LSP
+          "\\*lsp-help\\*$"
+          "\\*lsp session\\*$"
+          "\\*lsp-log\\*$"
+          "\\*lsp-ui-doc\\*$"
+          "\\*lsp-ui-imenu\\*$"
+          "\\*LSP Error\\*$"
+          "\\*eglot.*\\*$"
+
+          ;; Misc development
+          "\\*quickrun\\*$"
+          "\\*tldr\\*$"
+          "\\*vc-.*\\*$"
+          "\\*vc-diff\\*$"
+          "\\*vc-change-log\\*$"
+          "\\*diff-hl\\*$"
+          "^\\*macro expansion\\*$"
+          "^\\*Macrostep\\*$"
+          "\\*ediff-.*\\*$"
+          "\\*grep\\*$"
+          "\\*nosetests\\*$"
+          "\\*pytest\\*$"
+
+          ;; Language-specific
+          "\\*Gofmt Errors\\*$"
+          "\\*Go Test\\*$"
+          godoc-mode
+          "\\*rustfmt\\*$"
+          "\\*cargo-.*\\*$"
+          rustic-compilation-mode
+          rustic-cargo-clippy-mode
+          rustic-cargo-outdated-mode
+          rustic-cargo-run-mode
+          rustic-cargo-test-mode
+          "\\*Python\\*$"
+          "\\*inferior-python.*\\*$"
+          inferior-python-mode
+          inf-ruby-mode
+          swift-repl-mode
+          "\\*prolog\\*$"
+          "\\*sly-.*\\*$"
+          "\\*slime-.*\\*$"
+
+          ;; Docker
+          "\\*docker-.+\\*"
+          "\\*docker-compose.*\\*$"
+          "\\*dockerfile.*\\*$"
+
+          ;; Miscellaneous
+          "\\*Semantic SymRef\\*$"
+          "\\*Messages\\*$"
+          "\\*Warnings\\*$"
+          "\\*Error\\*$"
+          "\\*Flycheck.*\\*$"
+          "\\*Format All Errors\\*$"
+          "\\*Pp Eval Output\\*$"))
+  :config
+  (with-no-warnings
+    (defun my-popper-fit-window-height (win)
+      "Adjust the height of popup window WIN to fit the buffer's content."
+      (let ((desired-height (floor (/ (frame-height) 3))))
+        (fit-window-to-buffer win desired-height desired-height)))
+    (setq popper-window-height #'my-popper-fit-window-height)
+
+    (defun popper-close-window-hack (&rest _args)
+      "Close popper window via `C-g'."
+      (when (and (not (region-active-p))
+                 popper-open-popup-alist)
+        (let ((window (caar popper-open-popup-alist))
+              (buffer (cdar popper-open-popup-alist)))
+          (when (and (window-live-p window)
+                     (buffer-live-p buffer)
+                     (not (with-current-buffer buffer
+                            (derived-mode-p 'eshell-mode
+                                            'shell-mode
+                                            'term-mode
+                                            'vterm-mode
+                                            'eat-mode))))
+            (delete-window window)))))
+    (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
+#+end_Src
+
