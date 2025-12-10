@@ -151,7 +151,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (elpaca-wait)
 
 ;; NOW set the queue limit after elpaca-use-package-mode is enabled
-(setq elpaca-queue-limit 4)
+(setq elpaca-queue-limit 1)
 
 ;; Configure use-package behavior
 (eval-and-compile
@@ -1038,7 +1038,7 @@ Lower this if you experience freezing, raise if stuttering.")
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
-  (doom-themes-treemacs-theme "doom-one")
+  (doom-themes-treemacs-theme "doom-colors")
   :config
   (load-theme 'doom-tokyo-night t)
   (doom-themes-visual-bell-config)
