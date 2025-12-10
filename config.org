@@ -241,10 +241,8 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ;; Custom file location - CRITICAL: Load after Elpaca finishes
 (setq custom-file (concat user-emacs-directory "custom.el"))
-;; Load custom file AFTER all packages are activated
-(with-eval-after-load 'elpaca
-  (add-hook 'elpaca-after-init-hook
-            (lambda () (load custom-file 'noerror))))
+(add-hook 'elpaca-after-init-hook
+            (lambda () (load custom-file 'noerror)))
 
 ;; Require final newline
 (setq require-final-newline t)
@@ -346,8 +344,7 @@ Lower this if you experience freezing, raise if stuttering.")
 ;; ;; Misc.
 (use-package simple
   :ensure nil
-  :hook ((elpaca-after-init . size-indication-mode)
-         (text-mode . visual-line-mode)
+  :hook ((text-mode . visual-line-mode)
          ((prog-mode markdown-mode conf-mode) . enable-trailing-whitespace))
   :init
   (setq column-number-mode t
@@ -922,128 +919,81 @@ Lower this if you experience freezing, raise if stuttering.")
 
 * Evil
 ** Core Evil
-=what do the comments mean=
 #+begin_src emacs-lisp
-(use-package undo-fu)
-(use-package undo-fu-session)
+;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
+;; system, providing more convenient undo/redo functionality.
+(use-package undo-fu
+  :commands (undo-fu-only-undo
+             undo-fu-only-redo
+             undo-fu-only-redo-all
+             undo-fu-disable-checkpoint)
+  :config
+  (global-unset-key (kbd "C-z"))
+  (global-set-key (kbd "C-z") 'undo-fu-only-undo)
+  (global-set-key (kbd "C-S-z") 'undo-fu-only-redo))
+
+;; The undo-fu-session package complements undo-fu by enabling the saving
+;; and restoration of undo history across Emacs sessions, even after restarting.
+(use-package undo-fu-session
+  :commands undo-fu-session-global-mode
+  :hook (elpaca-after-init . undo-fu-session-global-mode))
+
 
 (setq evil-undo-system 'undo-fu)
 
+;; Vim emulation
 (use-package evil
-  :demand t
+  :commands (evil-mode evil-define-key)
+  :hook (elpaca-after-init . evil-mode)
+
   :init
-  ;; Core behavior from Doom
-  (setq evil-want-C-g-bindings t
-        evil-want-C-i-jump nil
-        evil-want-C-u-scroll t
-        evil-want-C-u-delete t
-        evil-want-C-w-delete t
-        evil-want-Y-yank-to-eol t
-        evil-want-abbrev-expand-on-insert-exit nil
-        evil-want-integration t
-        evil-want-keybinding nil
-        evil-symbol-word-search t
+  ;; It has to be defined before evil
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
 
-        ;; Cursor appearance
-        evil-default-cursor t
-        evil-normal-state-cursor 'box
-        evil-emacs-state-cursor 'box
-        evil-insert-state-cursor 'bar
-        evil-visual-state-cursor 'hollow
-        evil-replace-state-cursor 'hbar
-        evil-operator-state-cursor 'hollow
+  :custom
+  ;; Make :s in visual mode operate only on the actual visual selection
+  ;; (character or block), instead of the full lines covered by the selection
+  (evil-ex-visual-char-range t)
+  ;; Use Vim-style regular expressions in search and substitute commands,
+  ;; allowing features like \v (very magic), \zs, and \ze for precise matches
+  (evil-ex-search-vim-style-regexp t)
+  ;; Enable automatic horizontal split below
+  (evil-split-window-below t)
+  ;; Enable automatic vertical split to the right
+  (evil-vsplit-window-right t)
+  ;; Disable echoing Evil state to avoid replacing eldoc
+  (evil-echo-state nil)
+  ;; Do not move cursor back when exiting insert state
+  (evil-move-cursor-back nil)
+  ;; Make `v$` exclude the final newline
+  (evil-v$-excludes-newline t)
+  ;; Allow C-h to delete in insert state
+  (evil-want-C-h-delete t)
+  ;; Enable C-u to delete back to indentation in insert state
+  (evil-want-C-u-delete t)
+  ;; Enable fine-grained undo behavior
+  (evil-want-fine-undo t)
+  ;; Allow moving cursor beyond end-of-line in visual block mode
+  (evil-move-beyond-eol t)
+  ;; Disable wrapping of search around buffer
+  (evil-search-wrap nil)
+  ;; Whether Y yanks to the end of the line
+  (evil-want-Y-yank-to-eol t))
 
-        ;; Search and highlighting
-        evil-ex-search-vim-style-regexp t
-        evil-ex-visual-char-range t
-        evil-ex-interactive-search-highlight 'selected-window
-
-        ;; Mode line
-        evil-mode-line-format nil
-
-        ;; Suppress "beginning/end of line" errors in macros
-        evil-kbd-macro-suppress-motion-error t
-
-        ;; Don't move cursor back when exiting insert mode
-        evil-move-cursor-back nil
-
-        ;; Fine undo - separate each action
-        evil-want-fine-undo t
-
-        ;; Don't move cursor beyond EOL
-        evil-move-beyond-eol nil
-
-        ;; Better search wrapping
-        evil-search-wrap t
-        evil-magic t
-        evil-echo-state t
-        evil-indent-convert-tabs t
-        evil-ex-substitute-global t
-        evil-insert-skip-empty-lines t
-        evil-v$-excludes-newline t
-        evil-respect-visual-line-mode t
-
-        ;; Split window behavior
-        evil-split-window-below t
-        evil-vsplit-window-right t
-
-        ;; Doom-specific: don't clobber the region on C-u
-        evil-want-C-u-delete t
-
-        ;; More vim-like behavior
-        evil-want-Y-yank-to-eol t
-        evil-want-fine-undo t)
-
-  :config
-  (evil-mode 1)
-  (evil-select-search-module 'evil-search-module 'evil-search)
-
-  ;; Set shift width
-  (setq-default evil-shift-width tab-width)
-
-  ;; Make evil-mode play nice with custom modes
-  (evil-set-initial-state 'special-mode 'motion)
-  (evil-set-initial-state 'messages-buffer-mode 'normal)
-  (evil-set-initial-state 'dashboard-mode 'normal)
-
-  ;; Don't interfere with localleader key
-  (define-key evil-motion-state-map "\\" nil)
-
-  ;; Make movement keys work on visual lines
-  (define-key evil-motion-state-map "j" 'evil-next-visual-line)
-  (define-key evil-motion-state-map "k" 'evil-previous-visual-line)
-  (define-key evil-motion-state-map "gj" 'evil-next-line)
-  (define-key evil-motion-state-map "gk" 'evil-previous-line))
-#+end_src
-
-** Evil Collection
-#+begin_src emacs-lisp
 (use-package evil-collection
   :after evil
   :init
-  (setq evil-collection-setup-minibuffer t
-        evil-collection-want-unimpaired-p nil)
+  ;; It has to be defined before evil-colllection
+  (setq evil-collection-setup-minibuffer t)
   :config
   (evil-collection-init))
-#+end_src
 
-** Evil Extensions
-#+begin_src emacs-lisp
-(use-package evil-nerd-commenter :after evil)
-(use-package evil-anzu  :after evil)
-(use-package evil-visualstar :hook (evil-mode . global-evil-visualstar-mode))
-
-(use-package evil-multiedit :after evil :config (evil-multiedit-default-keybinds))
-(use-package evil-goggles :hook (evil-mode . evil-goggles-mode) :custom (evil-goggles-duration 0.1))
-;; evil-quickscope: Visual aid for f/F/t/T motions
-
-(use-package evil-quickscope
-  :after evil
-  :hook (prog-mode . turn-on-evil-quickscope-mode)
-  :custom
-  (evil-quickscope-cross-lines t)
-  (evil-quickscope-accepted-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-
+;; The evil-surround package simplifies handling surrounding characters, such as
+;; parentheses, brackets, quotes, etc. It provides key bindings to easily add,
+;; change, or delete these surrounding characters in pairs. For instance, you
+;; can surround the currently selected text with double quotes in visual state
+;; using S" or gS".
 (use-package evil-surround
   :after evil
   :commands global-evil-surround-mode
@@ -1059,17 +1009,17 @@ Lower this if you experience freezing, raise if stuttering.")
 
      (?< . ("<" . ">"))
      (?> . ("<" . ">"))))
-  :hook (after-init . global-evil-surround-mode))
+  :hook (elpaca-after-init . global-evil-surround-mode))
 
-(use-package evil-matchit
-  :after evil
-  :config
-  (global-evil-matchit-mode 1))
+;; The following code enables commenting and uncommenting by pressing gcc in
+;; normal mode and gc in visual mode.
+(with-eval-after-load "evil"
+  (evil-define-operator my-evil-comment-or-uncomment (beg end)
+    "Toggle comment for the region between BEG and END."
+    (interactive "<r>")
+    (comment-or-uncomment-region beg end))
+  (evil-define-key 'normal 'global (kbd "gc") 'my-evil-comment-or-uncomment))
 
-(use-package evil-embrace
-  :after evil-surround
-  :config
-  (evil-embrace-enable-evil-surround-integration))
 #+end_src
 
 ** Evil Window Movement Enhancements
@@ -1111,10 +1061,3 @@ Lower this if you experience freezing, raise if stuttering.")
       (evil-window-top-left)
     (windmove-down)))
 #+end_src
-
-** Keybindings
-#+begin_src emacs-lisp
-(with-eval-after-load 'evil-maps
-  (evil-define-key '(normal visual) 'global "gc" 'evilnc-comment-or-uncomment-lines))
-#+end_src
-
