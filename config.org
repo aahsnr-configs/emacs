@@ -2585,7 +2585,7 @@ FACE defaults to inheriting from default and highlight."
 
   ;; Session management settings
   (tabspaces-session t)
-  (tabspaces-session-auto-restore t)
+  (tabspaces-session-auto-restore nil)  ; Disable auto-restore to prevent marker errors
 
   :config
   (with-no-warnings
@@ -2614,6 +2614,18 @@ FACE defaults to inheriting from default and highlight."
         (ignore-errors
           (posframe-delete-all))))
 
+    ;; Clean up any markers before saving
+    (defun my-tabspaces-clean-markers (&rest _)
+      "Clean up dead markers before saving session."
+      (dolist (buf (buffer-list))
+        (with-current-buffer buf
+          (dolist (var (buffer-local-variables))
+            (when (and (consp var) (markerp (cdr var)))
+              (let ((marker (cdr var)))
+                (unless (and (marker-buffer marker)
+                            (buffer-live-p (marker-buffer marker)))
+                  (set (car var) nil))))))))
+
     ;; Bury Messages buffer after restoring session
     ;; Use idle timer to ensure restoration is complete
     (defun my-tabspaces-bury-window (&rest _)
@@ -2625,9 +2637,61 @@ FACE defaults to inheriting from default and highlight."
               (when msg-buf
                 (quit-windows-on msg-buf)))))))
 
-    ;; Add advice to tabspaces session functions
-    (advice-add #'tabspaces-save-session :before #'my-tabspaces-delete-childframe)
-    (advice-add #'tabspaces-restore-session :after #'my-tabspaces-bury-window)))
+    ;; Safe session restoration wrapper
+    (defun my-tabspaces-safe-restore ()
+      "Safely restore tabspaces session with error handling."
+      (interactive)
+      (condition-case err
+          (progn
+            (message "Restoring tabspaces session...")
+            (tabspaces-restore-session)
+            (message "Tabspaces session restored successfully."))
+        (error
+         (message "Tabspaces restore failed: %s. Starting with default workspace." 
+                  (error-message-string err))
+         ;; Create default workspace if restoration fails
+         (ignore-errors
+           (tab-bar-new-tab)
+           (tab-bar-rename-tab "Default"))
+         nil)))
+
+    ;; Safe session save wrapper
+    (defun my-tabspaces-safe-save ()
+      "Safely save tabspaces session with error handling."
+      (interactive)
+      (condition-case err
+          (progn
+            (my-tabspaces-delete-childframe)
+            (my-tabspaces-clean-markers)
+            (tabspaces-save-session)
+            (message "Tabspaces session saved successfully."))
+        (error
+         (message "Tabspaces save failed: %s" (error-message-string err))
+         nil)))
+
+    ;; Override default save function
+    (advice-add 'tabspaces-save-session :around
+                (lambda (orig-fun &rest args)
+                  (my-tabspaces-delete-childframe)
+                  (my-tabspaces-clean-markers)
+                  (condition-case err
+                      (apply orig-fun args)
+                    (error
+                     (message "Error saving tabspaces: %s" (error-message-string err))
+                     nil))))
+
+    ;; Add advice to restore function
+    (advice-add 'tabspaces-restore-session :after #'my-tabspaces-bury-window)
+
+    ;; Auto-save session periodically (every 5 minutes)
+    (run-with-idle-timer 300 t #'my-tabspaces-safe-save)
+
+    ;; Replace auto-restore with manual safe restore
+    ;; Delay restoration to ensure all packages are loaded
+    (add-hook 'elpaca-after-init-hook
+              (lambda ()
+                (run-with-idle-timer 2 nil #'my-tabspaces-safe-restore))
+              90)))  ; Run after other startup hooks
 #+end_src
 
 * Window
