@@ -637,7 +637,6 @@ Lower this if you experience freezing, raise if stuttering.")
 (setq evil-undo-system 'undo-fu)
 
 (use-package evil
-  :ensure (:wait t)
   :demand t
   :init
   ;; Core behavior
@@ -736,11 +735,11 @@ Lower this if you experience freezing, raise if stuttering.")
      (?\} . ("{" . "}"))
      (?< . ("<" . ">"))
      (?> . ("<" . ">"))))
-  :hook (after-init . global-evil-surround-mode))
+  :hook (elpaca-after-init . global-evil-surround-mode))
 
 (use-package evil-matchit
   :after evil
-  :hook (after-init . global-evil-matchit-mode))
+  :hook (elpaca-after-init . global-evil-matchit-mode))
 
 (use-package evil-embrace
   :after evil-surround
