@@ -29,7 +29,7 @@ Lower this if you experience freezing, raise if stuttering.")
               (message "Emacs loaded in %.2fs with %d GCs"
                        (float-time (time-subtract after-init-time before-init-time))
                        gcs-done))
-            100)
+            100))
 
 ;; Increase GC threshold in minibuffer to prevent slowdowns during completion
 (with-eval-after-load 'elpaca
