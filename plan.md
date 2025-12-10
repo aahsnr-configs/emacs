@@ -81,7 +81,7 @@
 
 # New Plan - Integrate between config.org (centaur-emacs) and Emacs.org.bak in emacs-mod.org
 
-- [ ] setup elpa, evil, general and org mode at the very beginning, then use this config as the current config for further editing
+- [ ] setup elpaca, evil, general and org mode at the very beginning, then use this config as the current config for further editing
 - [ ] don't use evil-org
 - [ ] add some subsections of the highlight subsection at the end
 - [ ] add easysession to session management section
