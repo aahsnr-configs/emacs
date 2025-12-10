@@ -84,7 +84,7 @@
 - [ ] setup elpaca, evil, general and org mode at the very beginning, then use this config as the current config for further editing
 - [ ] don't use evil-org
 - [ ] add some subsections of the highlight subsection at the end
-- [ ] add easysession to session management section
+- [ ] add easysession from minimal-emacs.d to session management section
 - [ ] add the following code to org-mode
 ```elisp
   ;; (org-fontify-done-headline t)
@@ -92,6 +92,7 @@
   ;; (org-fontify-whole-heading-line t)
   ;; (org-fontify-quote-and-verse-blocks t)
 ```
+- [ ] add treesit-auto from minimal-emacs.d
 
 ***
 ## Integrating scimax modules
