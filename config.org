@@ -151,7 +151,7 @@ Lower this if you experience freezing, raise if stuttering.")
 (elpaca-wait)
 
 ;; NOW set the queue limit after elpaca-use-package-mode is enabled
-(setq elpaca-queue-limit 8)
+(setq elpaca-queue-limit 1)
 
 ;; Configure use-package behavior
 (eval-and-compile
