@@ -845,16 +845,7 @@ Lower this if you experience freezing, raise if stuttering.")
         doom-modeline-vcs-icon t
         doom-modeline-vcs-max-length 0))
 
-
-(use-package anzu
-  :bind (:map isearch-mode-map
-              ([remap isearch-query-replace] . anzu-isearch-query-replace)
-              ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
-  :init
-  (global-anzu-mode +1))
-
-(use-package evil-anzu :after evil)
-	#+end_src
+#+end_src
 
 ** Hide Modeline
 #+begin_src emacs-lisp
@@ -1639,6 +1630,8 @@ Lower this if you experience freezing, raise if stuttering.")
          ([remap isearch-query-replace] . anzu-isearch-query-replace)
          ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
   :hook (elpaca-after-init . global-anzu-mode))
+
+(use-package evil-anzu :after evil)
 #+end_src
 
 ** Ediff
