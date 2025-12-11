@@ -2880,6 +2880,47 @@ targets."
     (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
 #+end_src
 
+* Version Control
+** Magit: The Core Git Client
+#+begin_src emacs-lisp
+(use-package magit
+  :defer t
+  :init
+  (setq magit-auto-revert-mode nil)
+  :commands (magit-status magit-blame)
+  :custom
+  ;; For a focused view, display the Magit status buffer in its own frame.
+  (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
+  ;; Automatically save file-visiting buffers before staging changes.
+  (magit-save-repository-buffers 'dont-confirmk))
+#+end_src
+
+** Forge: Git Forge Integration
+#+begin_src emacs-lisp
+(use-package forge :defer t :after magit)
+#+end_src
+
+** Magit Todos
+*magit-todos* displays TODO items from your project files in the status buffer.
+#+begin_src emacs-lisp
+(use-package magit-todos
+  :hook (magit-mode . magit-todos-mode))
+#+end_src
+
+** Git Timemachine
+#+begin_src emacs-lisp
+(use-package git-timemachine :after magit)
+#+end_src
+
+** Git Gutter: Live Diff Highlighting
+#+begin_src emacs-lisp
+(use-package git-gutter
+  :defer t
+  :config
+  (global-git-gutter-mode +1))
+#+end_src
+
+
 * Treemacs
 #+begin_src emacs-lisp
 (use-package treemacs
@@ -2922,13 +2963,13 @@ targets."
 ;;   :config (treemacs-load-theme "nerd-icons"))
 
 ;; Magit integration (refresh sidebar on git changes)
-;;(use-package treemacs-magit
- ;;:after (treemacs magit)
-;; :hook ((magit-post-commit
-;;         git-commit-post-finish
-;;         magit-post-stage
-;;         magit-post-unstage)
-;;        . treemacs-magit--schedule-update))
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :hook ((magit-post-commit
+          git-commit-post-finish
+          magit-post-stage
+          magit-post-unstage)
+         . treemacs-magit--schedule-update))
 
 ;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
 (use-package treemacs-tab-bar
@@ -3172,25 +3213,21 @@ targets."
   ;; Git operations (SPC g)
   (ar/global-leader
     "g" '(:ignore t :wk "git")
-    "g g" '(magit-status :wk "Magit status")
-    "g s" '(magit-status :wk "Status")
-    "g d" '(magit-diff :wk "Diff")
-    "g D" '(magit-diff-buffer-file :wk "Diff file")
-    "g l" '(magit-log :wk "Log")
-    "g L" '(magit-log-buffer-file :wk "Log file")
-    "g b" '(magit-blame :wk "Blame")
-    "g c" '(magit-clone :wk "Clone")
-    "g i" '(magit-init :wk "Init")
-    "g f" '(:ignore t :wk "file")
-    "g f f" '(magit-find-file :wk "Find file")
-    "g f l" '(magit-log-buffer-file :wk "Log file")
-    "g f d" '(magit-diff-buffer-file :wk "Diff file")
-    "g [" '(diff-hl-previous-hunk :wk "Previous hunk")
-    "g ]" '(diff-hl-next-hunk :wk "Next hunk")
-    "g h" '(:ignore t :wk "hunk")
-    "g h s" '(diff-hl-stage-current-hunk :wk "Stage hunk")
-    "g h r" '(diff-hl-revert-hunk :wk "Revert hunk")
-    "g h m" '(diff-hl-mark-hunk :wk "Mark hunk"))
+    "g s" '(magit-status :wk "status")
+    "g c" '(magit-commit :wk "commit")
+    "g C" '(magit-commit-amend :wk "commit amend")
+    "g p" '(magit-push-current-to-pushremote :wk "push")
+    "g P" '(magit-pull-from-upstream :wk "pull")
+    "g b" '(magit-branch :wk "branches")
+    "g l" '(magit-log-buffer-file :wk "log current file")
+    "g L" '(magit-log-current :wk "log current branch")
+    "g d" '(magit-diff-unstaged :wk "diff")
+    "g f" '(magit-fetch :wk "fetch")
+    "g m" '(magit-merge :wk "merge")
+    "g r" '(magit-rebase :wk "rebase")
+    "g n" '(git-gutter:next-hunk :wk "next hunk")
+    "g N" '(git-gutter:previous-hunk :wk "previous hunk")
+    "g S" '(git-gutter:stage-hunk :wk "stage hunk"))
 
   ;; Register/Bookmark operations (SPC r)
   (ar/global-leader
