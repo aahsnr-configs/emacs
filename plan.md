@@ -99,6 +99,7 @@
 - [ ] combine treesit configs from both files
 - [ ] replace hidewhow in emacs-configv2.org with treesit-fold along with pretty-hydra setup
 - [ ] for the folding behaviour use https://github.com/doomemacs/doomemacs/blob/master/modules/editor/fold/config.el as a guide and use hide-show, evil-vimish-fold and treesit fold
+- [ ] list-environment is not necessary
 - [ ] Assuming that I have made the changes you suggested, how do I make the area below the modeline as highlighted in the screenshot more useful? I want it to show matching parenthesis that are not visible in the buffer. I want it show org headlines and subheadlines info. I want this area to show other useful stuff as well that you think might be useful. Search the web to determine this. And only write out the changes needed. Think for a while for this task as well.
 
 Based on my research, here are the changes to make the echo area/minibuffer more useful:
