@@ -2883,6 +2883,8 @@ targets."
 * Version Control
 ** Magit: The Core Git Client
 #+begin_src emacs-lisp
+(use-package transient :defer t)
+
 (use-package magit
   :defer t
   :init
