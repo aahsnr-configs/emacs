@@ -93,8 +93,11 @@
   ;; (org-fontify-quote-and-verse-blocks t)
 ```
 - [ ] add treesit-auto from minimal-emacs.d
+- [ ] add evil alternative drag-stuff
 - [ ] determine if Optimization, Frame, Suppress GUI features, and Transient Posframe  subsections in UI and Theming is needed.
 - [ ] don't add any frame-padding until the end
+- [ ] combine treesit configs from both files
+- [ ] replace hidewhow in emacs-configv2.org with treesit-fold along with pretty-hydra setup
 
 ***
 ## Integrating scimax modules
