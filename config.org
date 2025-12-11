@@ -315,7 +315,6 @@ Lower this if you experience freezing, raise if stuttering.")
 (setq x-alt-keysym 'meta)
 #+end_src
 
-
 ** Garbage Collector Magic Hack
 #+begin_src emacs-lisp
 (use-package gcmh
@@ -405,7 +404,6 @@ Lower this if you experience freezing, raise if stuttering.")
                                         extended-command-history)
         savehist-autosave-interval 300))
 #+end_src
-
 
 ** Misc
 #+begin_src emacs-lisp
