@@ -2902,26 +2902,6 @@ targets."
 (use-package forge :defer t :after magit)
 #+end_src
 
-** Magit Todos
-*magit-todos* displays TODO items from your project files in the status buffer.
-#+begin_src emacs-lisp
-(use-package magit-todos
-  :hook (magit-mode . magit-todos-mode))
-#+end_src
-
-** Git Timemachine
-#+begin_src emacs-lisp
-(use-package git-timemachine :after magit)
-#+end_src
-
-** Git Gutter: Live Diff Highlighting
-#+begin_src emacs-lisp
-(use-package git-gutter
-  :defer t
-  :config
-  (global-git-gutter-mode +1))
-#+end_src
-
 
 * Treemacs
 #+begin_src emacs-lisp
