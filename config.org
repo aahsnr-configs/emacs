@@ -135,6 +135,45 @@ Lower this if you experience freezing, raise if stuttering.")
   (or (> (buffer-size) 500000)
       (and (fboundp 'buffer-line-statistics)
            (> (car (buffer-line-statistics)) 10000))))
+
+(defun reload-init-file ()
+  "Tangle and reload the Emacs configuration from config.org."
+  (interactive)
+  (let* ((config-org (expand-file-name "config.org" user-emacs-directory))
+         (init-el (expand-file-name "init.el" user-emacs-directory)))
+    ;; Check if config.org exists
+    (unless (file-exists-p config-org)
+      (user-error "Configuration file %s not found!" config-org))
+    
+    (message "Tangling configuration from %s..." config-org)
+    
+    ;; Tangle the org file
+    (org-babel-tangle-file config-org init-el "emacs-lisp")
+    
+    (message "Loading %s..." init-el)
+    
+    ;; Load the tangled init file
+    ;; Note: This doesn't fully restart Emacs, so some changes
+    ;; (especially to package declarations) may require a restart
+    (load-file init-el)
+    
+    ;; Process any queued Elpaca packages
+    (when (fboundp 'elpaca-process-queues)
+      (elpaca-process-queues))
+    
+    (message "Configuration reloaded! Some changes may require an Emacs restart.")))
+
+(defun my/auto-tangle-config-org ()
+  "Automatically tangle config.org when saved."
+  (when (string-equal (buffer-file-name)
+                      (expand-file-name "config.org" user-emacs-directory))
+    ;; Dynamic scoping to avoid confirmation prompts
+    (let ((org-confirm-babel-evaluate nil))
+      (org-babel-tangle))))
+
+(add-hook 'org-mode-hook
+          (lambda ()
+            (add-hook 'after-save-hook #'my/auto-tangle-config-org nil t)))
 #+end_src
 
 ** Constants
@@ -553,7 +592,7 @@ Lower this if you experience freezing, raise if stuttering.")
     (windmove-down)))
 #+end_src
 
-** Setup User
+* Setup User
 #+begin_src emacs-lisp
 (setq user-full-name "Ahsanur Rahman"
       user-mail-address "ahsanur041@proton.me")
@@ -717,6 +756,202 @@ Lower this if you experience freezing, raise if stuttering.")
         ("p T" (centaur-test-package-archives) "speed test" :exit t))))))
 #+end_src
 
+* UI and Theming
+** Fonts
+#+begin_src emacs-lisp
+(defun ar/set-fonts ()
+  "Set the default, fixed-pitch, and variable-pitch fonts for the current frame."
+  (set-face-attribute 'default nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  (set-face-attribute 'fixed-pitch nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  (set-face-attribute 'variable-pitch nil :font "JetBrains Mono" :height 125 :weight 'medium)
+  ;; Apply italic slant to comments and keywords
+  (set-face-attribute 'font-lock-comment-face nil :slant 'italic)
+  (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
+
+(if (daemonp)
+    (add-hook 'elpaca-after-init-hook
+              (lambda ()
+                (add-hook 'after-make-frame-functions
+                          (lambda (frame)
+                            (with-selected-frame frame (ar/set-fonts))))))
+  ;; For non-daemon mode, set fonts immediately
+  (ar/set-fonts))
+
+;; Line spacing
+(setq-default line-spacing 0.02)
+
+;; Font settings
+(setq font-lock-maximum-decoration t
+      inhibit-compacting-font-caches t)
+#+end_src
+
+** Title
+#+begin_src emacs-lisp
+(setq frame-title-format '("Emacs - %b")
+      icon-title-format frame-title-format)
+#+end_src
+
+** Doom Themes
+#+begin_src emacs-lisp
+(use-package doom-themes
+  :demand t
+  :custom
+  (doom-themes-enable-bold t)
+  (doom-themes-enable-italic t)
+  (doom-themes-treemacs-theme "doom-atom")
+  :config
+  (load-theme 'doom-tokyo-night t)
+  (doom-themes-visual-bell-config)
+  (doom-themes-neotree-config)
+  (doom-themes-treemacs-config)
+  (doom-themes-org-config))
+#+end_src
+
+** Solaire Mode
+#+begin_src emacs-lisp
+(use-package solaire-mode
+  :hook (elpaca-after-init . solaire-global-mode))
+#+end_src
+
+** Modeline
+#+begin_src emacs-lisp
+(size-indication-mode -1)
+(setq-default mode-line-percent-position nil)
+
+(use-package doom-modeline
+  :defer 0.1
+  :hook (elpaca-after-init . doom-modeline-mode)
+  :hook (doom-modeline-mode . column-number-mode)
+  :init
+  (setq projectile-dynamic-mode-line nil)
+  (setq doom-modeline-bar-width 3
+        doom-modeline-github nil
+        doom-modeline-mu4e nil
+        doom-modeline-persp-name nil
+        doom-modeline-minor-modes nil
+        doom-modeline-major-mode-icon nil
+        doom-modeline-buffer-file-name-style 'relative-from-project)
+  :config
+  (setq doom-modeline-height 25
+        doom-modeline-column-zero-based nil
+        doom-modeline-bar-width 3
+        doom-modeline-buffer-file-size nil
+        doom-modeline-buffer-encoding nil
+        doom-modeline-percent-position nil
+        doom-modeline-vcs-icon t
+        doom-modeline-vcs-max-length 0))
+
+
+(use-package anzu
+  :bind (:map isearch-mode-map
+              ([remap isearch-query-replace] . anzu-isearch-query-replace)
+              ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
+  :init
+  (global-anzu-mode +1))
+
+(use-package evil-anzu :after evil)
+	#+end_src
+
+** Hide Modeline
+#+begin_src emacs-lisp
+(use-package hide-mode-line
+  :autoload turn-off-hide-mode-line-mode
+  :hook (((eat-mode
+           eshell-mode shell-mode
+           term-mode vterm-mode
+           embark-collect-mode lsp-ui-imenu-mode
+           pdf-annot-list-mode) . turn-on-hide-mode-line-mode)))
+#+end_src
+
+** Nerd Icons
+#+begin_src emacs-lisp
+(use-package nerd-icons
+  :custom
+  (nerd-icons-font-family "Symbols Nerd Font Mono")
+  (nerd-icons-color-icons t)
+  :config
+  (setq inhibit-compacting-font-caches t))
+#+end_src
+
+** Dashboard
+#+begin_src emacs-lisp
+(use-package dashboard
+  :init
+  (setq dashboard-banner-logo-title "Welcome to Emacs!")
+  (setq dashboard-startup-banner 'logo)
+  ;; For example: (setq dashboard-startup-banner "~/.emacs.d/emacs_logo.png")
+
+  ;; Set the content of the dashboard
+  (setq dashboard-items '((recents   . 5)
+                         (bookmarks . 5)
+                         (projects  . 5)
+                         (agenda    . 5)))
+
+  ;; Center the dashboard content
+  (setq dashboard-center-content t)
+
+  ;; Enable icons
+  (setq dashboard-set-heading-icons t)
+  (setq dashboard-set-file-icons t)
+  (setq dashboard-icon-type 'nerd-icons)
+
+  :config
+  ;; Enable the dashboard on startup
+  (dashboard-setup-startup-hook)
+  ;; If you are using emacsclient, you'll want to see the dashboard when you create a new frame.
+  (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
+#+end_src
+
+** Line Numbers
+#+begin_src emacs-lisp
+(use-package display-line-numbers
+  :ensure nil
+  :hook ((prog-mode
+          conf-mode toml-ts-mode
+          yaml-mode yaml-ts-mode)
+         . display-line-numbers-mode)
+  :init (setq display-line-numbers-width-start t))
+#+end_src
+
+** Display dividers between windows
+#+begin_src emacs-lisp
+(setq window-divider-default-places t
+      window-divider-default-bottom-width 1
+      window-divider-default-right-width 1)
+(add-hook 'window-setup-hook #'window-divider-mode)
+#+end_src
+
+** Text Scaling
+#+begin_src emacs-lisp
+(use-package default-text-scale
+  :hook (elpaca-after-init . default-text-scale-mode))
+#+end_src
+
+** Scrolling
+#+begin_src emacs-lisp
+;; Scroll one line at a time (less "jumpy" than defaults)
+(setq hscroll-step 1
+      hscroll-margin 2
+      scroll-step 1
+      scroll-margin 0
+      scroll-conservatively 100000
+      scroll-preserve-screen-position t
+      auto-window-vscroll nil
+      ;; mouse
+      mouse-wheel-scroll-amount-horizontal 1
+      mouse-wheel-progressive-speed nil)
+
+;; Smooth scrolling
+(when (fboundp 'pixel-scroll-precision-mode) ;; 29+
+  (use-package ultra-scroll
+    :functions (hl-todo-mode diff-hl-flydiff-mode)
+    :hook (elpaca-after-init . ultra-scroll-mode)
+    :config
+    (add-hook 'ultra-scroll-hide-functions #'diff-hl-flydiff-mode)
+    (add-hook 'ultra-scroll-hide-functions #'hl-todo-mode)
+    (add-hook 'ultra-scroll-hide-functions #'jit-lock-mode)))
+
+#+end_src
 
 * Org Mode
 ** Dynamic Directory Structure
@@ -856,6 +1091,10 @@ Lower this if you experience freezing, raise if stuttering.")
   (org-src-fontify-natively t)
   (org-element-use-cache t)
   (org-hide-leading-stars t)
+  (org-fontify-done-headline t)
+  (org-fontify-todo-headline t)
+  (org-fontify-whole-heading-line t)
+  (org-fontify-quote-and-verse-blocks t)
   (org-hide-emphasis-markers t)
   (org-element-cache-persistent t)
   ;; (org-fontify-quote-and-verse-blocks nil)
@@ -1194,6 +1433,180 @@ Lower this if you experience freezing, raise if stuttering.")
         `((:foreground "#a9b1d6" :weight bold :box (:line-width (1 . -1) :color "#414868")))
         org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☑") (priority . "⚑") (on . "◉") (off . "◯"))))
 #+end_src
+
+* Elisp
+#+begin_src emacs-lisp
+(use-package elisp-mode
+  :ensure nil
+  :config
+  (with-no-warnings
+    (defun my-lisp-indent-function (indent-point state)
+      (let ((normal-indent (current-column))
+            (orig-point (point)))
+        (goto-char (1+ (elt state 1)))
+        (parse-partial-sexp (point) calculate-lisp-indent-last-sexp 0 t)
+        (cond
+         ((and (elt state 2)
+               (or (not (looking-at "\\sw\\|\\s_"))
+                   (looking-at ":")))
+          (if (not (> (save-excursion (forward-line 1) (point))
+                     calculate-lisp-indent-last-sexp))
+              (progn (goto-char calculate-lisp-indent-last-sexp)
+                     (beginning-of-line)
+                     (parse-partial-sexp (point)
+                                         calculate-lisp-indent-last-sexp 0 t)))
+          (backward-prefix-chars)
+          (current-column))
+         ((and (save-excursion
+                 (goto-char indent-point)
+                 (skip-syntax-forward " ")
+                 (not (looking-at ":")))
+               (save-excursion
+                 (goto-char orig-point)
+                (looking-at ":")))
+         (save-excursion
+           (goto-char (+ 2 (elt state 1)))
+           (current-column)))
+        (t
+         (let ((function (buffer-substring (point)
+                                           (progn (forward-sexp 1) (point))))
+               method)
+           (setq method (or (function-get (intern-soft function)
+                                          'lisp-indent-function)
+                            (get (intern-soft function) 'lisp-indent-hook)))
+           (cond ((or (eq method 'defun)
+                      (and (null method)
+                           (length> function 3)
+                           (string-match "\\`def" function)))
+                  (lisp-indent-defform state indent-point))
+                 ((integerp method)
+                  (lisp-indent-specform method state
+                                        indent-point normal-indent))
+                 (method
+                  (funcall method indent-point state))))))))
+   (add-hook 'emacs-lisp-mode-hook
+             (lambda () (setq-local lisp-indent-function #'my-lisp-indent-function)))
+
+   ;; Add remove buttons for advices
+   (add-hook 'help-mode-hook 'cursor-sensor-mode)
+
+   (defun function-advices (function)
+     "Return FUNCTION's advices."
+     (let ((flist (indirect-function function)) advices)
+       (while (advice--p flist)
+         (setq advices `(,@advices ,(advice--car flist)))
+         (setq flist (advice--cdr flist)))
+       advices))
+
+   (defun add-remove-advice-button (advice function)
+     (when (and (functionp advice) (functionp function))
+       (let ((inhibit-read-only t)
+             (msg (format "Remove advice `%s'" advice)))
+         (insert "\t")
+         (insert-button
+          "Remove"
+          'face 'custom-button
+          'cursor-sensor-functions `((lambda (&rest _) ,msg))
+          'help-echo msg
+          'action (lambda (_)
+                    (when (yes-or-no-p msg)
+                      (message "%s from function `%s'" msg function)
+                      (advice-remove function advice)
+                      (if (eq major-mode 'helpful-mode)
+                          (helpful-update)
+                        (revert-buffer nil t))))
+          'follow-link t))))
+
+   (defun add-button-to-remove-advice (buffer-or-name function)
+     "Add a button to remove advice."
+     (with-current-buffer buffer-or-name
+       (save-excursion
+         (goto-char (point-min))
+         (let ((ad-list (function-advices function)))
+           (while (re-search-forward "^\\(?:This function has \\)?:[-a-z]+ advice: \\(.+\\)$" nil t)
+             (let ((advice (car ad-list)))
+               (add-remove-advice-button advice function)
+               (setq ad-list (delq advice ad-list))))))))
+
+   (define-advice describe-function-1 (:after (function) advice-remove-button)
+     (add-button-to-remove-advice (help-buffer) function))
+   (with-eval-after-load 'helpful
+     (define-advice helpful-update (:after () advice-remove-button)
+       (when helpful--callable-p
+         (add-button-to-remove-advice (current-buffer) helpful--sym))))
+
+   ;; Remove hooks
+   (defun remove-hook-at-point ()
+     "Remove the hook at the point in the *Help* buffer."
+     (interactive)
+     (unless (memq major-mode '(help-mode helpful-mode))
+       (error "Only for help-mode or helpful-mode"))
+
+     (let ((orig-point (point)))
+       (save-excursion
+         (when-let*
+             ((hook (progn (goto-char (point-min)) (symbol-at-point)))
+              (func (when (and
+                           (or (re-search-forward (format "^Value:?[\s|\n]") nil t)
+                               (goto-char orig-point))
+                           (sexp-at-point))
+                      (end-of-sexp)
+                      (backward-char 1)
+                      (catch 'break
+                        (while t
+                          (condition-case _err
+                              (backward-sexp)
+                            (scan-error (throw 'break nil)))
+                          (let ((bounds (bounds-of-thing-at-point 'sexp)))
+                            (when (<= (car bounds) orig-point (cdr bounds))
+                              (throw 'break (sexp-at-point)))))))))
+           (when (yes-or-no-p (format "Remove %s from %s? " func hook))
+             (remove-hook hook func)
+             (if (eq major-mode 'helpful-mode)
+                 (helpful-update)
+               (revert-buffer nil t)))))))
+   (bind-key "r" #'remove-hook-at-point help-mode-map)))
+
+;; Syntax highlighting of known Elisp symbols
+(if (boundp 'elisp-fontify-semantically)
+    (setq elisp-fontify-semantically t)
+  (use-package highlight-defined
+    :hook ((emacs-lisp-mode inferior-emacs-lisp-mode) . highlight-defined-mode)))
+
+(use-package macrostep)
+
+;; A better *Help* buffer
+(use-package helpful
+  :bind (([remap describe-function] . helpful-callable)
+         ([remap describe-command]  . helpful-command)
+         ([remap describe-variable] . helpful-variable)
+         ([remap describe-key]      . helpful-key)
+         ([remap describe-symbol]   . helpful-symbol))
+  :hook (helpful-mode . cursor-sensor-mode) ; for remove-advice button
+  :init
+  (with-no-warnings
+    (with-eval-after-load 'apropos
+      ;; patch apropos buttons to call helpful instead of help
+      (dolist (fun-bt '(apropos-function apropos-macro apropos-command))
+        (button-type-put
+         fun-bt 'action
+         (lambda (button)
+           (helpful-callable (button-get button 'apropos-symbol)))))
+      (dolist (var-bt '(apropos-variable apropos-user-option))
+        (button-type-put
+         var-bt 'action
+         (lambda (button)
+           (helpful-variable (button-get button 'apropos-symbol))))))))
+#+end_src
+
+* Editor Behaviour
+** Automatically reload files was modified by external program
+#+begin_src emacs-lisp
+(use-package autorevert
+  :ensure nil
+  :hook (elpaca-after-init . global-auto-revert-mode))
+#+end_src
+
 
 * General Keybindings
 #+begin_src emacs-lisp

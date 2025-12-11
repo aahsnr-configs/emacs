@@ -79,13 +79,13 @@
 # Issue
 **Some of the integrations from centaur emacs do not work well for evil integrations**
 
-# New Plan - Integrate between config.org (centaur-emacs) and Emacs.org.bak in emacs-mod.org
+# New Plan - Integrate between emacs-configv1.org and emacs-configv2.org  in emacs-mod.org
 
-- [ ] setup elpaca, evil, general and org mode at the very beginning, then use this config as the current config for further editing
-- [ ] don't use evil-org
+- [x] setup elpaca, evil, general and org mode at the very beginning, then use this config as the current config for further editing
+- [x] don't use evil-org
 - [ ] add some subsections of the highlight subsection at the end
 - [ ] add easysession from minimal-emacs.d to session management section
-- [ ] add the following code to org-mode
+- [x] add the following code to org-mode
 ```elisp
   ;; (org-fontify-done-headline t)
   ;; (org-fontify-todo-headline t)
@@ -93,6 +93,8 @@
   ;; (org-fontify-quote-and-verse-blocks t)
 ```
 - [ ] add treesit-auto from minimal-emacs.d
+- [ ] determine if Optimization, Frame, Suppress GUI features, and Transient Posframe  subsections in UI and Theming is needed.
+- [ ] don't add any frame-padding until the end
 
 ***
 ## Integrating scimax modules
