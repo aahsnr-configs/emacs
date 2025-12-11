@@ -110,6 +110,16 @@ Lower this if you experience freezing, raise if stuttering.")
   (require 'bind-key))
 #+end_src
 
+** Emacs Start Up Profiler
+#+begin_src emacs-lisp
+;; Profile startup time with detailed breakdown
+(use-package esup
+  :defer t
+  :commands esup
+  :config
+  ;; Work around byte-compile issues
+  (setq esup-depth 0))
+#+end_src
 
 ** Custom Functions
 #+begin_src emacs-lisp
@@ -349,32 +359,51 @@ Lower this if you experience freezing, raise if stuttering.")
   :ensure nil
   :hook (elpaca-after-init . save-place-mode))
 
-;; History
+;; History with symlink resolution
 (use-package recentf
   :ensure nil
   :hook (elpaca-after-init . recentf-mode)
-  :init (setq recentf-max-saved-items 300
-              recentf-exclude
-              '("\\.?cache" ".cask" "url" "COMMIT_EDITMSG\\'" "bookmarks"
-                "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
-                "\\.?ido\\.last$" "\\.revive$" "/G?TAGS$" "/.elfeed/"
-                "^/tmp/" "^/var/folders/.+$" "^/ssh:" "/persp-confs/"
-                (lambda (file) (file-in-directory-p file package-user-dir))))
+  :init
+  (setq recentf-max-saved-items 300
+        recentf-exclude
+        '("\\.?cache" ".cask" "url" "COMMIT_EDITMSG\\'" "bookmarks"
+          "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\|bmp\\|xpm\\)$"
+          "\\.?ido\\.last$" "\\.revive$" "/G?TAGS$" "/.elfeed/"
+          "^/tmp/" "^/var/folders/.+$" "^/ssh:" "/persp-confs/"
+          (lambda (file) (file-in-directory-p file package-user-dir))))
   :config
   (push (expand-file-name recentf-save-file) recentf-exclude)
-  (add-to-list 'recentf-filename-handlers #'abbreviate-file-name))
+  
+  ;; CRITICAL: Resolve symlinks FIRST, then abbreviate
+  ;; This ensures ~/org/todo.org and ~/Git/.../org/todo.org become the same
+  (setq recentf-filename-handlers
+        '(file-truename        ; Resolve symlinks to real path
+          abbreviate-file-name)) ; Then abbreviate for display
+  
+  ;; Prevent org-agenda files from cluttering recent files
+  ;; Dashboard opens these files, triggering recentf
+  (defun ar/exclude-org-agenda-files (file)
+    "Exclude files in org-agenda-files from recentf."
+    (when (bound-and-true-p org-agenda-files)
+      (let ((file-true (file-truename file)))
+        (cl-some (lambda (agenda-file)
+                   (string= file-true (file-truename agenda-file)))
+                 (org-agenda-files t)))))
+  
+  (add-to-list 'recentf-exclude #'ar/exclude-org-agenda-files))
 
 (use-package savehist
   :ensure nil
   :hook (elpaca-after-init . savehist-mode)
-  :init (setq enable-recursive-minibuffers t ; Allow commands in minibuffers
-              history-length 1000
-              savehist-additional-variables '(mark-ring
-                                              global-mark-ring
-                                              search-ring
-                                              regexp-search-ring
-                                              extended-command-history)
-              savehist-autosave-interval 300))
+  :init
+  (setq enable-recursive-minibuffers t
+        history-length 1000
+        savehist-additional-variables '(mark-ring
+                                        global-mark-ring
+                                        search-ring
+                                        regexp-search-ring
+                                        extended-command-history)
+        savehist-autosave-interval 300))
 #+end_src
 
 
@@ -874,26 +903,18 @@ Lower this if you experience freezing, raise if stuttering.")
   :init
   (setq dashboard-banner-logo-title "Welcome to Emacs!")
   (setq dashboard-startup-banner 'logo)
-  ;; For example: (setq dashboard-startup-banner "~/.emacs.d/emacs_logo.png")
-
-  ;; Set the content of the dashboard
   (setq dashboard-items '((recents   . 5)
                          (bookmarks . 5)
                          (projects  . 5)
                          (agenda    . 5)))
-
-  ;; Center the dashboard content
+  (setq dashboard-agenda-release-buffers t)
   (setq dashboard-center-content t)
-
-  ;; Enable icons
   (setq dashboard-set-heading-icons t)
   (setq dashboard-set-file-icons t)
   (setq dashboard-icon-type 'nerd-icons)
-
+  
   :config
-  ;; Enable the dashboard on startup
   (dashboard-setup-startup-hook)
-  ;; If you are using emacsclient, you'll want to see the dashboard when you create a new frame.
   (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
 #+end_src
 
@@ -1189,9 +1210,7 @@ Lower this if you experience freezing, raise if stuttering.")
   (org-babel-do-load-languages 'org-babel-load-languages
                                load-language-alist)
 
-  (org-babel-do-load-languages 'org-babel-load-languages
-                               load-language-alist)
-
+  
   (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
   (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
   (add-to-list 'org-structure-template-alist '("py" . "src python"))
@@ -1230,7 +1249,10 @@ Lower this if you experience freezing, raise if stuttering.")
              (propertize "${tags:20}" 'face 'org-tag)))
     :config
     (add-to-list 'org-agenda-files org-roam-directory)
-    (org-roam-db-autosync-enable)
+
+    ;; Delay database sync until idle
+    (run-with-idle-timer 5 nil #'org-roam-db-autosync-enable)
+ 
 
     ;; Templates for different kinds of notes (Zettelkasten)
     (setq org-roam-capture-templates
@@ -1592,6 +1614,91 @@ Lower this if you experience freezing, raise if stuttering.")
          var-bt 'action
          (lambda (button)
            (helpful-variable (button-get button 'apropos-symbol))))))))
+#+end_src
+
+* Editor Behaviour
+** Automatically reload files was modified by external program
+#+begin_src emacs-lisp
+(use-package autorevert
+  :ensure nil
+  :hook (elpaca-after-init . global-auto-revert-mode))
+#+end_src
+
+** Avy/Ace
+#+begin_src emacs-lisp
+;; Jump to things in Emacs tree-style
+(use-package avy
+  :hook (elpaca-after-init . avy-setup-default)
+  :config (setq avy-all-windows nil
+                avy-all-windows-alt t
+                avy-background t
+                avy-style 'pre))
+
+;; Kill text between the point and the character CHAR
+(use-package avy-zap
+  :defer t)
+
+;; Quickly follow links
+(use-package ace-link
+  :hook (elpaca-after-init . ace-link-setup-default))
+#+end_src
+
+** Anzu
+#+begin_src emacs-lisp
+(use-package anzu
+  :bind (([remap query-replace] . anzu-query-replace)
+         ([remap query-replace-regexp] . anzu-query-replace-regexp)
+         :map isearch-mode-map
+         ([remap isearch-query-replace] . anzu-isearch-query-replace)
+         ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
+  :hook (elpaca-after-init . global-anzu-mode))
+
+(use-package evil-anzu :after evil)
+#+end_src
+
+** Ediff
+#+begin_src emacs-lisp
+(use-package ediff
+  :defer t
+  :ensure nil
+  :hook(;; show org ediffs unfolded
+        (ediff-prepare-buffer . outline-show-all)
+        ;; restore window layout when done
+        (ediff-quit . winner-undo))
+  :config
+  (setq ediff-window-setup-function 'ediff-setup-windows-plain
+        ediff-split-window-function 'split-window-horizontally
+        ediff-merge-split-window-function 'split-window-horizontally))
+#+end_src
+
+** Automatic parenthesis pairing
+#+begin_src emacs-lisp
+(use-package elec-pair
+  :ensure nil
+  :hook (elpaca-after-init . electric-pair-mode)
+  :init (setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit))
+#+end_src
+
+** Edit multiple regions simultaneously
+#+begin_src emacs-lisp
+(use-package iedit :defer t)
+#+end_src
+
+** Subword: Handling capitalized subwords in a nomenclature
+#+begin_src emacs-lisp
+(use-package subword
+  :ensure nil
+  :hook ((prog-mode . subword-mode)
+         (minibuffer-setup . subword-mode)))
+#+end_src
+
+** Misc
+#+begin_src emacs-lisp
+(use-package sudo-edit :defer t)
+
+;; Hanlde minified code
+(use-package so-long
+  :hook (elpaca-after-init . global-so-long-mode))
 #+end_src
 
 * General Keybindings
