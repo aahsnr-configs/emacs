@@ -2880,6 +2880,72 @@ targets."
     (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
 #+end_src
 
+* Treemacs
+#+begin_src emacs-lisp
+(use-package treemacs
+  :defer t
+  ;; ADDED: Main commands to ensure lazy loading works with your General keybindings
+  :commands (treemacs
+             treemacs-select-window
+             treemacs-follow-mode
+             treemacs-filewatch-mode
+             treemacs-git-mode)
+  :custom-face
+  ;; Matches the border color to your theme's posframe border
+  (cfrs-border-color ((t (:inherit posframe-border))))
+  :custom
+  (treemacs-width 30)
+  (treemacs-position 'left)
+  (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
+  (treemacs-space-between-root-nodes t)
+  (treemacs-silent-refresh t)
+  (treemacs-silent-filewatch t)
+  (treemacs-file-follow-delay 0.2)
+  :config
+  (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
+  (treemacs-filewatch-mode t)   ;; Watch file system for changes
+  (treemacs-fringe-indicator-mode 'always)
+
+  ;; Check for python3 and git to determine how to run git integration
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null (executable-find "python3"))))
+    (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
+    (`(t . _) (treemacs-git-mode 'simple))))
+
+(use-package treemacs-icons-dired
+  :hook (dired-mode . treemacs-icons-dired-enable-once))
+
+;; ;; Consistent icons with the rest of your config
+;; (use-package treemacs-nerd-icons
+;;   :after treemacs
+;;   :functions treemacs-load-theme
+;;   :config (treemacs-load-theme "nerd-icons"))
+
+;; Magit integration (refresh sidebar on git changes)
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :hook ((magit-post-commit
+          git-commit-post-finish
+          magit-post-stage
+          magit-post-unstage)
+         . treemacs-magit--schedule-update))
+
+;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
+(use-package treemacs-tab-bar
+  :after treemacs
+  :functions treemacs-set-scope-type
+  :config (treemacs-set-scope-type 'Tabs))
+
+;; Evil navigation in the sidebar
+(use-package treemacs-evil
+  :after (treemacs evil)
+  :config
+  (evil-define-key 'normal treemacs-mode-map
+    (kbd "TAB") #'treemacs-TAB-action
+    (kbd "o")   #'treemacs-visit-node-ace
+    (kbd "q")   #'treemacs-quit))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (use-package general
