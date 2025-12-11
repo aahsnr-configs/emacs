@@ -2922,13 +2922,13 @@ targets."
 ;;   :config (treemacs-load-theme "nerd-icons"))
 
 ;; Magit integration (refresh sidebar on git changes)
-(use-package treemacs-magit
-  :after (treemacs magit)
-  :hook ((magit-post-commit
-          git-commit-post-finish
-          magit-post-stage
-          magit-post-unstage)
-         . treemacs-magit--schedule-update))
+;;(use-package treemacs-magit
+ ;;:after (treemacs magit)
+;; :hook ((magit-post-commit
+;;         git-commit-post-finish
+;;         magit-post-stage
+;;         magit-post-unstage)
+;;        . treemacs-magit--schedule-update))
 
 ;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
 (use-package treemacs-tab-bar
