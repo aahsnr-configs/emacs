@@ -92,7 +92,7 @@
   ;; (org-fontify-whole-heading-line t)
   ;; (org-fontify-quote-and-verse-blocks t)
 ```
-- [ ] add treesit-auto from minimal-emacs.d
+- [x] add treesit-auto from minimal-emacs.d
 - [ ] add evil alternative drag-stuff
 - [ ] determine if Optimization, Frame, Suppress GUI features, and Transient Posframe  subsections in UI and Theming is needed.
 - [ ] don't add any frame-padding until the end

@@ -1492,6 +1492,619 @@ Lower this if you experience freezing, raise if stuttering.")
         org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☑") (priority . "⚑") (on . "◉") (off . "◯"))))
 #+end_src
 
+* Treesitter/Folding
+#+begin_src emacs-lisp
+(with-eval-after-load 'tresit
+  (setq treesit-font-lock-level 4)
+  (setq major-mode-remap-alist
+        '((typescript-mode . typescript-ts-mode)
+          (js-mode . javascript-ts-mode)
+          (elisp-mode . elisp-ts-mode)
+          (python-mode . python-ts-mode)
+          (json-mode . json-ts-mode))))
+
+(use-package treesit-auto
+  :defer t
+  :custom
+  (treesit-auto-install 'prompt)
+  :config
+  (treesit-auto-add-to-auto-mode-alist 'all)
+  (global-treesit-auto-mode))
+
+(use-package treesit-fold
+  :defer t
+  :hook (((after-elpaca-init . global-treesit-fold-indicators-mode)
+          treesit-auto-mode-hook . treesit-fold-mode))
+  :init (setq treesit-fold-indicators-priority -1))
+
+(use-package evil-textobj-tree-sitter
+  :defer t
+  :after evil
+  :config
+  ;; Goto start of next function
+  (define-key evil-normal-state-map
+              (kbd "]f")
+              (lambda ()
+                (interactive)
+                (evil-textobj-tree-sitter-goto-textobj "function.outer")))
+
+  ;; Goto start of previous function
+  (define-key evil-normal-state-map
+              (kbd "[f")
+              (lambda ()
+                (interactive)
+                (evil-textobj-tree-sitter-goto-textobj "function.outer" t)))
+
+  ;; Goto end of next function
+  (define-key evil-normal-state-map
+              (kbd "]F")
+              (lambda ()
+                (interactive)
+                (evil-textobj-tree-sitter-goto-textobj "function.outer" nil t)))
+
+  ;; Goto end of previous function
+  (define-key evil-normal-state-map
+              (kbd "[F")
+            (lambda ()
+              (interactive)
+              (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
+
+(use-package hideshow
+  :ensure nil
+  :defer t
+  :pretty-hydra
+  ((:title (pretty-hydra-title "HideShow" 'octicon "nf-oct-fold")
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Fold"
+    (("t" hs-toggle-all "toggle all")
+     ("a" hs-show-all "show all")
+     ("i" hs-hide-all "hide all")
+     ("g" hs-toggle-hiding "toggle hiding")
+     ("c" hs-cycle "cycle block")
+     ("s" hs-show-block "show block")
+     ("h" hs-hide-block "hide block")
+     ("l" hs-hide-level "hide level"))
+    "Move"
+    (("C-a" mwim-beginning-of-code-or-line "⭰")
+     ("C-e" mwim-end-of-code-or-line "⭲")
+     ("C-b" backward-char "←")
+     ("C-n" next-line "↓")
+     ("C-p" previous-line "↑")
+     ("C-f" forward-char "→")
+     ("C-v" pager-page-down "↘")
+     ("M-v" pager-page-up "↖")
+     ("M-<" beginning-of-buffer "⭶")
+     ("M->" end-of-buffer "⭸"))))
+  :bind (:map hs-minor-mode-map
+         ("C-~" . hideshow-hydra/body)
+         ("C-S-<escape>" . hideshow-hydra/body))
+  :hook (prog-mode . hs-minor-mode)
+  :config
+  ;; More functions
+  ;; @see https://karthinks.com/software/simple-folding-with-hideshow/
+  (defun hs-cycle (&optional level)
+    (interactive "p")
+    (let (message-log-max
+          (inhibit-message t))
+      (if (= level 1)
+          (pcase last-command
+            ('hs-cycle
+             (hs-hide-level 1)
+             (setq this-command 'hs-cycle-children))
+            ('hs-cycle-children
+             (save-excursion (hs-show-block))
+             (setq this-command 'hs-cycle-subtree))
+            ('hs-cycle-subtree
+             (hs-hide-block))
+            (_
+             (if (not (hs-already-hidden-p))
+                 (hs-hide-block)
+               (hs-hide-level 1)
+               (setq this-command 'hs-cycle-children))))
+        (hs-hide-level level)
+        (setq this-command 'hs-hide-level))))
+
+  (defun hs-toggle-all ()
+    "Toggle hide/show all."
+    (interactive)
+    (pcase last-command
+      ('hs-toggle-all
+       (save-excursion (hs-show-all))
+       (setq this-command 'hs-global-show))
+      (_ (hs-hide-all))))
+
+  ;; Display line counts
+  (defun hs-display-code-line-counts (ov)
+    "Display line counts when hiding codes."
+    (when (eq 'code (overlay-get ov 'hs))
+      (overlay-put ov 'display
+                   (concat
+                    " "
+                    (propertize
+                     (if (char-displayable-p ?⏷) "⏷" "...")
+                     'face 'shadow)
+                    (propertize
+                     (format " (%d lines)"
+                             (count-lines (overlay-start ov)
+                                          (overlay-end ov)))
+                     'face '(:inherit shadow :height 0.8))
+                    " "))))
+  (setq hs-set-up-overlay #'hs-display-code-line-counts))
+
+(use-package vimish-fold
+  :defer t
+  :after evil
+  :config
+  (vimish-fold-global-mode 1))
+
+(use-package evil-vimish-fold
+  :defer t
+  :after vimish-fold
+  :init
+  (setq evil-vimish-fold-mode-lighter " ⮒")
+  (setq evil-vimish-fold-target-modes '(prog-mode conf-mode text-mode))
+  :config
+  (global-evil-vimish-fold-mode))
+#+end_src
+
+* Prettify Symbols
+** Core Configuration
+#+begin_src emacs-lisp
+(use-package prog-mode
+  :ensure nil
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Prettify Symbols" 'mdicon "nf-md-code_tags")
+    :color amaranth :quit-key ("q" "C-g"))
+   ("Toggle"
+    (("s" prettify-symbols-mode "mode" :toggle t)
+     ("a" ar/prettify-symbols-toggle-aggressive "aggressive")
+     ("u" ar/prettify-symbols-toggle-unprettify-at-point "unprettify"))
+    "Info"
+    (("p" ar/prettify-symbols-show-at-point "at point")
+     ("l" ar/prettify-symbols-list-all "list all")
+     ("d" ar/prettify-symbols-describe-char "describe"))
+    "Edit"
+    (("r" ar/prettify-symbols-reload "reload")
+     ("i" ar/prettify-symbols-insert-unicode "insert"))))
+  :bind ("C-c s" . prog-mode-hydra/body)
+  :init
+  ;; Unprettify when cursor approaches symbol (critical for editing)
+  (setq prettify-symbols-unprettify-at-point 'right-edge)
+  
+  ;; Core configuration variables
+  (defvar ar/prettify-symbols-base-alist
+    '(;; Relational operators
+      ("!=" . ?≠)              ; U+2260 NOT EQUAL TO
+      ("<=" . ?≤)              ; U+2264 LESS-THAN OR EQUAL TO
+      (">=" . ?≥)              ; U+2265 GREATER-THAN OR EQUAL TO
+      ("==" . ?≡)              ; U+2261 IDENTICAL TO
+      
+      ;; Arrows (common across languages)
+      ("->" . ?→)              ; U+2192 RIGHTWARDS ARROW
+      ("=>" . ?⇒)              ; U+21D2 RIGHTWARDS DOUBLE ARROW
+      ("<-" . ?←)              ; U+2190 LEFTWARDS ARROW
+      
+      ;; Mathematical operators
+      ("sqrt" . ?√)            ; U+221A SQUARE ROOT
+      ("sum" . ?∑)             ; U+2211 N-ARY SUMMATION
+      ("pi" . ?π)              ; U+03C0 GREEK SMALL LETTER PI
+      
+      ;; Common symbols
+      ("..." . ?…)             ; U+2026 HORIZONTAL ELLIPSIS
+      ("lambda" . ?λ))         ; U+03BB GREEK SMALL LETTER LAMBDA
+    "Base prettify symbols shared across multiple modes.")
+  
+  ;; Enable globally but allow modes to opt out
+  :config
+  (global-prettify-symbols-mode +1))
+#+end_src
+
+** Custom Compose Predicate
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-compose-p-default (start end _match)
+  "Custom compose predicate that's more permissive than default.
+Allows prettification in more contexts while still being safe."
+  (let* ((syntaxes-beg (if (memq (char-syntax (char-after start)) '(?w ?_))
+                          '(?w ?_) '(?. ?\\)))
+         (syntaxes-end (if (memq (char-syntax (char-before end)) '(?w ?_))
+                          '(?w ?_) '(?. ?\\))))
+    (and
+     ;; Check that surrounding syntax matches
+     (not (memq (char-syntax (or (char-before start) ?\s)) syntaxes-beg))
+     (not (memq (char-syntax (or (char-after end) ?\s)) syntaxes-end))
+     ;; Avoid prettifying in strings (usually)
+     ;; Remove this check if you want prettification in strings
+     (not (nth 3 (syntax-ppss))))))
+
+(defun ar/prettify-symbols-compose-p-aggressive (start end match)
+  "More aggressive compose predicate that prettifies in comments and strings.
+Use this if you want maximum prettification."
+  (let* ((syntaxes-beg (if (memq (char-syntax (char-after start)) '(?w ?_))
+                          '(?w ?_) '(?. ?\\)))
+         (syntaxes-end (if (memq (char-syntax (char-before end)) '(?w ?_))
+                          '(?w ?_) '(?. ?\\))))
+    (and
+     ;; Check that surrounding syntax matches
+     (not (memq (char-syntax (or (char-before start) ?\s)) syntaxes-beg))
+     (not (memq (char-syntax (or (char-after end) ?\s)) syntaxes-end)))))
+#+end_src
+
+** Emacs Lisp
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-elisp-setup ()
+  "Configure prettify-symbols for Emacs Lisp modes."
+  (setq prettify-symbols-alist
+        (append
+         ar/prettify-symbols-base-alist
+         '(;; Lisp-specific symbols
+           ("defun" . ?ƒ)          ; U+0192 LATIN SMALL LETTER F WITH HOOK
+           ("defmacro" . ?μ)       ; U+03BC GREEK SMALL LETTER MU
+           
+           ;; Logical operators
+           ("not" . ?¬)            ; U+00AC NOT SIGN
+           ("and" . ?∧)            ; U+2227 LOGICAL AND
+           ("or" . ?∨)             ; U+2228 LOGICAL OR
+           
+           ;; Special comparisons
+           ("/=" . ?≠)             ; U+2260 NOT EQUAL TO
+           
+           ;; Constants (commented out - can be confusing)
+           ;; ("nil" . ?∅)         ; U+2205 EMPTY SET
+           ;; ("t" . ?⊤)           ; U+22A4 DOWN TACK (true)
+           ))))
+
+;; Apply to all Emacs Lisp modes
+(add-hook 'emacs-lisp-mode-hook #'ar/prettify-symbols-elisp-setup)
+(add-hook 'lisp-interaction-mode-hook #'ar/prettify-symbols-elisp-setup)
+(add-hook 'inferior-emacs-lisp-mode-hook #'ar/prettify-symbols-elisp-setup)
+#+end_src
+
+** Python
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-python-setup ()
+  "Configure prettify-symbols for Python modes."
+  (setq prettify-symbols-alist
+        (append
+         ar/prettify-symbols-base-alist
+         '(;; Python keywords - selective to maintain readability
+           ("def" . ?ƒ)            ; U+0192 LATIN SMALL LETTER F WITH HOOK
+           ("class" . ?𝒞)          ; U+1D49E MATHEMATICAL SCRIPT CAPITAL C
+           ("return" . ?⟼)         ; U+27FC LONG RIGHTWARDS ARROW FROM BAR
+           ("yield" . ?⟻)          ; U+27FB LONG LEFTWARDS ARROW FROM BAR
+           
+           ;; Python operators
+           ("not" . ?¬)            ; U+00AC NOT SIGN
+           ("in" . ?∈)             ; U+2208 ELEMENT OF
+           ("not in" . ?∉)         ; U+2209 NOT AN ELEMENT OF
+           ("and" . ?∧)            ; U+2227 LOGICAL AND
+           ("or" . ?∨)             ; U+2228 LOGICAL OR
+           
+           ;; Python constants
+           ("None" . ?∅)           ; U+2205 EMPTY SET
+           ("True" . ?⊤)           ; U+22A4 DOWN TACK
+           ("False" . ?⊥)          ; U+22A5 UP TACK
+           
+           ;; Type hints (Python 3.5+)
+           ("int" . ?ℤ)            ; U+2124 DOUBLE-STRUCK CAPITAL Z
+           ("float" . ?ℝ)          ; U+211D DOUBLE-STRUCK CAPITAL R
+           ("str" . ?𝕊)            ; U+1D54A MATHEMATICAL DOUBLE-STRUCK CAPITAL S
+           ("bool" . ?𝔹)           ; U+1D539 MATHEMATICAL DOUBLE-STRUCK CAPITAL B
+           
+           ;; Common type hints (commented - can be too aggressive)
+           ;; ("List" . ?𝐋)        ; U+1D40B MATHEMATICAL BOLD CAPITAL L
+           ;; ("Dict" . ?𝐃)        ; U+1D403 MATHEMATICAL BOLD CAPITAL D
+           ;; ("Set" . ?𝐒)         ; U+1D412 MATHEMATICAL BOLD CAPITAL S
+           ;; ("Tuple" . ?𝐓)       ; U+1D413 MATHEMATICAL BOLD CAPITAL T
+           ;; ("Optional" . ??)    ; U+2370 APL FUNCTIONAL SYMBOL QUAD QUESTION
+           )))
+  
+  ;; Custom predicate for Python to avoid conflicts with docstrings
+  (setq prettify-symbols-compose-predicate
+        #'ar/prettify-symbols-compose-p-default))
+
+;; Apply to Python modes
+(add-hook 'python-mode-hook #'ar/prettify-symbols-python-setup)
+(add-hook 'python-ts-mode-hook #'ar/prettify-symbols-python-setup)
+#+end_src
+
+** JavaScript/TypeScript
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-javascript-setup ()
+  "Configure prettify-symbols for JavaScript and TypeScript."
+  (setq prettify-symbols-alist
+        (append
+         ar/prettify-symbols-base-alist
+         '(;; JavaScript arrows and functions
+           ("function" . ?ƒ)       ; U+0192 LATIN SMALL LETTER F WITH HOOK
+           
+           ;; Logical operators
+           ("&&" . ?∧)             ; U+2227 LOGICAL AND
+           ("||" . ?∨)             ; U+2228 LOGICAL OR
+           
+           ;; Strict equality (JavaScript-specific)
+           ("===" . ?≡)            ; U+2261 IDENTICAL TO
+           ("!==" . ?≢)            ; U+2262 NOT IDENTICAL TO
+           
+           ;; Special values
+           ("null" . ?∅)           ; U+2205 EMPTY SET
+           ("undefined" . ?⊥)      ; U+22A5 UP TACK
+           
+           ;; Math constants (when using Math object)
+           ("Math.PI" . ?π)        ; U+03C0 GREEK SMALL LETTER PI
+           ("Infinity" . ?∞)       ; U+221E INFINITY
+           ))))
+
+;; Apply to JavaScript and TypeScript modes
+(add-hook 'javascript-mode-hook #'ar/prettify-symbols-javascript-setup)
+(add-hook 'js-mode-hook #'ar/prettify-symbols-javascript-setup)
+(add-hook 'js-ts-mode-hook #'ar/prettify-symbols-javascript-setup)
+(add-hook 'typescript-mode-hook #'ar/prettify-symbols-javascript-setup)
+(add-hook 'typescript-ts-mode-hook #'ar/prettify-symbols-javascript-setup)
+(add-hook 'javascript-ts-mode-hook #'ar/prettify-symbols-javascript-setup)
+#+end_src
+
+** Shell/Bash
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-shell-setup ()
+  "Configure prettify-symbols for shell scripts."
+  (setq prettify-symbols-alist
+        (append
+         ar/prettify-symbols-base-alist
+         '(;; Test operators (be conservative here)
+           ("-eq" . ?=)            ; Keep simple for readability
+           ("-ne" . ?≠)            ; U+2260 NOT EQUAL TO
+           ("-le" . ?≤)            ; U+2264 LESS-THAN OR EQUAL TO
+           ("-ge" . ?≥)            ; U+2265 GREATER-THAN OR EQUAL TO
+           
+           ;; Logical operators
+           ("&&" . ?∧)             ; U+2227 LOGICAL AND
+           ("||" . ?∨)             ; U+2228 LOGICAL OR
+           
+           ;; Don't prettify pipe | - it's too fundamental to shell syntax
+           ))))
+
+;; Apply to shell modes
+(add-hook 'sh-mode-hook #'ar/prettify-symbols-shell-setup)
+(add-hook 'bash-ts-mode-hook #'ar/prettify-symbols-shell-setup)
+#+end_src
+
+** C/C++
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-c-setup ()
+  "Configure prettify-symbols for C/C++ modes."
+  (setq prettify-symbols-alist
+        (append
+         ar/prettify-symbols-base-alist
+         '(;; C/C++ specific
+           ("NULL" . ?∅)           ; U+2205 EMPTY SET
+           ("nullptr" . ?∅)        ; U+2205 EMPTY SET (C++11)
+           
+           ;; Logical operators (standard C operators)
+           ("&&" . ?∧)             ; U+2227 LOGICAL AND
+           ("||" . ?∨)             ; U+2228 LOGICAL OR
+           
+           ;; Avoid prettifying -> as it's semantically important for pointers
+           ;; Avoid prettifying ! as it's used frequently and would be confusing
+           
+           ;; Math constants
+           ("M_PI" . ?π)           ; U+03C0 GREEK SMALL LETTER PI
+           ("INFINITY" . ?∞)       ; U+221E INFINITY
+           ))))
+
+;; Apply to C/C++ modes
+(add-hook 'c-mode-hook #'ar/prettify-symbols-c-setup)
+(add-hook 'c++-mode-hook #'ar/prettify-symbols-c-setup)
+(add-hook 'c-ts-mode-hook #'ar/prettify-symbols-c-setup)
+(add-hook 'c++-ts-mode-hook #'ar/prettify-symbols-c-setup)
+#+end_src
+
+** Rust
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-rust-setup ()
+  "Configure prettify-symbols for Rust mode."
+  (setq prettify-symbols-alist
+        (append
+         ar/prettify-symbols-base-alist
+         '(;; Rust-specific
+           ("fn" . ?ƒ)             ; U+0192 LATIN SMALL LETTER F WITH HOOK
+           
+           ;; Logical operators
+           ("&&" . ?∧)             ; U+2227 LOGICAL AND
+           ("||" . ?∨)             ; U+2228 LOGICAL OR
+           
+           ;; Avoid prettifying -> as it's the return type operator in Rust
+           ;; This is semantically important
+           )))
+  
+  ;; Custom predicate for Rust to avoid conflicts with closure syntax ||
+  (setq-local prettify-symbols-compose-predicate
+              (lambda (start end match)
+                (and (ar/prettify-symbols-compose-p-default start end match)
+                     ;; Don't prettify || in closure parameters
+                     (not (and (string= match "||")
+                               (save-excursion
+                                 (goto-char start)
+                                 (looking-back "\\(?:\\<move\\|=\\) *" 
+                                              (line-beginning-position)))))))))
+
+;; Apply to Rust mode (if installed)
+(with-eval-after-load 'rust-mode
+  (add-hook 'rust-mode-hook #'ar/prettify-symbols-rust-setup))
+(with-eval-after-load 'rust-ts-mode
+  (add-hook 'rust-ts-mode-hook #'ar/prettify-symbols-rust-setup))
+#+end_src
+
+** Org Mode
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-org-setup ()
+  "Configure prettify-symbols for Org mode.
+Note: org-modern handles most visual improvements, so we're conservative here."
+  (setq prettify-symbols-alist
+        '(;; Arrows and implications (useful in text)
+          ("->" . ?→)              ; U+2192 RIGHTWARDS ARROW
+          ("<-" . ?←)              ; U+2190 LEFTWARDS ARROW
+          ("=>" . ?⇒)              ; U+21D2 RIGHTWARDS DOUBLE ARROW
+          ("<=" . ?≤)              ; U+2264 LESS-THAN OR EQUAL TO (when used as symbol)
+          (">=" . ?≥)              ; U+2265 GREATER-THAN OR EQUAL TO (when used as symbol)
+          
+          ;; Common symbols in prose
+          ("!=" . ?≠)              ; U+2260 NOT EQUAL TO
+          ("..." . ?…)             ; U+2026 HORIZONTAL ELLIPSIS
+          
+          ;; Source block markers (subtle, won't conflict with org-modern)
+          ;; Commented out if you prefer org-modern's handling
+          ;; ("#+BEGIN_SRC" . ?»)   ; U+00BB RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
+          ;; ("#+END_SRC" . ?«)     ; U+00AB LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+          ;; ("#+begin_src" . ?»)
+          ;; ("#+end_src" . ?«)
+          ))
+  
+  ;; Don't prettify in code blocks (org-modern handles those)
+  (setq-local prettify-symbols-compose-predicate
+              (lambda (start end match)
+                (and (ar/prettify-symbols-compose-p-default start end match)
+                     ;; Don't prettify in src blocks
+                     (not (org-in-src-block-p))))))
+
+(add-hook 'org-mode-hook #'ar/prettify-symbols-org-setup)
+#+end_src
+
+** Markdown
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-markdown-setup ()
+  "Configure prettify-symbols for Markdown mode."
+  (setq prettify-symbols-alist
+        '(;; Common symbols
+          ("->" . ?→)              ; U+2192 RIGHTWARDS ARROW
+          ("<-" . ?←)              ; U+2190 LEFTWARDS ARROW
+          ("=>" . ?⇒)              ; U+21D2 RIGHTWARDS DOUBLE ARROW
+          ("<=" . ?≤)              ; U+2264 LESS-THAN OR EQUAL TO
+          (">=" . ?≥)              ; U+2265 GREATER-THAN OR EQUAL TO
+          ("!=" . ?≠)              ; U+2260 NOT EQUAL TO
+          ("..." . ?…)             ; U+2026 HORIZONTAL ELLIPSIS
+          
+          ;; Code fence markers (subtle)
+          ("```" . ?‣)             ; U+2023 TRIANGULAR BULLET
+          
+          ;; Checkbox syntax (if using GitHub-flavored markdown)
+          ;; Note: Some markdown modes handle these specially
+          ("[ ]" . ?☐)          ; U+2610 BALLOT BOX
+          ("[x]" . ?☑)          ; U+2611 BALLOT BOX WITH CHECK
+          ("[X]" . ?☑)          ; U+2611 BALLOT BOX WITH CHECK
+          )))
+
+(add-hook 'markdown-mode-hook #'ar/prettify-symbols-markdown-setup)
+(add-hook 'gfm-mode-hook #'ar/prettify-symbols-markdown-setup)
+#+end_src
+
+** Helper Functions
+#+begin_src emacs-lisp
+(defun ar/prettify-symbols-reload ()
+  "Reload prettify-symbols-mode for current buffer.
+Useful after changing symbols configuration."
+  (interactive)
+  (when (bound-and-true-p prettify-symbols-mode)
+    (prettify-symbols-mode -1)
+    (prettify-symbols-mode +1)
+    (message "Prettify symbols reloaded")))
+
+(defun ar/prettify-symbols-show-at-point ()
+  "Show the actual text of prettified symbol at point in the echo area."
+  (interactive)
+  (let* ((pos (point))
+         (props (text-properties-at pos))
+         (composition (plist-get props 'composition)))
+    (if composition
+        (let ((start (previous-single-property-change 
+                      (1+ pos) 'composition nil (point-min)))
+              (end (next-single-property-change 
+                    pos 'composition nil (point-max))))
+          (message "Symbol: %S" (buffer-substring start end)))
+      (message "No prettified symbol at point"))))
+
+(defun ar/prettify-symbols-toggle-unprettify-at-point ()
+  "Cycle through unprettify-at-point options.
+nil -> right-edge -> t -> nil"
+  (interactive)
+  (setq prettify-symbols-unprettify-at-point
+        (pcase prettify-symbols-unprettify-at-point
+          ('nil 'right-edge)
+          ('right-edge t)
+          (_ nil)))
+  (ar/prettify-symbols-reload)
+  (message "Prettify unprettify-at-point: %s" 
+           (pcase prettify-symbols-unprettify-at-point
+             ('nil "disabled")
+             ('right-edge "at right edge")
+             (_ "when on symbol"))))
+
+(defun ar/prettify-symbols-list-all ()
+  "Display all prettified symbols in current buffer's alist."
+  (interactive)
+  (if prettify-symbols-alist
+      (let ((buf (get-buffer-create "*Prettify Symbols*")))
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert (format "Prettify Symbols for %s\n" major-mode))
+          (insert (make-string 50 ?=) "\n\n")
+          (insert (format "%-20s %-10s %s\n" "Text" "Symbol" "Unicode"))
+          (insert (make-string 50 ?-) "\n")
+          (dolist (pair prettify-symbols-alist)
+            (insert (format "%-20s %-10c U+%04X\n"
+                           (car pair)
+                           (cdr pair)
+                           (cdr pair))))
+          (insert "\n")
+          (insert "Unprettify at point: " 
+                  (format "%s" prettify-symbols-unprettify-at-point) "\n")
+          (goto-char (point-min))
+          (special-mode))
+        (display-buffer buf))
+    (message "No prettify-symbols-alist defined for this buffer")))
+
+(defun ar/prettify-symbols-toggle-aggressive ()
+  "Toggle between default and aggressive prettification predicates."
+  (interactive)
+  (if (eq prettify-symbols-compose-predicate 
+          #'ar/prettify-symbols-compose-p-aggressive)
+      (progn
+        (setq-local prettify-symbols-compose-predicate
+                    #'ar/prettify-symbols-compose-p-default)
+        (message "Using default prettification (no strings/comments)"))
+    (setq-local prettify-symbols-compose-predicate
+                #'ar/prettify-symbols-compose-p-aggressive)
+    (message "Using aggressive prettification (includes strings/comments)"))
+  (ar/prettify-symbols-reload))
+
+(defun ar/prettify-symbols-insert-unicode ()
+  "Insert a Unicode character by name or code point.
+Helpful for finding symbols to use in configuration."
+  (interactive)
+  (call-interactively #'insert-char))
+
+(defun ar/prettify-symbols-describe-char ()
+  "Describe the character at point, showing Unicode info."
+  (interactive)
+  (describe-char (point)))
+
+;; Advice to prevent prettification from breaking indentation/alignment
+;; This isn't usually needed but can help in edge cases
+(defun ar/prettify-symbols-before-save ()
+  "Temporarily disable prettify-symbols before saving.
+Re-enables it after save. Prevents indentation issues."
+  (when (bound-and-true-p prettify-symbols-mode)
+    (prettify-symbols-mode -1)
+    (add-hook 'after-save-hook #'ar/prettify-symbols-after-save nil t)))
+
+(defun ar/prettify-symbols-after-save ()
+  "Re-enable prettify-symbols after saving."
+  (prettify-symbols-mode +1)
+  (remove-hook 'after-save-hook #'ar/prettify-symbols-after-save t))
+
+;; Uncomment to enable save protection (usually not needed)
+;; (add-hook 'before-save-hook #'ar/prettify-symbols-before-save)
+
+#+end_src
 * Elisp
 #+begin_src emacs-lisp
 (use-package elisp-mode
@@ -3681,6 +4294,207 @@ mermaid.initialize({
   (eval `(lsp-org-babel-enable ,lang)))
 #+end_src
 
+** DAP
+#+begin_src emacs-lisp
+(use-package dape
+  :defer t
+  :bind (("<f5>" . dape)
+         ("M-<f5>" . dape-hydra/body))
+  :custom (dape-buffer-window-arrangment 'right)
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Debug" 'codicon "nf-cod-debug")
+    :color pink :quit-key ("q" "C-g"))
+   ("Stepping"
+    (("n" dape-next "next")
+     ("s" dape-step-in "step in")
+     ("o" dape-step-out "step out")
+     ("c" dape-continue "continue")
+     ("p" dape-pause "pause")
+     ("k" dape-kill "kill")
+     ("r" dape-restart "restart")
+     ("D" dape-disconnect-quit "disconnect"))
+    "Switch"
+    (("m" dape-read-memory "memory")
+     ("t" dape-select-thread "thread")
+     ("w" dape-watch-dwim "watch")
+     ("S" dape-select-stack "stack")
+     ("i" dape-info "info")
+     ("R" dape-repl "repl"))
+    "Breakpoints"
+    (("b" dape-breakpoint-toggle "toggle")
+     ("l" dape-breakpoint-log "log")
+     ("e" dape-breakpoint-expression "expression")
+     ("B" dape-breakpoint-remove-all "clear"))
+    "Debug"
+    (("d" dape "dape")
+     ("Q" dape-quit "quit" :exit t))))
+  :config
+  ;; Save buffers on startup, useful for interpreted languages
+  (add-hook 'dape-on-start-hooks
+            (defun dape--save-on-start ()
+              (save-some-buffers t t)))
+  ;; Display hydra on startup
+  (add-hook 'dape-on-start-hooks #'dape-hydra/body))
+#+end_src
+
+** TODO Syntax Checking
+=Integrate with scimax=
+#+begin_src emacs-lisp
+(use-package flycheck
+  :defer t
+  :hook (prog-mode . flycheck-mode)
+  :config
+  (setq flycheck-emacs-lisp-load-path 'inherit)
+  (delq 'new-line flycheck-check-syntax-automatically)
+  (setq flycheck-idle-change-delay 1.0)
+  (setq flycheck-buffer-switch-check-intermediate-buffers t)
+  (setq flycheck-display-errors-delay 0.25))
+
+(use-package flycheck-posframe
+  :defer t
+  :after flycheck
+  :hook (flycheck-mode . flycheck-posframe-mode))
+#+end_src
+
+** Formatting
+#+begin_src emacs-lisp
+(use-package apheleia
+  :defer t
+  :config
+  (apheleia-global-mode +1))
+#+end_src
+
+** Eldoc
+#+begin_src emacs-lisp
+(use-package eldoc
+  :defer t
+  :ensure nil
+  :config
+  (when (childframe-workable-p)
+    (use-package eldoc-mouse
+      :bind (:map eldoc-mouse-mode-map
+             ("C-h ." . eldoc-mouse-pop-doc-at-cursor))
+      :hook (eglot-managed-mode emacs-lisp-mode)
+      :init (setq eldoc-mouse-posframe-border-color (face-background 'posframe-border nil t))
+      :config
+      (tooltip-mode -1)                 ; Conflict with `track-mouse'
+      (add-to-list 'eldoc-mouse-posframe-override-parameters
+                   `(background-color . ,(face-background 'tooltip nil t))))))
+#+end_src
+
+** Cross Referencing Commands
+#+begin_src emacs-lisp
+(use-package xref
+  :ensure nil
+  :defer t
+  :autoload xref-show-definitions-completing-read
+  :bind (("M-g ." . xref-find-definitions)
+         ("M-g ," . xref-go-back))
+  :init
+  ;; Use faster search tool
+  (when (executable-find "rg")
+    (setq xref-search-program 'ripgrep))
+
+  ;; Select from xref candidates in minibuffer
+  (setq xref-show-definitions-function #'xref-show-definitions-completing-read
+        xref-show-xrefs-function #'xref-show-definitions-completing-read))
+#+end_src
+
+* Utils
+** Which Key
+#+begin_src emacs-lisp
+(use-package which-key
+  :defer 0.5
+  :hook (elpaca-after-init . which-key-mode)
+  :custom
+  (which-key-idle-delay 0.1)
+  (which-key-separator " → ")
+  (which-key-popup-type 'minibuffer))
+#+end_src
+
+** Grep
+Search tools
+#+begin_src emacs-lisp
+(use-package grep
+  :defer t
+  :ensure nil
+  :autoload grep-apply-setting
+  :init
+  (when (executable-find "rg")
+    (grep-apply-setting
+     'grep-command "rg --color=auto --null -nH --no-heading -e ")
+    (grep-apply-setting
+     'grep-template "rg --color=auto --null --no-heading -g '!*/' -e <R> <D>")
+    (grep-apply-setting
+     'grep-find-command '("rg --color=auto --null -nH --no-heading -e ''" . 38))
+    (grep-apply-setting
+     'grep-find-template "rg --color=auto --null -nH --no-heading -e <R> <D>")))
+#+end_src
+
+** Wgrep
+Writable `grep' buffer
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t
+  :init (setq wgrep-auto-save-buffer t
+              wgrep-change-readonly-file t))
+#+end_src
+
+** Rg
+Fast search tool `ripgrep'
+#+begin_src emacs-lisp
+(use-package rg
+  :defer t
+  :hook (elpaca-after-init . rg-enable-default-bindings)
+  :bind (:map rg-global-map
+         ("c" . rg-dwim-current-dir)
+         ("f" . rg-dwim-current-file)
+         ("m" . rg-menu))
+  :init (setq rg-show-columns t)
+  :config (add-to-list 'rg-custom-type-aliases '("tmpl" . "*.tmpl")))
+#+end_src
+
+** ztree
+text mode directory tree
+#+begin_src emacs-lisp
+(use-package ztree
+  :defer t
+  :custom-face
+  (ztreep-header-face ((t (:inherit diff-header :foreground unspecified))))
+  (ztreep-arrow-face ((t (:inherit font-lock-comment-face :foreground unspecified))))
+  (ztreep-leaf-face ((t (:inherit diff-index :foreground unspecified))))
+  (ztreep-node-face ((t (:inherit font-lock-variable-name-face :foreground unspecified))))
+  (ztreep-expand-sign-face ((t (:inherit font-lock-function-name-face))))
+  (ztreep-diff-header-face ((t (:inherit (diff-header bold :foreground unspecified)))))
+  (ztreep-diff-header-small-face ((t (:inherit diff-file-header :foreground unspecified))))
+  (ztreep-diff-model-normal-face ((t (:inherit font-lock-doc-face :foreground unspecified))))
+  (ztreep-diff-model-ignored-face ((t (:inherit font-lock-doc-face :strike-through t :foreground unspecified))))
+  (ztreep-diff-model-diff-face ((t (:inherit diff-removed :foreground unspecified))))
+  (ztreep-diff-model-add-face ((t (:inherit diff-nonexistent :foreground unspecified))))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Ztree" 'octicon "nf-oct-diff" :face 'nerd-icons-green)
+    :color pink :quit-key ("q" "C-g"))
+   ("Diff"
+    (("C" ztree-diff-copy "copy" :exit t)
+     ("h" ztree-diff-toggle-show-equal-files "show/hide equals" :exit t)
+     ("H" ztree-diff-toggle-show-filtered-files "show/hide ignores" :exit t)
+     ("D" ztree-diff-delete-file "delete" :exit t)
+     ("v" ztree-diff-view-file "view" :exit t)
+     ("d" ztree-diff-simple-diff-files "simple diff" :exit t)
+     ("r" ztree-diff-partial-rescan "partial rescan" :exit t)
+     ("R" ztree-diff-full-rescan "full rescan" :exit t))
+    "View"
+    (("RET" ztree-perform-action "expand/collapse or view" :exit t)
+     ("SPC" ztree-perform-soft-action "expand/collapse or view in other" :exit t)
+     ("TAB" ztree-jump-side "jump side" :exit t)
+     ("g" ztree-refresh-buffer "refresh" :exit t)
+     ("x" ztree-toggle-expand-subtree "expand/collapse" :exit t)
+     ("<backspace>" ztree-move-up-in-tree "go to parent" :exit t))))
+  :bind (:map ztreediff-mode-map
+         ("C-<f5>" . ztree-hydra/body))
+  :init (setq ztree-draw-unicode-lines t
+              ztree-show-number-of-children t))
+#+end_src
 
 * General Keybindings
 #+begin_src emacs-lisp
