@@ -22,6 +22,7 @@ transient/
 elpaca/
 .persistent-scratch
 .lsp-session-v1
+projects
 undo-fu-session/
 tabsession.el
 .mc-lists.el
