@@ -486,10 +486,9 @@ Lower this if you experience freezing, raise if stuttering.")
 #+end_src
 
 * Evil
-** Core Evil
+** Undo Fu
 #+begin_src emacs-lisp
-;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo
-;; system, providing more convenient undo/redo functionality.
+;; The undo-fu package is a lightweight wrapper around Emacs' built-in undo system, providing more convenient undo/redo functionality.
 (use-package undo-fu
   :commands (undo-fu-only-undo
              undo-fu-only-redo
@@ -505,8 +504,10 @@ Lower this if you experience freezing, raise if stuttering.")
 (use-package undo-fu-session
   :commands undo-fu-session-global-mode
   :hook (elpaca-after-init . undo-fu-session-global-mode))
+#+end_src
 
-
+** Core Evil
+#+begin_src emacs-lisp
 (setq evil-undo-system 'undo-fu)
 
 ;; Vim emulation
@@ -515,42 +516,29 @@ Lower this if you experience freezing, raise if stuttering.")
   :hook (elpaca-after-init . evil-mode)
 
   :init
-  ;; It has to be defined before evil
   (setq evil-want-integration t)
   (setq evil-want-keybinding nil)
 
   :custom
-  ;; Make :s in visual mode operate only on the actual visual selection
-  ;; (character or block), instead of the full lines covered by the selection
   (evil-ex-visual-char-range t)
-  ;; Use Vim-style regular expressions in search and substitute commands,
-  ;; allowing features like \v (very magic), \zs, and \ze for precise matches
   (evil-ex-search-vim-style-regexp t)
-  ;; Enable automatic horizontal split below
   (evil-split-window-below t)
-  ;; Enable automatic vertical split to the right
   (evil-vsplit-window-right t)
-  ;; Disable echoing Evil state to avoid replacing eldoc
   (evil-echo-state nil)
-  ;; Do not move cursor back when exiting insert state
   (evil-move-cursor-back nil)
-  ;; Make `v$` exclude the final newline
   (evil-v$-excludes-newline t)
-  ;; Allow C-h to delete in insert state
   (evil-want-C-h-delete t)
-  ;; Enable C-u to delete back to indentation in insert state
   (evil-want-C-u-delete t)
-  ;; Enable fine-grained undo behavior
   (evil-want-fine-undo t)
-  ;; Allow moving cursor beyond end-of-line in visual block mode
   (evil-move-beyond-eol t)
-  ;; Disable wrapping of search around buffer
   (evil-search-wrap nil)
-  ;; Whether Y yanks to the end of the line
   (evil-want-Y-yank-to-eol t)
   :config
   (evil-select-search-module 'evil-search-module 'isearch))
+#+end_src
 
+** Evil Collection
+#+begin_src emacs-lisp
 (use-package evil-collection
   :after evil
   :init
@@ -558,12 +546,10 @@ Lower this if you experience freezing, raise if stuttering.")
   (setq evil-collection-setup-minibuffer t)
   :config
   (evil-collection-init))
+#+end_src
 
-;; The evil-surround package simplifies handling surrounding characters, such as
-;; parentheses, brackets, quotes, etc. It provides key bindings to easily add,
-;; change, or delete these surrounding characters in pairs. For instance, you
-;; can surround the currently selected text with double quotes in visual state
-;; using S" or gS".
+** Evil Extensions
+#+begin_src emacs-lisp
 (use-package evil-surround
   :after evil
   :commands global-evil-surround-mode
@@ -581,19 +567,72 @@ Lower this if you experience freezing, raise if stuttering.")
      (?> . ("<" . ">"))))
   :hook (elpaca-after-init . global-evil-surround-mode))
 
+;; Jump to the last change (Visual Studio/Vim style 'g;')
+(use-package goto-chg
+  :after evil
+  :commands (goto-last-change goto-last-change-reverse)
+  :config
+  (evil-define-key 'normal 'global (kbd "g;") 'goto-last-change)
+  (evil-define-key 'normal 'global (kbd "g,") 'goto-last-change-reverse))
+
+;; Text Objects for arguments (e.g., 'cia' to change inner argument)
+(use-package evil-args
+  :after evil
+  :config
+  ;; Bind text objects to 'a' (argument)
+  (define-key evil-inner-text-objects-map "a" 'evil-inner-arg)
+  (define-key evil-outer-text-objects-map "a" 'evil-outer-arg))
+
+;; Increment/Decrement numbers with C-a/C-x
+(use-package evil-numbers
+  :after evil
+  :config
+  (define-key evil-normal-state-map (kbd "C-a") 'evil-numbers/inc-at-pt)
+  (define-key evil-normal-state-map (kbd "C-x") 'evil-numbers/dec-at-pt))
+
+;; Quick 2-char jump motions (like Vimium 'f')
+(use-package evil-snipe
+  :after evil
+  :hook (evil-mode . evil-snipe-mode)
+  :hook (evil-mode . evil-snipe-override-mode)
+  :config
+  (setq evil-snipe-smart-case t
+        evil-snipe-scope 'buffer
+        evil-snipe-repeat-scope 'buffer)
+  ;; Make s/S work in visual mode too
+  (evil-define-key 'visual evil-snipe-local-mode-map "z" 'evil-snipe-s)
+  (evil-define-key 'visual evil-snipe-local-mode-map "Z" 'evil-snipe-S))
+
+;; Swap two regions of text with 'gx'
+(use-package evil-exchange
+  :after evil
+  :config
+  (evil-exchange-install))
+
+;; Jump between matching tags/keywords with '%' (better than default)
+(use-package evil-matchit
+  :after evil
+  :config
+  (global-evil-matchit-mode 1))
+
+;; Start a * search using the current visual selection
+(use-package evil-visualstar
+  :after evil
+  :config
+  (global-evil-visualstar-mode))
+
+;; Visual feedback when editing (pulsing regions on yank/paste)
+(use-package evil-goggles
+  :after evil
+  :config
+  (evil-goggles-mode)
+  (setq evil-goggles-duration 0.1))
+
+;; Align text with 'gl' (e.g., 'glip=' aligns paragraph on = signs)
 (use-package evil-lion
+  :after evil
   :config
   (evil-lion-mode))
-
-;; The following code enables commenting and uncommenting by pressing gcc in
-;; normal mode and gc in visual mode.
-(with-eval-after-load "evil"
-  (evil-define-operator my-evil-comment-or-uncomment (beg end)
-    "Toggle comment for the region between BEG and END."
-    (interactive "<r>")
-    (comment-or-uncomment-region beg end))
-  (evil-define-key 'normal 'global (kbd "gc") 'my-evil-comment-or-uncomment))
-
 #+end_src
 
 ** Evil Window Movement Enhancements
@@ -634,6 +673,68 @@ Lower this if you experience freezing, raise if stuttering.")
            (not (ignore-errors (windmove-down))))
       (evil-window-top-left)
     (windmove-down)))
+#+end_src
+
+** Native Commenting Operator
+Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This restores the "smart" toggling you prefer.
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil
+  (evil-define-operator ar/evil-comment-operator (beg end type)
+    "Toggle comment for the region defined by BEG and END."
+    :move-point nil
+    (interactive "<R>")
+    (comment-or-uncomment-region beg end))
+
+  ;; Bind 'gc' to this operator
+  (define-key evil-normal-state-map (kbd "gc") #'ar/evil-comment-operator)
+  ;; Bind 'gc' in visual mode to ensure it works on selections
+  (define-key evil-visual-state-map (kbd "gc") #'ar/evil-comment-operator))
+#+end_src
+
+** Smart Comment Continuation
+#+begin_src emacs-lisp
+(defcustom ar/evil-want-o/O-to-continue-comments t
+  "If non-nil, o/O keys will continue comment lines."
+  :type 'boolean
+  :group 'evil)
+
+(defun ar/evil-insert-newline-below (count)
+  "Insert COUNT newlines below, respecting comments."
+  (interactive "p")
+  (save-excursion
+    (if (and ar/evil-want-o/O-to-continue-comments
+             (face-at-point-irrelevant-p)
+             (save-excursion (comment-beginning)))
+        (let ((comment-start (or comment-start ""))
+              (comment-padding (or comment-padding " ")))
+          (end-of-line)
+          (newline-and-indent)
+          (when (not (string-empty-p comment-start))
+            (insert comment-start comment-padding)))
+      (evil-open-below count)))
+  (evil-insert-state))
+
+(defun ar/evil-insert-newline-above (count)
+  "Insert COUNT newlines above, respecting comments."
+  (interactive "p")
+  (save-excursion
+    (if (and ar/evil-want-o/O-to-continue-comments
+             (face-at-point-irrelevant-p)
+             (save-excursion (comment-beginning)))
+        (let ((comment-start (or comment-start ""))
+              (comment-padding (or comment-padding " ")))
+          (beginning-of-line)
+          (newline)
+          (forward-line -1)
+          (indent-according-to-mode)
+          (when (not (string-empty-p comment-start))
+            (insert comment-start comment-padding)))
+      (evil-open-above count)))
+  (evil-insert-state))
+
+(with-eval-after-load 'evil
+  (define-key evil-normal-state-map "o" #'ar/evil-insert-newline-below)
+  (define-key evil-normal-state-map "O" #'ar/evil-insert-newline-above))
 #+end_src
 
 * Child Frame
@@ -4619,7 +4720,6 @@ text mode directory tree
   (ar/global-leader
     "SPC" '(execute-extended-command :wk "M-x")
     ":" '(eval-expression :wk "Eval")
-    ";" '(evilnc-comment-or-uncomment-lines :wk "Comment")
     "u" '(universal-argument :wk "Universal arg")
     "!" '(shell-command :wk "Shell cmd")
     "X" '(org-capture :wk "Org capture"))
