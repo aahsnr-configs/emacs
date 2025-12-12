@@ -402,31 +402,6 @@ Lower this if you experience freezing, raise if stuttering.")
                                         extended-command-history)
         savehist-autosave-interval 300))
 
-
-(use-package easysession
-  :defer t
-  :commands (easysession-switch-to
-             easysession-save-as
-             easysession-save-mode
-             easysession-load-including-geometry)
-  :custom
-  (easysession-mode-line-misc-info t)  ; Display the session in the modeline
-  (easysession-save-interval (* 10 60))  ; Save every 10 minutes
-
-  :init
-
-  (add-hook 'emacs-startup-hook #'easysession-load-including-geometry 102)
-  (add-hook 'emacs-startup-hook #'easysession-save-mode 103))
-
-(use-package buffer-terminator
-  :defer t
-  :custom
-  (buffer-terminator-verbose nil)
-  (buffer-terminator-inactivity-timeout (* 30 60)) ; 30 minutes
-  (buffer-terminator-interval (* 10 60)) ; 10 minutes
-  :config
-  (buffer-terminator-mode 1))
-
 #+end_src
 
 ** Misc
@@ -1671,120 +1646,118 @@ Lower this if you experience freezing, raise if stuttering.")
 * Highlight
 ** Highlight the current line
 #+begin_src emacs-lisp
-(use-package hl-line
-  :ensure nil
-  :hook ((elpaca-after-init . global-hl-line-mode)
-         ((dashboard-mode eshell-mode shell-mode term-mode vterm-mode) .
-          (lambda () (setq-local global-hl-line-mode nil))))
-  :config
-  ;; CRITICAL FIX: Disable hl-line in Evil Visual mode. 
-  ;; Otherwise, the current line highlight masks the selection, making it look 
-  ;; like the selection starts "late" or is broken.
-  (defun ar/disable-hl-line-in-visual ()
-    (when (bound-and-true-p hl-line-mode)
-      (hl-line-mode -1)
-      (setq-local ar/hl-line-was-on t)))
+;; (use-package hl-line
+;;   :ensure nil
+;;   :hook ((elpaca-after-init . global-hl-line-mode)
+;;          ((dashboard-mode eshell-mode shell-mode term-mode vterm-mode) .
+;;           (lambda () (setq-local global-hl-line-mode nil))))
+;;   :config
+;;   ;; CRITICAL FIX: Disable hl-line in Evil Visual mode. 
+;;   ;; Otherwise, the current line highlight masks the selection, making it look 
+;;   ;; like the selection starts "late" or is broken.
+;;   (defun ar/disable-hl-line-in-visual ()
+;;     (when (bound-and-true-p hl-line-mode)
+;;       (hl-line-mode -1)
+;;       (setq-local ar/hl-line-was-on t)))
 
-  (defun ar/enable-hl-line-after-visual ()
-    (when (bound-and-true-p ar/hl-line-was-on)
-      (hl-line-mode 1)
-      (kill-local-variable 'ar/hl-line-was-on)))
+;;   (defun ar/enable-hl-line-after-visual ()
+;;     (when (bound-and-true-p ar/hl-line-was-on)
+;;       (hl-line-mode 1)
+;;       (kill-local-variable 'ar/hl-line-was-on)))
 
-  (add-hook 'evil-visual-state-entry-hook #'ar/disable-hl-line-in-visual)
-  (add-hook 'evil-visual-state-exit-hook #'ar/enable-hl-line-after-visual))
+;;   (add-hook 'evil-visual-state-entry-hook #'ar/disable-hl-line-in-visual)
+;;   (add-hook 'evil-visual-state-exit-hook #'ar/enable-hl-line-after-visual))
 #+end_src
 
 ** Highlight indentions
 #+begin_src emacs-lisp
-(use-package indent-bars
-  :defer t
-  :custom
-  (indent-bars-color '(highlight :face-bg t :blend 0.225))
-  (indent-bars-no-descend-string t)
-  (indent-bars-treesit-ignore-blank-lines-types '("module"))
-  (indent-bars-prefer-character t)
-  (indent-bars-treesit-scope '((python function_definition class_definition for_statement
-                                       if_statement with_statement while_statement)))
-  :hook ((prog-mode yaml-mode) . indent-bars-mode)
-  :init
-  ;; CRITICAL FIX: Disable indent-bars in Visual mode to prevent lag during selection
-  ;; The heavy calculation of bars/scopes slows down the cursor drag loop.
-  (defun ar/disable-indent-bars-in-visual ()
-    (when (bound-and-true-p indent-bars-mode)
-      (indent-bars-mode -1)
-      (setq-local ar/indent-bars-was-on t)))
+;; (use-package indent-bars
+;;   :defer t
+;;   :custom
+;;   (indent-bars-color '(highlight :face-bg t :blend 0.225))
+;;   (indent-bars-no-descend-string t)
+;;   (indent-bars-treesit-ignore-blank-lines-types '("module"))
+;;   (indent-bars-prefer-character t)
+;;   (indent-bars-treesit-scope '((python function_definition class_definition for_statement
+;;                                        if_statement with_statement while_statement)))
+;;   :hook ((prog-mode yaml-mode) . indent-bars-mode)
+;;   :init
+;;   ;; CRITICAL FIX: Disable indent-bars in Visual mode to prevent lag during selection
+;;   ;; The heavy calculation of bars/scopes slows down the cursor drag loop.
+;;   (defun ar/disable-indent-bars-in-visual ()
+;;     (when (bound-and-true-p indent-bars-mode)
+;;       (indent-bars-mode -1)
+;;       (setq-local ar/indent-bars-was-on t)))
   
-  (defun ar/enable-indent-bars-after-visual ()
-    (when (bound-and-true-p ar/indent-bars-was-on)
-      (indent-bars-mode 1)
-      (kill-local-variable 'ar/indent-bars-was-on)))
+;;   (defun ar/enable-indent-bars-after-visual ()
+;;     (when (bound-and-true-p ar/indent-bars-was-on)
+;;       (indent-bars-mode 1)
+;;       (kill-local-variable 'ar/indent-bars-was-on)))
   
-  (add-hook 'evil-visual-state-entry-hook #'ar/disable-indent-bars-in-visual)
-  (add-hook 'evil-visual-state-exit-hook #'ar/enable-indent-bars-after-visual)
-  :config
-  (require 'indent-bars-ts))
+;;   (add-hook 'evil-visual-state-entry-hook #'ar/disable-indent-bars-in-visual)
+;;   (add-hook 'evil-visual-state-exit-hook #'ar/enable-indent-bars-after-visual)
+;;   :config
+;;   (require 'indent-bars-ts))
 #+end_src
 
 ** Highlight brackets according to their depth
 #+begin_src emacs-lisp
-;; TODO
-
-(use-package rainbow-delimiters
-  :defer t
-  :hook ((text-mode . rainbow-delimiters-mode)
-         (LaTeX-mode . rainbow-delimiters-mode)
-         (org-src-mode . rainbow-delimiters-mode)
-         (prog-mode . rainbow-delimiters-mode))
-  :config
-  (custom-set-faces
-   '(rainbow-delimiters-depth-1-face ((t (:foreground "#89b4fa"))))  ; Blue
-   '(rainbow-delimiters-depth-2-face ((t (:foreground "#cba6f7"))))  ; Mauve
-   '(rainbow-delimiters-depth-3-face ((t (:foreground "#f9e2af"))))  ; Yellow
-   '(rainbow-delimiters-depth-4-face ((t (:foreground "#89dceb"))))  ; Sky
-   '(rainbow-delimiters-depth-5-face ((t (:foreground "#f38ba8"))))  ; Red
-   '(rainbow-delimiters-depth-6-face ((t (:foreground "#a6e3a1"))))  ; Green
-   '(rainbow-delimiters-depth-7-face ((t (:foreground "#fab387"))))  ; Peach
-   '(rainbow-delimiters-depth-8-face ((t (:foreground "#cdd6f4"))))  ; Text
-   '(rainbow-delimiters-depth-9-face ((t (:foreground "#bac2de")))))) ; Subtext1
+;; (use-package rainbow-delimiters
+;;   :defer t
+;;   :hook ((text-mode . rainbow-delimiters-mode)
+;;          (LaTeX-mode . rainbow-delimiters-mode)
+;;          (org-src-mode . rainbow-delimiters-mode)
+;;          (prog-mode . rainbow-delimiters-mode))
+;;   :config
+;;   (custom-set-faces
+;;    '(rainbow-delimiters-depth-1-face ((t (:foreground "#89b4fa"))))  ; Blue
+;;    '(rainbow-delimiters-depth-2-face ((t (:foreground "#cba6f7"))))  ; Mauve
+;;    '(rainbow-delimiters-depth-3-face ((t (:foreground "#f9e2af"))))  ; Yellow
+;;    '(rainbow-delimiters-depth-4-face ((t (:foreground "#89dceb"))))  ; Sky
+;;    '(rainbow-delimiters-depth-5-face ((t (:foreground "#f38ba8"))))  ; Red
+;;    '(rainbow-delimiters-depth-6-face ((t (:foreground "#a6e3a1"))))  ; Green
+;;    '(rainbow-delimiters-depth-7-face ((t (:foreground "#fab387"))))  ; Peach
+;;    '(rainbow-delimiters-depth-8-face ((t (:foreground "#cdd6f4"))))  ; Text
+;;    '(rainbow-delimiters-depth-9-face ((t (:foreground "#bac2de")))))) ; Subtext1
 #+end_src
 
 ** Highlight TODO and similar keywords in comments and strings
 #+begin_src emacs-lisp
-(use-package hl-todo
-  :defer t
-  :autoload hl-todo-flymake hl-todo-search-and-highlight
-  :functions rg rg-read-files rg-project
-  :custom-face
-  (hl-todo ((t (:inherit default :height 0.9 :width condensed :weight bold :underline nil :inverse-video t))))
-  :hook (elpaca-after-init . global-hl-todo-mode)
-  :init (setq hl-todo-require-punctuation t
-              hl-todo-highlight-punctuation ":")
-  :config
-  (dolist (keyword '("BUG" "DEFECT" "ISSUE"))
-    (add-to-list 'hl-todo-keyword-faces `(,keyword . "#e45649")))
-  (dolist (keyword '("TRICK" "WORKAROUND"))
-    (add-to-list 'hl-todo-keyword-faces `(,keyword . "#d0bf8f")))
-  (dolist (keyword '("DEBUG" "STUB"))
-    (add-to-list 'hl-todo-keyword-faces `(,keyword . "#7cb8bb")))
+;; (use-package hl-todo
+;;   :defer t
+;;   :autoload hl-todo-flymake hl-todo-search-and-highlight
+;;   :functions rg rg-read-files rg-project
+;;   :custom-face
+;;   (hl-todo ((t (:inherit default :height 0.9 :width condensed :weight bold :underline nil :inverse-video t))))
+;;   :hook (elpaca-after-init . global-hl-todo-mode)
+;;   :init (setq hl-todo-require-punctuation t
+;;               hl-todo-highlight-punctuation ":")
+;;   :config
+;;   (dolist (keyword '("BUG" "DEFECT" "ISSUE"))
+;;     (add-to-list 'hl-todo-keyword-faces `(,keyword . "#e45649")))
+;;   (dolist (keyword '("TRICK" "WORKAROUND"))
+;;     (add-to-list 'hl-todo-keyword-faces `(,keyword . "#d0bf8f")))
+;;   (dolist (keyword '("DEBUG" "STUB"))
+;;     (add-to-list 'hl-todo-keyword-faces `(,keyword . "#7cb8bb")))
 
-  (defun hl-todo-rg (regexp &optional files dir)
-    "Use `rg' to find all TODO or similar keywords."
-    (interactive
-     (progn
-       (unless (require 'rg nil t)
-         (error "`rg' is not installed"))
-       (let ((regexp (replace-regexp-in-string "\\\\[<>]*" "" (hl-todo--regexp))))
-         (list regexp
-               (rg-read-files)
-               (read-directory-name "Base directory: " nil default-directory t)))))
-    (rg regexp files dir))
+;;   (defun hl-todo-rg (regexp &optional files dir)
+;;     "Use `rg' to find all TODO or similar keywords."
+;;     (interactive
+;;      (progn
+;;        (unless (require 'rg nil t)
+;;          (error "`rg' is not installed"))
+;;        (let ((regexp (replace-regexp-in-string "\\\\[<>]*" "" (hl-todo--regexp))))
+;;          (list regexp
+;;                (rg-read-files)
+;;                (read-directory-name "Base directory: " nil default-directory t)))))
+;;     (rg regexp files dir))
 
-  (defun hl-todo-rg-project ()
-    "Use `rg' to find all TODO or similar keywords in current project."
-    (interactive)
-    (unless (require 'rg nil t)
-      (error "`rg' is not installed"))
-    (rg-project (replace-regexp-in-string "\\\\[<>]*" "" (hl-todo--regexp)) "everything")))
+;;   (defun hl-todo-rg-project ()
+;;     "Use `rg' to find all TODO or similar keywords in current project."
+;;     (interactive)
+;;     (unless (require 'rg nil t)
+;;       (error "`rg' is not installed"))
+;;     (rg-project (replace-regexp-in-string "\\\\[<>]*" "" (hl-todo--regexp)) "everything")))
 #+end_src
 
 * Prettify Symbols
@@ -2656,7 +2629,7 @@ value of the selected COLOR."
 
 (use-package consult-dir :defer t)
 
-(use-package consult-todo :demand t)
+;; (use-package consult-todo :demand t)
 #+end_src
 
 ** Embark
@@ -3690,16 +3663,16 @@ targets."
 
 ** Magit TODOS
 #+begin_src emacs-lisp
-(use-package magit-todos
-  :defer t
-  :after magit
-  :config (magit-todos-mode 1))
+;; (use-package magit-todos
+;;   :defer t
+;;   :after magit
+;;   :config (magit-todos-mode 1))
 
-(with-eval-after-load 'magit
-  (add-hook 'magit-log-wash-summary-hook
-            #'hl-todo-search-and-highlight t)
-  (add-hook 'magit-revision-wash-message-hook
-            #'hl-todo-search-and-highlight t))
+;; (with-eval-after-load 'magit
+;;   (add-hook 'magit-log-wash-summary-hook
+;;             #'hl-todo-search-and-highlight t)
+;;   (add-hook 'magit-revision-wash-message-hook
+;;             #'hl-todo-search-and-highlight t))
 #+end_src
 
 * Treemacs
@@ -4511,10 +4484,10 @@ mermaid.initialize({
   :after flycheck
   :hook (flycheck-mode . flycheck-posframe-mode))
 
-(use-package flycheck-hl-todo
-  :defer 5 ; Need to be initialized after the rest of checkers
-  :config
-  (flycheck-hl-todo-setup))
+;; (use-package flycheck-hl-todo
+;;   :defer 5 ; Need to be initialized after the rest of checkers
+;;   :config
+;;   (flycheck-hl-todo-setup))
 #+end_src
 
 ** Formatting

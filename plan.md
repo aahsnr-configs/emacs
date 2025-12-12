@@ -84,7 +84,7 @@
 - [x] setup elpaca, evil, general and org mode at the very beginning, then use this config as the current config for further editing
 - [x] don't use evil-org
 - [ ] add some subsections of the highlight subsection at the end
-- [ ] add easysession from minimal-emacs.d to session management section
+- [x] add easysession from minimal-emacs.d to session management section
 - [x] add the following code to org-mode
 ```elisp
   ;; (org-fontify-done-headline t)
@@ -96,9 +96,8 @@
 - [ ] add evil alternative drag-stuff
 - [ ] determine if Optimization, Frame, Suppress GUI features, and Transient Posframe  subsections in UI and Theming is needed.
 - [ ] don't add any frame-padding until the end
-- [ ] combine treesit configs from both files
-- [ ] replace hidewhow in emacs-configv2.org with treesit-fold along with pretty-hydra setup
-- [ ] for the folding behaviour use https://github.com/doomemacs/doomemacs/blob/master/modules/editor/fold/config.el as a guide and use hide-show, evil-vimish-fold and treesit fold
+- [x] combine treesit configs from both files
+- [x] for the folding behaviour use https://github.com/doomemacs/doomemacs/blob/master/modules/editor/fold/config.el as a guide and use hide-show, evil-vimish-fold and treesit fold
 - [ ] list-environment is not necessary
 - [ ] Assuming that I have made the changes you suggested, how do I make the area below the modeline as highlighted in the screenshot more useful? I want it to show matching parenthesis that are not visible in the buffer. I want it show org headlines and subheadlines info. I want this area to show other useful stuff as well that you think might be useful. Search the web to determine this. And only write out the changes needed. Think for a while for this task as well.
 
