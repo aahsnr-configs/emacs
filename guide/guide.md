@@ -126,3 +126,25 @@ Since you are in a text buffer, use your Evil powers.
 | **`C-.`** (or similar) | `embark-act` | Open the context menu for the current item. |
 | **`w`** | `wgrep-change-to-wgrep-mode` | (Inside Grep buffer) Make search results writable. |
 | **`C-c C-c`** | `wgrep-finish-edit` | Save changes made in the grep buffer to disk. |
+
+## Using Git Gutter
+
+**1. Visuals**
+*   Look at the left fringe (margin).
+*   **Green Bar:** Added lines.
+*   **Orange Bar:** Modified lines.
+*   **Red Triangle:** Deleted lines.
+
+**2. Navigation**
+*   **`SPC g n`**: Jump to the next change.
+*   **`SPC g N`**: Jump to the previous change.
+
+**3. Actions**
+*   **Preview (`SPC g p`):** You changed a line in `config.org` but forgot the original value. Press `SPC g p`. A popup shows the diff. Press `q` to close.
+*   **Revert (`SPC g R`):** You deleted a TODO item by mistake. Go to the Red marker and press `SPC g R`. It returns immediately.
+*   **Stage (`SPC g S`):** You are writing a feature but also fixed a typo. Move to the typo line, press `SPC g S`. That single change is staged. You can now commit just the typo fix via Magit.
+
+**4. Org Mode Specifics**
+*   This config forces `git-gutter-mode` on in Org files.
+*   **Note:** The file *must* be tracked by git.
+*   **Usage:** Useful for seeing which tasks you've added or modified today before you commit your daily journal or todo list.
