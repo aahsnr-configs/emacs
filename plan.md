@@ -99,6 +99,7 @@
 - [x] combine treesit configs from both files
 - [x] for the folding behaviour use https://github.com/doomemacs/doomemacs/blob/master/modules/editor/fold/config.el as a guide and use hide-show, evil-vimish-fold and treesit fold
 - [ ] list-environment is not necessary
+- [ ] Remap C-g to escape
 - [ ] Assuming that I have made the changes you suggested, how do I make the area below the modeline as highlighted in the screenshot more useful? I want it to show matching parenthesis that are not visible in the buffer. I want it show org headlines and subheadlines info. I want this area to show other useful stuff as well that you think might be useful. Search the web to determine this. And only write out the changes needed. Think for a while for this task as well.
 
 Based on my research, here are the changes to make the echo area/minibuffer more useful:
@@ -197,29 +198,29 @@ Add a new section after your **General Keybindings**:
   ;; Show hints after brief delay
   (which-key-idle-delay 0.5)
   (which-key-idle-secondary-delay 0.05)
-  
+
   ;; Use bottom side window (not minibuffer to avoid conflicts)
   (which-key-popup-type 'side-window)
   (which-key-side-window-location 'bottom)
   (which-key-side-window-max-height 0.25)
-  
+
   ;; Sorting and display
   (which-key-sort-order 'which-key-key-order-alpha)
   (which-key-min-display-lines 5)
   (which-key-max-display-columns nil)
-  
+
   ;; Add separators for readability
   (which-key-separator " → ")
   (which-key-prefix-prefix "+" )
-  
+
   ;; Special key display
   (which-key-special-keys '("SPC" "TAB" "RET" "ESC" "DEL"))
-  
+
   :config
   ;; Show prefix help immediately with C-h
   (setq which-key-show-early-on-C-h t)
   (setq which-key-show-prefix 'echo)
-  
+
   ;; Hide some mode-line lighters
   (diminish 'which-key-mode))
 #+end_src
@@ -233,7 +234,7 @@ Add to your **Org Mode** configuration:
 ;; Show org heading context on demand
 (with-eval-after-load 'org
   (setq org-display-remote-inline-images 'cache)
-  
+
   ;; Auto-show outline path in echo area (optional)
   ;; Uncomment if you want automatic display
   ;; (add-hook 'post-command-hook
@@ -241,7 +242,7 @@ Add to your **Org Mode** configuration:
   ;;             (when (and (derived-mode-p 'org-mode)
   ;;                        (not (active-minibuffer-window)))
   ;;               (org-display-outline-path t))))
-  
+
   ;; Manual command to show outline path: C-c C-w
   (define-key org-mode-map (kbd "C-c C-/") 'org-display-outline-path))
 ```
@@ -301,5 +302,3 @@ These changes make the echo area and surrounding UI much more informative withou
 - [ ] scimax-jinx.el [Remove ivy and avy integrations]
 - [ ] scimax-jupyter.el [Remove hydra stuff for now]
 - [ ] scimax-latex.el
-
-

@@ -2912,7 +2912,6 @@ targets."
 #+begin_src emacs-lisp
 (use-package dirvish
   :after dired
-  :commands (dirvish dirvish-side dirvish-dwim)
   :custom
   ;; Cache directory
   (dirvish-cache-dir (expand-file-name "dirvish/" user-emacs-directory))
