@@ -745,7 +745,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
     `((t (:inherit region)))
     "Face used by the `posframe' border."
     :group 'posframe)
-  (defvar posframe-border-width 2
+  (defvar posframe-border-width 1
     "Default posframe border width.")
   :config
   (with-no-warnings
@@ -1020,13 +1020,13 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :hook (elpaca-after-init . doom-modeline-mode)
   :hook (doom-modeline-mode . column-number-mode)
   :init
-  (setq projectile-dynamic-mode-line nil)
   (setq doom-modeline-bar-width 3
         doom-modeline-github nil
         doom-modeline-mu4e nil
         doom-modeline-persp-name nil
         doom-modeline-minor-modes nil
-        doom-modeline-major-mode-icon nil
+        doom-modeline-major-mode-icon t
+        doom-modeline-icon t
         doom-modeline-buffer-file-name-style 'relative-from-project)
   :config
   (setq doom-modeline-height 25
@@ -1037,8 +1037,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
         doom-modeline-percent-position nil
         doom-modeline-vcs-icon t
         doom-modeline-vcs-max-length 0))
-
-#+end_src
+        #+end_src
 
 ** Hide Modeline
 #+begin_src emacs-lisp
@@ -1625,6 +1624,18 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
         org-modern-tag-faces
         `((:foreground "#a9b1d6" :weight bold :box (:line-width (1 . -1) :color "#414868")))
         org-modern-checkbox '((todo . "☐") (done . "☑") (cancel . "☑") (priority . "⚑") (on . "◉") (off . "◯"))))
+#+end_src
+
+** Org Src Buffer Naming
+#+begin_src emacs-lisp
+;; Rename the org-edit-special buffer to a static "src code"
+;; to save modeline space.
+(defun ar/org-src-simplify-buffer-name (base-buffer-name lang)
+  "Return static buffer name 'src code' for Org source blocks."
+  "src code")
+
+;; Override the internal Org function
+(advice-add 'org-src--construct-edit-buffer-name :override #'ar/org-src-simplify-buffer-name)
 #+end_src
 
 * Treesitter/Folding
@@ -3484,7 +3495,6 @@ targets."
 #+begin_src emacs-lisp
 (use-package ace-window
   :defer t
-  ;; Ensure this function is autoloaded so SPC w t works immediately
   :commands (toggle-window-split) 
   :pretty-hydra
   ((:title (pretty-hydra-title "Window Management" 'faicon "nf-fa-th")
@@ -3528,7 +3538,8 @@ targets."
          ("C-c w" . ace-window-hydra/body)
          ("C-x |" . split-window-horizontally-instead)
          ("C-x _" . split-window-vertically-instead))
-  :hook (emacs-startup . ace-window-display-mode)
+  ;; REMOVED: :hook (emacs-startup . ace-window-display-mode)
+  ;; This prevents the "1" from appearing in the modeline.
   :config
   (defun toggle-window-split ()
     (interactive)
@@ -4688,7 +4699,11 @@ mermaid.initialize({
 (use-package which-func
   :ensure nil
   :config
-  (which-function-mode 1))
+  ;; Enable globally so we can calculate context
+  (which-function-mode 1)
+  ;; CRITICAL FIX: Hide it from the modeline. 
+  ;; We only want to use the data in the Echo Area, not duplicate it in the modeline.
+  (setq which-func-format ""))
 
 (use-package eldoc
   :ensure nil
@@ -4698,7 +4713,7 @@ mermaid.initialize({
          (emacs-lisp-mode . eldoc-mode)
          (lisp-interaction-mode . eldoc-mode))
   :custom
-  (eldoc-idle-delay 0.1) ;; Fast response like Doom
+  (eldoc-idle-delay 0.1)
   (eldoc-echo-area-use-multiline-p 2)
   (eldoc-documentation-strategy 'eldoc-documentation-compose)
   (eldoc-echo-area-display-truncation-message nil)
@@ -4714,61 +4729,60 @@ mermaid.initialize({
 
   (global-set-key (kbd "C-h .") #'ar/show-eldoc-buffer)
 
-  ;; === ORG MODE DOOM-STYLE BREADCRUMBS ===
-  (defun ar/org-doom-breadcrumb (&rest _ignored)
-    "Return a Doom-style breadcrumb path for the echo area.
-    Format: 📄 File › Headline › Subheading"
+  ;; === ORG MODE BREADCRUMBS (No File Name) ===
+  (defun ar/get-org-breadcrumb-string ()
+    "Generate breadcrumb string: Headline › Subheading.
+    Removes file name and prevents 'Before first headline' errors."
     (when (and (derived-mode-p 'org-mode)
-               (not (org-before-first-heading-p))
                (not (org-in-src-block-p)))
-      (let* ((width (window-width))
-             ;; 1. Get File/Buffer Name with Icon
-             (file-icon (if (and (featurep 'nerd-icons))
-                            (nerd-icons-icon-for-mode 'org-mode)
-                          "📄"))
-             (file-name (buffer-name))
-             (root-part (concat 
-                         (propertize file-icon 'face '(:inherit font-lock-variable-name-face :height 1.0))
-                         " " 
-                         (propertize file-name 'face 'font-lock-variable-name-face)))
-             
-             ;; 2. Get Hierarchy Path
-             (path (org-get-outline-path t)) ;; 't' includes current heading
-             (sep (propertize " › " 'face 'shadow)))
-        
-        (when path
-          (concat
-           root-part
-           sep
-           (mapconcat
-            (lambda (heading)
-              ;; Dim parent headings, highlight the last one (current)
-              (let ((is-last (string= heading (car (last path)))))
-                (if is-last
-                    (propertize heading 'face 'font-lock-keyword-face 'weight 'bold)
-                  (propertize heading 'face 'shadow))))
-            path
-            sep))))))
+      (let* ((face-sep '(:inherit shadow :height 0.8))
+             (face-path '(:inherit shadow))
+             (face-current '(:inherit font-lock-keyword-face :weight bold))
+             (sep-str (propertize " › " 'face face-sep))
+             ;; Get path: 't' includes the current heading
+             ;; ignore-errors handles "Before first headline" case gracefully
+             (path (ignore-errors (org-get-outline-path t))))
 
-  ;; === GENERIC CONTEXT (Global Fallback) ===
-  (defun ar/generic-eldoc-context (&rest _ignored)
-    "Show current function/section context in generic modes."
+        ;; Only display if we are actually inside a heading
+        (when path
+          (mapconcat
+           (lambda (heading)
+             ;; If it's the last item, highlight it. Otherwise dim it.
+             (if (string= heading (car (last path)))
+                 (propertize heading 'face face-current)
+               (propertize heading 'face face-path)))
+           path
+           sep-str)))))
+
+  (defun ar/org-eldoc-backend (callback &rest _ignored)
+    "ElDoc backend for Org Breadcrumbs."
+    (let ((doc (ar/get-org-breadcrumb-string)))
+      (when doc
+        (funcall callback doc))))
+
+  ;; === GENERIC CONTEXT (Fallback) ===
+  (defun ar/generic-eldoc-backend (callback &rest _ignored)
+    "ElDoc backend for Generic Context (which-function)."
     (when (and (not (derived-mode-p 'org-mode))
                (not (bound-and-true-p lsp-mode))
                (not (bound-and-true-p eglot--managed-mode))
                (fboundp 'which-function))
       (let ((current-ctx (which-function)))
         (when current-ctx
-          (concat
-           (propertize "⚙ " 'face 'font-lock-function-name-face)
-           (propertize current-ctx 'face 'font-lock-function-name-face))))))
+          (funcall callback
+                   (concat
+                    (propertize "⚙ " 'face 'font-lock-function-name-face)
+                    (propertize current-ctx 'face 'font-lock-function-name-face)))))))
 
-  ;; Register functions
+  ;; === HOOK REGISTRATION ===
+  (add-hook 'org-mode-hook
+            (lambda ()
+              (setq-local eldoc-documentation-strategy 'eldoc-documentation-compose)
+              (add-hook 'eldoc-documentation-functions #'ar/org-eldoc-backend -100 t)))
+
   (add-hook 'eldoc-mode-hook
             (lambda ()
-              ;; High priority for Org Breadcrumbs
-              (add-hook 'eldoc-documentation-functions #'ar/org-doom-breadcrumb nil t)
-              (add-hook 'eldoc-documentation-functions #'ar/generic-eldoc-context nil t))))
+              (add-hook 'eldoc-documentation-functions #'ar/generic-eldoc-backend 0 t))))
 
 ;; Enable eldoc-mouse (hover support)
 (when (childframe-workable-p)
