@@ -740,7 +740,6 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 * Child Frame
 #+begin_src emacs-lisp
 (use-package posframe
-  :hook (after-load-theme . posframe-delete-all)
   :init
   (defface posframe-border
     `((t (:inherit region)))
@@ -1822,6 +1821,24 @@ Standard native folding, kept as fallback
   (rainbow-delimiters-depth-9-face ((t (:foreground "#73daca"))))) ; Teal
 #+end_src
 
+** Show matching parenthesis context when off-screen
+#+begin_src emacs-lisp
+(use-package paren
+  :ensure nil
+  :hook (elpaca-after-init . show-paren-mode)
+  :custom
+  (show-paren-delay 0.1)
+  (show-paren-highlight-openparen t)
+  (show-paren-when-point-inside-paren t)
+  (show-paren-when-point-in-periphery t)
+  ;; Highlight expression if paren is off-screen
+  (show-paren-style 'mixed)
+  ;; CRITICAL: Show context when matching paren is off-screen
+  ;; 'overlay creates a childframe, t uses echo area
+  (show-paren-context-when-offscreen
+   (if (childframe-workable-p) 'overlay t)))
+#+end_src
+
 ** Highlight TODO and similar keywords in comments and strings
 #+begin_src emacs-lisp
 (use-package hl-todo
@@ -2893,35 +2910,27 @@ targets."
 ** Cape
 #+begin_src emacs-lisp
 (use-package cape
-  :commands (cape-file cape-elisp-block cape-keyword 
-             cape-wrap-noninterruptible cape-wrap-nonexclusive 
-             cape-wrap-buster cape-wrap-silent cape-wrap-purify)
+  :defer t
+  :commands (cape-file cape-elisp-block cape-keyword)
+  :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
+  :autoload (cape-wrap-silent cape-wrap-purify)
   :init
   ;; CRITICAL FIX: Use add-hook properly with APPEND argument
   ;; When APPEND is nil (or omitted), functions are added to the FRONT
   ;; When APPEND is non-nil, functions are added to the END
-  (add-hook 'completion-at-point-functions #'cape-elisp-block)
-  (add-hook 'completion-at-point-functions #'cape-keyword 90)
-  (add-hook 'completion-at-point-functions #'cape-file 90)  
-  (add-hook 'completion-at-point-functions #'cape-dabbrev 100)
+  (add-hook 'completion-at-point-functions #'cape-elisp-block 10)
+  (add-hook 'completion-at-point-functions #'cape-keyword 30)
+  (add-hook 'completion-at-point-functions #'cape-file 40)  
+  (add-hook 'completion-at-point-functions #'cape-dabbrev 50)
 
-  ;; ORG MODE FIX: Ensure cape-elisp-block comes BEFORE yasnippet-capf
-  (defun ar/setup-org-cape ()
-    "Setup cape-elisp-block with highest priority in org-mode."
-    ;; Remove cape-elisp-block if it exists
-    (setq-local completion-at-point-functions
-                (remq 'cape-elisp-block completion-at-point-functions))
-    ;; Add it at the very front (before yasnippet-capf)
-    (add-hook 'completion-at-point-functions #'cape-elisp-block -100 t))
   
-  (add-hook 'org-mode-hook #'ar/setup-org-cape)
-
-  :config
-  ;; Wrap functions for composability
-  (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
-  (advice-add 'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
+  ;; Make these capfs composable.
+  (advice-add #'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
+  (advice-add #'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive)
+  )
 #+end_src
 
 ** Dabbrev
@@ -2971,7 +2980,7 @@ targets."
   :after cape
   :init
   ;; Add with high depth (low priority) so it doesn't block other capfs
-  (add-hook 'completion-at-point-functions #'yasnippet-capf 100))
+  (add-hook 'completion-at-point-functions #'yasnippet-capf 70))
 #+end_src
 
 * Dired/Dirvish
@@ -4639,22 +4648,29 @@ mermaid.initialize({
 (use-package flycheck
   :defer t
   :hook (prog-mode . flycheck-mode)
+  :custom
+  (flycheck-emacs-lisp-load-path 'inherit)
+  (flycheck-idle-change-delay 1.0)
+  ;; Faster error display in echo area
+  (flycheck-display-errors-delay 0.15)
   :config
-  (setq flycheck-emacs-lisp-load-path 'inherit)
   (delq 'new-line flycheck-check-syntax-automatically)
-  (setq flycheck-idle-change-delay 1.0)
-  (setq flycheck-buffer-switch-check-intermediate-buffers t)
-  (setq flycheck-display-errors-delay 0.25))
+  (setq flycheck-buffer-switch-check-intermediate-buffers t))
 
 (use-package flycheck-posframe
   :defer t
   :after flycheck
-  :hook (flycheck-mode . flycheck-posframe-mode))
+  :hook (flycheck-mode . flycheck-posframe-mode)
+  :custom
+  (flycheck-posframe-border-width 1)
+  :config
+  (set-face-attribute 'flycheck-posframe-border-face nil
+                      :inherit 'posframe-border))
 
-;; (use-package flycheck-hl-todo
-;;   :defer 5 ; Need to be initialized after the rest of checkers
-;;   :config
-;;   (flycheck-hl-todo-setup))
+(use-package flycheck-hl-todo
+  :defer 5 ; Need to be initialized after the rest of checkers
+  :config
+  (flycheck-hl-todo-setup))
 #+end_src
 
 ** Formatting
@@ -4665,22 +4681,105 @@ mermaid.initialize({
   (apheleia-global-mode +1))
 #+end_src
 
+
 ** Eldoc
 #+begin_src emacs-lisp
-(use-package eldoc
-  :defer t
+;; Dependency: Enable which-function-mode globally
+(use-package which-func
   :ensure nil
   :config
-  (when (childframe-workable-p)
-    (use-package eldoc-mouse
-      :bind (:map eldoc-mouse-mode-map
-             ("C-h ." . eldoc-mouse-pop-doc-at-cursor))
-      :hook (eglot-managed-mode emacs-lisp-mode)
-      :init (setq eldoc-mouse-posframe-border-color (face-background 'posframe-border nil t))
-      :config
-      (tooltip-mode -1)                 ; Conflict with `track-mouse'
-      (add-to-list 'eldoc-mouse-posframe-override-parameters
-                   `(background-color . ,(face-background 'tooltip nil t))))))
+  (which-function-mode 1))
+
+(use-package eldoc
+  :ensure nil
+  :defer t
+  :commands (eldoc-mode global-eldoc-mode)
+  :hook ((elpaca-after-init . global-eldoc-mode)
+         (emacs-lisp-mode . eldoc-mode)
+         (lisp-interaction-mode . eldoc-mode))
+  :custom
+  (eldoc-idle-delay 0.1) ;; Fast response like Doom
+  (eldoc-echo-area-use-multiline-p 2)
+  (eldoc-documentation-strategy 'eldoc-documentation-compose)
+  (eldoc-echo-area-display-truncation-message nil)
+  
+  :config
+  ;; === SAFE DOC BUFFER TOGGLE ===
+  (defun ar/show-eldoc-buffer ()
+    "Attempt to display the full ElDoc buffer."
+    (interactive)
+    (condition-case nil
+        (eldoc-doc-buffer t)
+      (error (message "No full documentation available at point"))))
+
+  (global-set-key (kbd "C-h .") #'ar/show-eldoc-buffer)
+
+  ;; === ORG MODE DOOM-STYLE BREADCRUMBS ===
+  (defun ar/org-doom-breadcrumb (&rest _ignored)
+    "Return a Doom-style breadcrumb path for the echo area.
+    Format: 📄 File › Headline › Subheading"
+    (when (and (derived-mode-p 'org-mode)
+               (not (org-before-first-heading-p))
+               (not (org-in-src-block-p)))
+      (let* ((width (window-width))
+             ;; 1. Get File/Buffer Name with Icon
+             (file-icon (if (and (featurep 'nerd-icons))
+                            (nerd-icons-icon-for-mode 'org-mode)
+                          "📄"))
+             (file-name (buffer-name))
+             (root-part (concat 
+                         (propertize file-icon 'face '(:inherit font-lock-variable-name-face :height 1.0))
+                         " " 
+                         (propertize file-name 'face 'font-lock-variable-name-face)))
+             
+             ;; 2. Get Hierarchy Path
+             (path (org-get-outline-path t)) ;; 't' includes current heading
+             (sep (propertize " › " 'face 'shadow)))
+        
+        (when path
+          (concat
+           root-part
+           sep
+           (mapconcat
+            (lambda (heading)
+              ;; Dim parent headings, highlight the last one (current)
+              (let ((is-last (string= heading (car (last path)))))
+                (if is-last
+                    (propertize heading 'face 'font-lock-keyword-face 'weight 'bold)
+                  (propertize heading 'face 'shadow))))
+            path
+            sep))))))
+
+  ;; === GENERIC CONTEXT (Global Fallback) ===
+  (defun ar/generic-eldoc-context (&rest _ignored)
+    "Show current function/section context in generic modes."
+    (when (and (not (derived-mode-p 'org-mode))
+               (not (bound-and-true-p lsp-mode))
+               (not (bound-and-true-p eglot--managed-mode))
+               (fboundp 'which-function))
+      (let ((current-ctx (which-function)))
+        (when current-ctx
+          (concat
+           (propertize "⚙ " 'face 'font-lock-function-name-face)
+           (propertize current-ctx 'face 'font-lock-function-name-face))))))
+
+  ;; Register functions
+  (add-hook 'eldoc-mode-hook
+            (lambda ()
+              ;; High priority for Org Breadcrumbs
+              (add-hook 'eldoc-documentation-functions #'ar/org-doom-breadcrumb nil t)
+              (add-hook 'eldoc-documentation-functions #'ar/generic-eldoc-context nil t))))
+
+;; Enable eldoc-mouse (hover support)
+(when (childframe-workable-p)
+  (use-package eldoc-mouse
+    :hook (eldoc-mode . eldoc-mouse-mode)
+    :init
+    (setq eldoc-mouse-posframe-border-color (face-background 'posframe-border nil t))
+    :config
+    (tooltip-mode -1)
+    (add-to-list 'eldoc-mouse-posframe-override-parameters
+                 `(background-color . ,(face-background 'tooltip nil t)))))
 #+end_src
 
 ** Cross Referencing Commands
@@ -4762,6 +4861,139 @@ text mode directory tree
          ("C-<f5>" . ztree-hydra/body))
   :init (setq ztree-draw-unicode-lines t
               ztree-show-number-of-children t))
+#+end_src
+
+** Echo Area Context Display
+#+begin_src emacs-lisp
+;; Cache for Git branch to avoid repeated VC calls
+(defvar ar/git-branch-cache nil
+  "Cached Git branch for current buffer.")
+(defvar ar/git-branch-cache-time nil
+  "Time when Git branch was last cached.")
+
+(defun ar/get-git-branch-cached ()
+  "Get Git branch with caching and robust fallbacks."
+  (when (and buffer-file-name
+             (vc-backend buffer-file-name))
+    (let ((current-time (float-time)))
+      ;; Refresh cache if older than 5 seconds or not set
+      (when (or (null ar/git-branch-cache-time)
+                (> (- current-time ar/git-branch-cache-time) 5.0))
+        (setq ar/git-branch-cache
+              (let ((str (vc-git-mode-line-string buffer-file-name)))
+                (if str
+                    (substring-no-properties str 4) ;; Remove " Git-" prefix
+                  ;; Fallback if mode-line string is not ready
+                  (car (vc-git-branches)))))
+        (setq ar/git-branch-cache-time current-time))
+      ar/git-branch-cache)))
+
+(defun ar/show-buffer-context ()
+  "Display useful buffer context in echo area instantly.
+Shows: file path, position, mode, and cached Git branch.
+Includes optimization for large buffers and nerd-icons integration."
+  (interactive)
+  (let* ((file (if buffer-file-name
+                   (abbreviate-file-name buffer-file-name)
+                 (buffer-name)))
+         (icon (if (and (display-graphic-p) (featurep 'nerd-icons))
+                   (nerd-icons-icon-for-mode major-mode)
+                 ""))
+         (line (line-number-at-pos))
+         ;; Optimization: Don't count lines in massive buffers (>1MB) to prevent freeze
+         (total (if (> (buffer-size) 1000000)
+                    "?"
+                  (count-lines (point-min) (point-max))))
+         ;; FIX: Use 'equal' instead of 'string=' because total can be an integer
+         (percent (if (equal total "?")
+                      "--"
+                    (/ (* 100 (- (point) (point-min)))
+                       (max 1 (- (point-max) (point-min))))))
+         (mode mode-name)
+         (branch (ar/get-git-branch-cached))
+         (branch-icon (if (and (display-graphic-p) (featurep 'nerd-icons))
+                          (nerd-icons-octicon "nf-oct-git_branch" :face 'font-lock-function-name-face)
+                        "")))
+    (message "%s %s%s │ %s │ L%d/%s (%s%%)%s"
+             icon
+             (propertize file 'face 'font-lock-string-face)
+             (if (buffer-modified-p)
+                 (propertize "*" 'face 'error)
+               "")
+             (propertize (format "%s" mode) 'face 'font-lock-keyword-face)
+             line total percent
+             (if branch
+                 (concat " │ " branch-icon " " (propertize branch 'face 'font-lock-constant-face))
+               ""))))
+
+(global-set-key (kbd "C-c i") #'ar/show-buffer-context)
+#+end_src
+
+** Character Information at Point
+#+begin_src emacs-lisp
+(defun ar/show-char-info ()
+  "Show detailed character information at point in echo area.
+Wrapper around `what-cursor-position' with prefix arg implied."
+  (interactive)
+  (what-cursor-position t))
+
+(global-set-key (kbd "C-c =") #'ar/show-char-info)
+#+end_src
+
+** Buffer State Information
+#+begin_src emacs-lisp
+(defun ar/show-buffer-state ()
+  "Show buffer state information in echo area.
+Displays: Narrowed, Read-only, Macro recording, Evil state."
+  (interactive)
+  (let ((states '()))
+    ;; Check narrowing
+    (when (buffer-narrowed-p)
+      (push (propertize "NARROWED" 'face 'warning) states))
+    
+    ;; Check read-only
+    (when buffer-read-only
+      (let ((icon (if (featurep 'nerd-icons) (nerd-icons-octicon "nf-oct-lock") "🔒")))
+        (push (propertize (concat icon " READ-ONLY") 'face 'error) states)))
+    
+    ;; Check macro recording
+    (when defining-kbd-macro
+      (push (propertize "● REC" 'face '(:foreground "#f7768e" :weight bold)) states))
+    
+    ;; Check evil state
+    (when (and (featurep 'evil) (bound-and-true-p evil-state))
+      (push (propertize 
+             (format "Evil: %s" (upcase (symbol-name evil-state)))
+             'face 'font-lock-constant-face)
+            states))
+    
+    ;; Check modified
+    (when (buffer-modified-p)
+      (push (propertize "MODIFIED" 'face 'success) states))
+    
+    (if states
+        (message (string-join states " │ "))
+      (message (propertize "Buffer State: Clean" 'face 'shadow)))))
+
+;; Keybinding changed to C-c S (Shift+s) to avoid conflict with Prettify Symbols (C-c s)
+(global-set-key (kbd "C-c S") #'ar/show-buffer-state)
+#+end_src
+
+** Macro Recording Indicator
+#+begin_src emacs-lisp
+;; Show macro recording status in echo area automatically
+(defun ar/kmacro-start-message (&rest _)
+  "Display message when macro recording starts."
+  (message (propertize "● Recording keyboard macro..." 
+                       'face '(:foreground "#f7768e" :weight bold))))
+
+(defun ar/kmacro-end-message (&rest _)
+  "Display message when macro recording ends."
+  (message (propertize "✓ Keyboard macro defined" 
+                       'face '(:foreground "#9ece6a" :weight bold))))
+
+(advice-add 'kmacro-start-macro :after #'ar/kmacro-start-message)
+(advice-add 'kmacro-end-macro :after #'ar/kmacro-end-message)
 #+end_src
 
 * Python Development
@@ -5130,9 +5362,6 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 
 ;; Hook into LaTeX mode to activate this setup
 (add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
-#+end_src
-
-#+begin_src emacs-lisp
 #+end_src
 
 * General Keybindings
@@ -5590,3 +5819,4 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
     "x p" '(org-set-property :wk "Set property")
     "x t" '(org-set-tags-command :wk "Set tags")))
 #+end_src
+

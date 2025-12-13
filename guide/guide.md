@@ -148,3 +148,48 @@ Since you are in a text buffer, use your Evil powers.
 *   This config forces `git-gutter-mode` on in Org files.
 *   **Note:** The file *must* be tracked by git.
 *   **Usage:** Useful for seeing which tasks you've added or modified today before you commit your daily journal or todo list.
+
+# Contextual Awareness: A Guide to Your Enhanced Echo Area
+
+This configuration transforms the area at the bottom of Emacs (the Echo Area) into a context-aware heads-up display. It adapts automatically to **any** file type you are editing.
+
+### 1. Global Context Awareness (Any File)
+**Scenario:** You are editing a large config file (Apache, XML, TOML) or a text file. You are inside a specific section block but the header is scrolled off-screen.
+
+**How to use:**
+*   Place your cursor anywhere inside the section.
+*   **Look at the bottom:** You will see a gear icon and the name of the current tag/section:
+    `⚙ [Database]` or `⚙ <CustomerData>`
+*   **Benefit:** Works everywhere, keeping you oriented in any structured text.
+
+### 2. Navigating Deep Org Hierarchies
+**Scenario:** You are editing a large project file (`work.org`) and are deep inside a task list.
+
+**How to use:**
+*   Place your cursor on an item.
+*   **Look at the bottom:** You see the specific path:
+    `⮕ Work Projects › Backend API › v2.0 Migration › Update API`
+
+### 3. Integrated Feedback (LSP + Errors)
+**Scenario:** You are writing code with LSP enabled. You have a syntax error, but also need to see the function signature.
+
+**How to use:**
+*   **Look at the bottom:** Emacs composes the information together:
+    `def process_data(data: dict) -> None`
+    `[Error] Unexpected indentation`
+
+### 4. Reading Full Documentation (Fixed)
+**Scenario:** The documentation in the echo area is truncated (ends with `...`).
+
+**How to use:**
+*   Press **`C-h .`**
+*   **Result:**
+    *   If docs exist: A separate buffer opens with the full text.
+    *   If no docs exist: A message "No full documentation available" appears (instead of an error).
+
+### 5. Mouse Hover (Global Tooltip)
+**Scenario:** You want to check an item without moving your text cursor.
+
+**How to use:**
+*   **Hover your mouse** over the item.
+*   **Result:** A small popup appears with context info.

@@ -48,7 +48,6 @@
 - [x] Write a git-gutter config and make it work in org files as well as other files. And instead of using the use git markers like + and - to indicate changes, use a more aesthetic approach to indicate changes that match the tokyonight colors. Write a sample guide to using git-gutter in a wide variety of files.
 - [x] Using general.el setup C-- for text-scale-decrease and C-= for text-scale-increase
 - [x] In my updated emacs config, does the posframe window (childframe) for opening hydra keys change in dimensions based on the contents of the hydra body?
-- [ ] Since I am using my treesit config, is it necessary to hook both python-mode and python-ts-mode in the lsp-pyright section?
 - [ ] Make magit utilize hydra and pretty-hydra instead of using transient for its usage. Also make the magit window open as a minibuffer in the bottom instead of a new buffer.
 
 
@@ -59,18 +58,20 @@
 
 - [ ] make sure projects and recent files are detected immediately after opening a project directory or after opening a file.
 
+- [ ] close dired minibuffer without entering a file
+
 - [ ] I usually lose the list of recently opened files or buffers after I restart my emacs daemon. But the recentf file and the projects file are not deleted in between emacs daemon restarts. Shouldn't the recent files list still exist in between the restarts.
 
 - [ ] Hide emphasis markers in markdown files like how my org-mode config does.
 
-- [ ] Assuming that I have made the changes you suggested, how do I make the area below the modeline as highlighted in the screenshot more useful? I want it to show matching parenthesis that are not visible in the buffer. I want it show org headlines and subheadlines info. I want this area to show other useful stuff as well that you think might be useful. Search the web to determine this. And only write out the changes needed. Think for a while for this task as well.
+- [ ] Assuming that I have made the changes you suggested, how do I make the area below the doom modeline more useful like doom emacs does?  I want it to show matching parenthesis that are not visible in the buffer. I want it show org headlines and subheadlines info. I want this area to show other useful stuff as well that you think might be useful. Search the web to determine this. And only write out the changes needed. Think for a while for this task as well.
 
 Based on my research, here are the changes to make the echo area/minibuffer more useful:
 
 ## Changes to Add
 
 ### 1. Show Matching Parenthesis Context (Emacs 29+)
-
+  * [ ]
 Add to your **Editor Behaviour** section or create a new **Show Paren Enhancement** section:
 
 ```elisp
