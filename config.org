@@ -2342,6 +2342,7 @@ Re-enables it after save. Prevents indentation issues."
 
 #+end_src
 * Elisp
+
 #+begin_src emacs-lisp
 (use-package elisp-mode
   :ensure nil
@@ -2896,40 +2897,29 @@ targets."
              cape-wrap-noninterruptible cape-wrap-nonexclusive 
              cape-wrap-buster cape-wrap-silent cape-wrap-purify)
   :init
-  ;; === CRITICAL FIX: Proper Order and Method ===
-  ;; DON'T use add-to-list repeatedly - it causes order confusion
-  ;; Instead, set the default value directly with the CORRECT order
-  ;; Order matters: specific capfs first, general ones last
-  (setq-default completion-at-point-functions
-                (list
-                 #'cape-elisp-block     ; FIRST: Elisp in org blocks
-                 #'cape-keyword         ; SECOND: Keywords
-                 #'cape-file            ; THIRD: File paths
-                 #'cape-dabbrev))       ; LAST: Fallback to dabbrev
+  ;; CRITICAL FIX: Use add-hook properly with APPEND argument
+  ;; When APPEND is nil (or omitted), functions are added to the FRONT
+  ;; When APPEND is non-nil, functions are added to the END
+  (add-hook 'completion-at-point-functions #'cape-elisp-block)
+  (add-hook 'completion-at-point-functions #'cape-keyword 90)
+  (add-hook 'completion-at-point-functions #'cape-file 90)  
+  (add-hook 'completion-at-point-functions #'cape-dabbrev 100)
 
-  ;; === ORG MODE FIX: Ensure buffer-local list ends with 't' ===
-  ;; This is the ROBUST fix for org-mode
+  ;; ORG MODE FIX: Ensure cape-elisp-block comes BEFORE yasnippet-capf
   (defun ar/setup-org-cape ()
-    "Setup completion properly for org-mode buffers."
-    ;; Method 1: Ensure local list ends with 't' so global functions run
+    "Setup cape-elisp-block with highest priority in org-mode."
+    ;; Remove cape-elisp-block if it exists
     (setq-local completion-at-point-functions
-                (append (remq t completion-at-point-functions) '(t)))
-    
-    ;; Method 2: Alternative - explicitly add cape-elisp-block first locally
-    ;; Uncomment if Method 1 doesn't work
-    ;; (setq-local completion-at-point-functions
-    ;;             (cons #'cape-elisp-block
-    ;;                   (remq #'cape-elisp-block completion-at-point-functions))))
- 
-  )
+                (remq 'cape-elisp-block completion-at-point-functions))
+    ;; Add it at the very front (before yasnippet-capf)
+    (add-hook 'completion-at-point-functions #'cape-elisp-block -100 t))
+  
   (add-hook 'org-mode-hook #'ar/setup-org-cape)
 
   :config
-  ;; Make these capfs composable with LSP
+  ;; Wrap functions for composability
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add 'comint-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add 'eglot-completion-at-point :around #'cape-wrap-buster)
   (advice-add 'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
 #+end_src
@@ -2954,8 +2944,6 @@ targets."
 (unless (file-directory-p my/snippets-directory)
   (make-directory my/snippets-directory t))
 
-(use-package yasnippet-snippets :after yasnippet)
-
 (use-package yasnippet
   :hook ((prog-mode text-mode org-mode) . yas-minor-mode)
   :custom
@@ -2979,9 +2967,11 @@ targets."
   (consult-customize consult-yasnippet :preview-key 'any))
 
 (use-package yasnippet-capf
+  :defer t
   :after cape
   :init
-  (add-to-list 'completion-at-point-functions #'yasnippet-capf))
+  ;; Add with high depth (low priority) so it doesn't block other capfs
+  (add-hook 'completion-at-point-functions #'yasnippet-capf 100))
 #+end_src
 
 * Dired/Dirvish
@@ -5140,6 +5130,9 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 
 ;; Hook into LaTeX mode to activate this setup
 (add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
+#+end_src
+
+#+begin_src emacs-lisp
 #+end_src
 
 * General Keybindings
