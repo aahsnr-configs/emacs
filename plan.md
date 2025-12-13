@@ -47,8 +47,10 @@
 - [ ] Remap C-g to escape
 - [x] Write a git-gutter config and make it work in org files as well as other files. And instead of using the use git markers like + and - to indicate changes, use a more aesthetic approach to indicate changes that match the tokyonight colors. Write a sample guide to using git-gutter in a wide variety of files.
 - [x] Using general.el setup C-- for text-scale-decrease and C-= for text-scale-increase
-- [ ] In my updated emacs config, does the posframe window (childframe) for opening hydra keys change in dimensions based on the contents of the hydra body?
+- [x] In my updated emacs config, does the posframe window (childframe) for opening hydra keys change in dimensions based on the contents of the hydra body?
+- [ ] Since I am using my treesit config, is it necessary to hook both python-mode and python-ts-mode in the lsp-pyright section?
 - [ ] Make magit utilize hydra and pretty-hydra instead of using transient for its usage. Also make the magit window open as a minibuffer in the bottom instead of a new buffer.
+
 
 - [ ] **Fix dired/dirvish before proceeding** Doom emacs uses projectile for it project related functionalities. One of its functionalities is to open project directory using SPC p p. But I am using project.el that is built-in to emacs. In my emacs config I want similar behaviour using project.el instead of using projectile, but having the same keybinding. The other functionality doom emacs utilizes is using the SPC f p keybinding to open the doom emacs config directory using projectile. I want the same functionality using the same keybinding but using project.el instead as well, and also since I am using vanilla emacs and I don't have a doom emacs config directory, I want SPC f p to open my emacs config directory which is typically in either `~/.emacs.d` or
 `~/.config/emacs` directory.

@@ -773,7 +773,6 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+end_src
 
 * Hydra Setup
-
 #+begin_src emacs-lisp
 (use-package hydra
   :ensure (:wait t)
@@ -782,46 +781,9 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :init
   (setq hydra-hint-display-type 'lv))
 
-;; (use-package hydra
-;;   :ensure (:wait t)
-;;   :demand t
-;;   :defines posframe-border-width
-;;   :hook (emacs-lisp-mode . hydra-add-imenu)
-;;   :init
-;;   (setq hydra-hint-display-type 'lv)
-;;   :config
-;;   ;; Use posframe if available and graphical
-;;   (when (and (display-graphic-p)
-;;              (require 'posframe nil t))
-;;     (setq hydra-hint-display-type 'posframe)
-;;     (setq hydra-posframe-show-params
-;;           `(:left-fringe 8
-;;             :right-fringe 8
-;;             :internal-border-width 2
-;;             :internal-border-color ,(face-background 'region nil t)
-;;             :background-color ,(face-background 'tooltip nil t)
-;;             :foreground-color ,(face-foreground 'tooltip nil t)
-;;             :lines-truncate t
-;;             :poshandler posframe-poshandler-frame-center-near-bottom))
-
-;;     ;; Update colors on theme change
-;;     (defun my-hydra-update-posframe-params ()
-;;       "Update hydra posframe parameters after theme change."
-;;       (setq hydra-posframe-show-params
-;;             `(:left-fringe 8
-;;               :right-fringe 8
-;;               :internal-border-width 2
-;;               :internal-border-color ,(face-background 'region nil t)
-;;               :background-color ,(face-background 'tooltip nil t)
-;;               :foreground-color ,(face-foreground 'tooltip nil t)
-;;               :lines-truncate t
-;;               :poshandler posframe-poshandler-frame-center-near-bottom)))
-;;     (add-hook 'after-load-theme-hook #'my-hydra-update-posframe-params t)))
-
 (use-package pretty-hydra
   :ensure (:wait t)
   :demand t
-  :functions icons-displayable-p
   :bind ("<f6>" . toggles-hydra/body)
   :hook (emacs-lisp-mode . (lambda ()
                              (add-to-list
@@ -849,93 +811,147 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
   ;; Global toggles
   (with-no-warnings
-    (pretty-hydra-define toggles-hydra (:title (pretty-hydra-title "Toggles" 'faicon "nf-fa-toggle_on")
-                                        :color amaranth :quit-key ("q" "C-g"))
+    (pretty-hydra-define toggles-hydra 
+      (:title (pretty-hydra-title "Toggles" 'faicon "nf-fa-toggle_on")
+       :color amaranth 
+       :quit-key ("q" "C-g"))
+      
       ("Basic"
        (("n" (cond ((fboundp 'display-line-numbers-mode)
                     (display-line-numbers-mode (if display-line-numbers-mode -1 1)))
-                   ((fboundp 'gblobal-linum-mode)
+                   ((fboundp 'global-linum-mode)
                     (global-linum-mode (if global-linum-mode -1 1))))
          "line number"
          :toggle (or (bound-and-true-p display-line-numbers-mode)
                      (bound-and-true-p global-linum-mode)))
-        ("a" global-aggressive-indent-mode "aggressive indent" :toggle t)
-        ("d" global-hungry-delete-mode "hungry delete" :toggle t)
-        ("e" electric-pair-mode "electric pair" :toggle t)
-        ("c" flyspell-mode "spell check" :toggle t)
-        ("s" prettify-symbols-mode "pretty symbol" :toggle t)
-        ("l" global-page-break-lines-mode "page break lines" :toggle t)
-        ("b" display-battery-mode "battery" :toggle t)
-        ("i" display-time-mode "time" :toggle t)
-        ("m" doom-modeline-mode "modern mode-line" :toggle t))
+        ("a" global-aggressive-indent-mode "aggressive indent" 
+         :toggle t)
+        ("d" global-hungry-delete-mode "hungry delete" 
+         :toggle t)
+        ("e" electric-pair-mode "electric pair" 
+         :toggle t)
+        ("c" flyspell-mode "spell check" 
+         :toggle t)
+        ("s" prettify-symbols-mode "pretty symbol" 
+         :toggle t)
+        ("l" global-page-break-lines-mode "page break lines" 
+         :toggle t)
+        ("b" display-battery-mode "battery" 
+         :toggle t)
+        ("i" display-time-mode "time" 
+         :toggle t)
+        ("m" (if (fboundp 'doom-modeline-mode)
+                 (doom-modeline-mode (if doom-modeline-mode -1 1))
+               (message "doom-modeline not available"))
+         "modern mode-line" 
+         :toggle (and (fboundp 'doom-modeline-mode) doom-modeline-mode)))
+       
        "Highlight"
-       (("h l" global-hl-line-mode "line" :toggle t)
-        ("h p" show-paren-mode "paren" :toggle t)
-        ("h s" symbol-overlay-mode "symbol" :toggle t)
-        ("h r" rainbow-mode "rainbow" :toggle t)
+       (("h l" global-hl-line-mode "line" 
+         :toggle t)
+        ("h p" show-paren-mode "paren" 
+         :toggle t)
+        ("h s" (if (fboundp 'symbol-overlay-mode)
+                   (symbol-overlay-mode (if symbol-overlay-mode -1 1))
+                 (message "symbol-overlay not available"))
+         "symbol" 
+         :toggle (and (fboundp 'symbol-overlay-mode) symbol-overlay-mode))
+        ("h r" (if (fboundp 'rainbow-mode)
+                   (rainbow-mode (if rainbow-mode -1 1))
+                 (message "rainbow-mode not available"))
+         "rainbow" 
+         :toggle (and (fboundp 'rainbow-mode) rainbow-mode))
         ("h w" (setq-default show-trailing-whitespace (not show-trailing-whitespace))
-         "whitespace" :toggle show-trailing-whitespace)
-        ("h d" rainbow-delimiters-mode "delimiter" :toggle t)
-        ("h i" highlight-indent-guides-mode "indent" :toggle t)
-        ("h t" global-hl-todo-mode "todo" :toggle t))
+         "whitespace" 
+         :toggle show-trailing-whitespace)
+        ("h d" (if (fboundp 'rainbow-delimiters-mode)
+                   (rainbow-delimiters-mode (if rainbow-delimiters-mode -1 1))
+                 (message "rainbow-delimiters not available"))
+         "delimiter" 
+         :toggle (and (fboundp 'rainbow-delimiters-mode) rainbow-delimiters-mode))
+        ("h i" (if (fboundp 'highlight-indent-guides-mode)
+                   (highlight-indent-guides-mode (if highlight-indent-guides-mode -1 1))
+                 (message "highlight-indent-guides not available"))
+         "indent" 
+         :toggle (and (fboundp 'highlight-indent-guides-mode) 
+                      highlight-indent-guides-mode))
+        ("h t" (if (fboundp 'global-hl-todo-mode)
+                   (global-hl-todo-mode (if global-hl-todo-mode -1 1))
+                 (message "hl-todo not available"))
+         "todo" 
+         :toggle (and (fboundp 'global-hl-todo-mode) global-hl-todo-mode)))
+       
        "Program"
-       (("f" flymake-mode "flymake" :toggle t)
-        ("O" hs-minor-mode "hideshow" :toggle t)
-        ("u" subword-mode "subword" :toggle t)
-        ("W" which-function-mode "which function" :toggle t)
-        ("E" toggle-debug-on-error "debug on error" :toggle (default-value 'debug-on-error))
-        ("Q" toggle-debug-on-quit "debug on quit" :toggle (default-value 'debug-on-quit))
-        ("v" global-diff-hl-mode "gutter" :toggle t)
-        ("V" diff-hl-flydiff-mode "live gutter" :toggle t)
-        ("M" diff-hl-margin-mode "margin gutter" :toggle t)
-        ("D" diff-hl-dired-mode "dired gutter" :toggle t))
+       (("f" flymake-mode "flymake" 
+         :toggle t)
+        ("O" hs-minor-mode "hideshow" 
+         :toggle t)
+        ("u" subword-mode "subword" 
+         :toggle t)
+        ("W" which-function-mode "which function" 
+         :toggle t)
+        ("E" toggle-debug-on-error "debug on error" 
+         :toggle (default-value 'debug-on-error))
+        ("Q" toggle-debug-on-quit "debug on quit" 
+         :toggle (default-value 'debug-on-quit))
+        ("v" (if (fboundp 'global-diff-hl-mode)
+                 (global-diff-hl-mode (if global-diff-hl-mode -1 1))
+               (message "diff-hl not available"))
+         "gutter" 
+         :toggle (and (fboundp 'global-diff-hl-mode) global-diff-hl-mode))
+        ("V" (if (fboundp 'diff-hl-flydiff-mode)
+                 (diff-hl-flydiff-mode (if diff-hl-flydiff-mode -1 1))
+               (message "diff-hl-flydiff not available"))
+         "live gutter" 
+         :toggle (and (fboundp 'diff-hl-flydiff-mode) diff-hl-flydiff-mode))
+        ("M" (if (fboundp 'diff-hl-margin-mode)
+                 (diff-hl-margin-mode (if diff-hl-margin-mode -1 1))
+               (message "diff-hl-margin not available"))
+         "margin gutter" 
+         :toggle (and (fboundp 'diff-hl-margin-mode) diff-hl-margin-mode))
+        ("D" (if (fboundp 'diff-hl-dired-mode)
+                 (diff-hl-dired-mode (if diff-hl-dired-mode -1 1))
+               (message "diff-hl-dired not available"))
+         "dired gutter" 
+         :toggle (and (fboundp 'diff-hl-dired-mode) diff-hl-dired-mode)))
+       
        "Theme"
-       (("t a" (centaur-load-theme 'auto) "auto"
-         :toggle (eq centaur-theme 'auto) :exit t)
-        ("t r" (centaur-load-theme 'random) "random"
-         :toggle (eq centaur-theme 'random) :exit t)
-        ("t s" (centaur-load-theme 'system) "system"
-         :toggle (eq centaur-theme 'system) :exit t)
-        ("t d" (centaur-load-theme 'default) "default"
-         :toggle (centaur-theme-enable-p 'default) :exit t)
-        ("t p" (centaur-load-theme 'pro) "pro"
-         :toggle (centaur-theme-enable-p 'pro) :exit t)
-        ("t k" (centaur-load-theme 'dark) "dark"
-         :toggle (centaur-theme-enable-p 'dark) :exit t)
-        ("t l" (centaur-load-theme 'light) "light"
-         :toggle (centaur-theme-enable-p 'light) :exit t)
-        ("t w" (centaur-load-theme 'warm) "warm"
-         :toggle (centaur-theme-enable-p 'warm) :exit t)
-        ("t c" (centaur-load-theme 'cold) "cold"
-         :toggle (centaur-theme-enable-p 'cold) :exit t)
-        ("t y" (centaur-load-theme 'day) "day"
-         :toggle (centaur-theme-enable-p 'day) :exit t)
-        ("t n" (centaur-load-theme 'night) "night"
-         :toggle (centaur-theme-enable-p 'night) :exit t)
-        ("t o" (centaur-load-theme
-                (intern (completing-read "Load custom theme: "
-                                         (mapcar #'symbol-name
-				                                 (custom-available-themes)))))
-         "others"
-         :toggle (not (or (rassoc (car custom-enabled-themes) centaur-theme-alist)
-                          (rassoc (cadr custom-enabled-themes) centaur-theme-alist)))
+       (("t d" (load-theme 'modus-operandi t) "light (modus-operandi)" 
+         :exit t)
+        ("t k" (load-theme 'modus-vivendi t) "dark (modus-vivendi)" 
+         :exit t)
+        ("t w" (load-theme 'whiteboard t) "whiteboard" 
+         :exit t)
+        ("t t" (load-theme 'tango t) "tango" 
+         :exit t)
+        ("t g" (load-theme 'tango-dark t) "tango-dark" 
+         :exit t)
+        ("t l" (load-theme 'leuven t) "leuven" 
+         :exit t)
+        ("t a" (load-theme 'adwaita t) "adwaita" 
+         :exit t)
+        ("t D" (load-theme 'deeper-blue t) "deeper-blue" 
+         :exit t)
+        ("t w" (load-theme 'wombat t) "wombat" 
+         :exit t)
+        ("t o" (call-interactively 'load-theme) "other..." 
+         :exit t)
+        ("t c" (call-interactively 'customize-themes) "customize themes" 
+         :exit t)
+        ("t u" (mapc #'disable-theme custom-enabled-themes) "unload all" 
          :exit t))
-       "Package Archive"
-       (("p m" (centaur-set-package-archives 'melpa t)
-         "melpa" :toggle (eq centaur-package-archives 'melpa) :exit t)
-        ("p b" (centaur-set-package-archives 'bfsu t)
-         "bfsu" :toggle (eq centaur-package-archives 'bfsu) :exit t)
-        ("p i" (centaur-set-package-archives 'iscas t)
-         "iscas" :toggle (eq centaur-package-archives 'iscas) :exit t)
-        ("p n" (centaur-set-package-archives 'netease t)
-         "netease" :toggle (eq centaur-package-archives 'netease) :exit t)
-        ("p s" (centaur-set-package-archives 'sjtu t)
-         "sjtu" :toggle (eq centaur-package-archives 'sjtu) :exit t)
-        ("p t" (centaur-set-package-archives 'tuna t)
-         "tuna" :toggle (eq centaur-package-archives 'tuna) :exit t)
-        ("p u" (centaur-set-package-archives 'ustc t)
-         "ustc" :toggle (eq centaur-package-archives 'ustc) :exit t)
-        ("p T" (centaur-test-package-archives) "speed test" :exit t))))))
+       
+       "Package"
+       (("p r" package-refresh-contents "refresh archives" 
+         :exit t)
+        ("p l" package-list-packages "list packages" 
+         :exit t)
+        ("p i" package-install "install package" 
+         :exit t)
+        ("p d" package-delete "delete package" 
+         :exit t)
+        ("p a" package-autoremove "autoremove" 
+         :exit t))))))
 #+end_src
 
 * UI and Theming
@@ -1613,158 +1629,121 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+end_src
 
 * Treesitter/Folding
+** Treesit
 #+begin_src emacs-lisp
-(with-eval-after-load 'tresit
-  (setq treesit-font-lock-level 4)
-  (setq major-mode-remap-alist
-        '((typescript-mode . typescript-ts-mode)
-          (js-mode . javascript-ts-mode)
-          (elisp-mode . elisp-ts-mode)
-          (python-mode . python-ts-mode)
-          (json-mode . json-ts-mode))))
+(use-package treesit
+  :ensure nil
+  :preface
+  (defun ar/setup-install-grammars ()
+    "Install Tree-sitter grammars if they are missing."
+    (interactive)
+    (dolist (grammar treesit-language-source-alist)
+      (unless (treesit-language-available-p (car grammar))
+        (treesit-install-language-grammar (car grammar)))))
 
-(use-package treesit-auto
-  :defer t
-  :custom
-  (treesit-auto-install 'prompt)
   :config
-  (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode))
+  (setq treesit-font-lock-level 4)
 
+  (setq treesit-language-source-alist
+        '((python "https://github.com/tree-sitter/tree-sitter-python")
+          ;; (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+          ;; (c "https://github.com/tree-sitter/tree-sitter-c")
+          (json "https://github.com/tree-sitter/tree-sitter-json")
+          (nix "https://github.com/nix-community/tree-sitter-nix")
+
+          (latex "https://github.com/latex-lsp/tree-sitter-latex")
+          (markdown "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser" "tree-sitter-markdown/src")
+          (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser" "tree-sitter-markdown-inline/src")))
+
+  (setq major-mode-remap-alist
+        '((python-mode . python-ts-mode)
+          ;; (c-mode . c-ts-mode)
+          ;; (c++-mode . c++-ts-mode)
+          ;; (c-or-c++-mode . c-or-c++-ts-mode)
+          (json-mode . json-ts-mode)
+          (js-mode . js-ts-mode)
+          (typescript-mode . typescript-ts-mode)
+          (conf-toml-mode . toml-ts-mode)
+          ;; (markdown-mode . markdown-ts-mode)
+
+          )))
+#+end_src
+
+** Treesit-Fold
+#+begin_src emacs-lisp
 (use-package treesit-fold
-  :defer t
-  :hook (((after-elpaca-init . global-treesit-fold-indicators-mode)
-          treesit-auto-mode-hook . treesit-fold-mode))
-  :init (setq treesit-fold-indicators-priority -1))
+  :ensure (:host github :repo "emacs-tree-sitter/treesit-fold")
+  :custom
+  (treesit-fold-indicators-priority -1)
+  :config
+  (global-treesit-fold-mode 1)
+  (global-treesit-fold-indicators-mode 1))
+#+end_src
 
+** Evil Text Objects
+#+begin_src emacs-lisp
 (use-package evil-textobj-tree-sitter
-  :defer t
   :after evil
   :config
-  ;; Goto start of next function
-  (define-key evil-normal-state-map
-              (kbd "]f")
-              (lambda ()
-                (interactive)
-                (evil-textobj-tree-sitter-goto-textobj "function.outer")))
+  ;; Bindings for function objects (next/prev)
+  (define-key evil-normal-state-map (kbd "]f")
+              (lambda () (interactive) (evil-textobj-tree-sitter-goto-textobj "function.outer")))
+  (define-key evil-normal-state-map (kbd "[f")
+              (lambda () (interactive) (evil-textobj-tree-sitter-goto-textobj "function.outer" t)))
+  (define-key evil-normal-state-map (kbd "]F")
+              (lambda () (interactive) (evil-textobj-tree-sitter-goto-textobj "function.outer" nil t)))
+  (define-key evil-normal-state-map (kbd "[F")
+              (lambda () (interactive) (evil-textobj-tree-sitter-goto-textobj "function.outer" t t)))
 
-  ;; Goto start of previous function
-  (define-key evil-normal-state-map
-              (kbd "[f")
-              (lambda ()
-                (interactive)
-                (evil-textobj-tree-sitter-goto-textobj "function.outer" t)))
+  ;; Bind text objects (inner/outer)
+  ;; 'f' for function, 'c' for class
+  (define-key evil-inner-text-objects-map "f" (evil-textobj-tree-sitter-get-textobj "function.inner"))
+  (define-key evil-outer-text-objects-map "f" (evil-textobj-tree-sitter-get-textobj "function.outer"))
+  (define-key evil-inner-text-objects-map "c" (evil-textobj-tree-sitter-get-textobj "class.inner"))
+  (define-key evil-outer-text-objects-map "c" (evil-textobj-tree-sitter-get-textobj "class.outer"))
+  
+  ;; Arguments (requires 'parameter' query support in the language grammar)
+  (define-key evil-inner-text-objects-map "a" (evil-textobj-tree-sitter-get-textobj "parameter.inner"))
+  (define-key evil-outer-text-objects-map "a" (evil-textobj-tree-sitter-get-textobj "parameter.outer")))
+#+end_src
 
-  ;; Goto end of next function
-  (define-key evil-normal-state-map
-              (kbd "]F")
-              (lambda ()
-                (interactive)
-                (evil-textobj-tree-sitter-goto-textobj "function.outer" nil t)))
-
-  ;; Goto end of previous function
-  (define-key evil-normal-state-map
-              (kbd "[F")
-            (lambda ()
-              (interactive)
-              (evil-textobj-tree-sitter-goto-textobj "function.outer" t t))))
-
+** Hideshow
+Standard native folding, kept as fallback
+#+begin_src emacs-lisp
 (use-package hideshow
   :ensure nil
-  :defer t
-  :pretty-hydra
-  ((:title (pretty-hydra-title "HideShow" 'octicon "nf-oct-fold")
-    :color amaranth :quit-key ("q" "C-g"))
-   ("Fold"
-    (("t" hs-toggle-all "toggle all")
-     ("a" hs-show-all "show all")
-     ("i" hs-hide-all "hide all")
-     ("g" hs-toggle-hiding "toggle hiding")
-     ("c" hs-cycle "cycle block")
-     ("s" hs-show-block "show block")
-     ("h" hs-hide-block "hide block")
-     ("l" hs-hide-level "hide level"))
-    "Move"
-    (("C-a" mwim-beginning-of-code-or-line "⭰")
-     ("C-e" mwim-end-of-code-or-line "⭲")
-     ("C-b" backward-char "←")
-     ("C-n" next-line "↓")
-     ("C-p" previous-line "↑")
-     ("C-f" forward-char "→")
-     ("C-v" pager-page-down "↘")
-     ("M-v" pager-page-up "↖")
-     ("M-<" beginning-of-buffer "⭶")
-     ("M->" end-of-buffer "⭸"))))
-  :bind (:map hs-minor-mode-map
-         ("C-~" . hideshow-hydra/body)
-         ("C-S-<escape>" . hideshow-hydra/body))
   :hook (prog-mode . hs-minor-mode)
   :config
-  ;; More functions
-  ;; @see https://karthinks.com/software/simple-folding-with-hideshow/
   (defun hs-cycle (&optional level)
     (interactive "p")
-    (let (message-log-max
-          (inhibit-message t))
+    (let (message-log-max (inhibit-message t))
       (if (= level 1)
           (pcase last-command
-            ('hs-cycle
-             (hs-hide-level 1)
-             (setq this-command 'hs-cycle-children))
-            ('hs-cycle-children
-             (save-excursion (hs-show-block))
-             (setq this-command 'hs-cycle-subtree))
-            ('hs-cycle-subtree
-             (hs-hide-block))
-            (_
-             (if (not (hs-already-hidden-p))
-                 (hs-hide-block)
-               (hs-hide-level 1)
-               (setq this-command 'hs-cycle-children))))
-        (hs-hide-level level)
-        (setq this-command 'hs-hide-level))))
+            ('hs-cycle (hs-hide-level 1) (setq this-command 'hs-cycle-children))
+            ('hs-cycle-children (save-excursion (hs-show-block)) (setq this-command 'hs-cycle-subtree))
+            ('hs-cycle-subtree (hs-hide-block))
+            (_ (if (not (hs-already-hidden-p)) (hs-hide-block) (hs-hide-level 1) (setq this-command 'hs-cycle-children))))
+        (hs-hide-level level) (setq this-command 'hs-hide-level))))
+  
+  (defun hs-toggle-all () 
+    (interactive) 
+    (pcase last-command 
+      ('hs-toggle-all (save-excursion (hs-show-all)) (setq this-command 'hs-global-show)) 
+      (_ (hs-hide-all)))))
+#+end_src
 
-  (defun hs-toggle-all ()
-    "Toggle hide/show all."
-    (interactive)
-    (pcase last-command
-      ('hs-toggle-all
-       (save-excursion (hs-show-all))
-       (setq this-command 'hs-global-show))
-      (_ (hs-hide-all))))
-
-  ;; Display line counts
-  (defun hs-display-code-line-counts (ov)
-    "Display line counts when hiding codes."
-    (when (eq 'code (overlay-get ov 'hs))
-      (overlay-put ov 'display
-                   (concat
-                    " "
-                    (propertize
-                     (if (char-displayable-p ?⏷) "⏷" "...")
-                     'face 'shadow)
-                    (propertize
-                     (format " (%d lines)"
-                             (count-lines (overlay-start ov)
-                                          (overlay-end ov)))
-                     'face '(:inherit shadow :height 0.8))
-                    " "))))
-  (setq hs-set-up-overlay #'hs-display-code-line-counts))
-
+** Vimish Fold
+#+begin_src emacs-lisp
 (use-package vimish-fold
-  :defer t
   :after evil
-  :config
-  (vimish-fold-global-mode 1))
+  :config (vimish-fold-global-mode 1))
 
 (use-package evil-vimish-fold
-  :defer t
   :after vimish-fold
   :init
   (setq evil-vimish-fold-mode-lighter " ⮒")
   (setq evil-vimish-fold-target-modes '(prog-mode conf-mode text-mode))
-  :config
-  (global-evil-vimish-fold-mode))
+  :config (global-evil-vimish-fold-mode))
 #+end_src
 
 * Highlight
@@ -2917,12 +2896,36 @@ targets."
              cape-wrap-noninterruptible cape-wrap-nonexclusive 
              cape-wrap-buster cape-wrap-silent cape-wrap-purify)
   :init
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
-  (add-to-list 'completion-at-point-functions #'cape-file)
-  (add-to-list 'completion-at-point-functions #'cape-elisp-block)
-  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;; === CRITICAL FIX: Proper Order and Method ===
+  ;; DON'T use add-to-list repeatedly - it causes order confusion
+  ;; Instead, set the default value directly with the CORRECT order
+  ;; Order matters: specific capfs first, general ones last
+  (setq-default completion-at-point-functions
+                (list
+                 #'cape-elisp-block     ; FIRST: Elisp in org blocks
+                 #'cape-keyword         ; SECOND: Keywords
+                 #'cape-file            ; THIRD: File paths
+                 #'cape-dabbrev))       ; LAST: Fallback to dabbrev
 
-  ;; Make these capfs composable.
+  ;; === ORG MODE FIX: Ensure buffer-local list ends with 't' ===
+  ;; This is the ROBUST fix for org-mode
+  (defun ar/setup-org-cape ()
+    "Setup completion properly for org-mode buffers."
+    ;; Method 1: Ensure local list ends with 't' so global functions run
+    (setq-local completion-at-point-functions
+                (append (remq t completion-at-point-functions) '(t)))
+    
+    ;; Method 2: Alternative - explicitly add cape-elisp-block first locally
+    ;; Uncomment if Method 1 doesn't work
+    ;; (setq-local completion-at-point-functions
+    ;;             (cons #'cape-elisp-block
+    ;;                   (remq #'cape-elisp-block completion-at-point-functions))))
+ 
+  )
+  (add-hook 'org-mode-hook #'ar/setup-org-cape)
+
+  :config
+  ;; Make these capfs composable with LSP
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
   (advice-add 'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add 'comint-completion-at-point :around #'cape-wrap-nonexclusive)
@@ -2977,7 +2980,7 @@ targets."
 
 (use-package yasnippet-capf
   :after cape
-  :config
+  :init
   (add-to-list 'completion-at-point-functions #'yasnippet-capf))
 #+end_src
 
@@ -4144,8 +4147,8 @@ mermaid.initialize({
          ([remap xref-find-definitions] . lsp-find-definition)
          ([remap xref-find-references] . lsp-find-references))
   :init (setq lsp-use-plists t
+              lsp-completion-provider :none
               lsp-log-io nil
-
               lsp-keymap-prefix "C-c l"
               lsp-keep-workspace-alive nil
               lsp-signature-auto-activate nil
@@ -4370,7 +4373,8 @@ mermaid.initialize({
 #+begin_src emacs-lisp
 (use-package consult-lsp
   :defer t
-  :bind (:map lsp-mode-map
+  :bind (([remap xref-find-apropos] . consult-lsp-symbols)
+         :map lsp-mode-map
          ("C-M-." . consult-lsp-symbols)))
 #+end_src
 
@@ -4590,7 +4594,7 @@ mermaid.initialize({
                         (upcase ,lang))))))))
 
 (defconst org-babel-lang-list
-  '("go" "python" "ipython" "ruby" "js" "css" "sass" "c" "rust" "java" "cpp" "c++" "shell")
+  '("go" "python" "ipython" "jupyter-python" "ruby" "js" "css" "sass" "c" "rust" "java" "cpp" "c++" "shell")
   "The supported programming languages for interactive Babel.")
 (dolist (lang org-babel-lang-list)
   (eval `(lsp-org-babel-enable ,lang)))
@@ -4774,14 +4778,27 @@ text mode directory tree
 ** LSP pyright
 #+begin_src emacs-lisp
 (use-package lsp-pyright
-  :custom (lsp-pyright-langserver-command "basedpyright")
-  :hook (((python-mode python-ts-mode) . (lambda ()
-                                          (require 'lsp-pyright)
-                                          (lsp-deferred)))))
+  :after lsp-mode
+  :custom
+  (lsp-pyright-langserver-command "basedpyright")
+  (lsp-pyright-type-checking-mode "standard")
+  (lsp-pyright-diagnostic-mode "openFilesOnly")
+  :hook ((python-mode python-ts-mode) . (lambda ()
+                            (require 'lsp-pyright)
+                            (lsp-deferred))))
+#+end_src
+
+* Nix Development
+#+begin_src emacs-lisp
+(use-package nix-mode
+  :mode "\\.nix\\'")
+
+(use-package nix-ts-mode
+ :mode "\\.nix\\'")
 #+end_src
 
 * LaTeX Writing Environment
-** Helper Functions (Project Awareness)
+** Project Awareness
 #+begin_src emacs-lisp
 (defun ar/get-project-bibliographies ()
   "Find .bib files in the current project root recursively.
@@ -5087,7 +5104,8 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
    (bibtex-mode . lsp-deferred))
   :custom
   (lsp-latex-forward-search-executable "zathura")
-  (lsp-latex-forward-search-args '("--synctex-forward" "%l:1:%f" "%p")))
+  (lsp-latex-forward-search-args '("--synctex-forward" "%l:1:%f" "%p"))
+  (lsp-latex-build-on-save nil))
 #+end_src
 
 ** Preview LaTeX (AUCTeX)
@@ -5106,33 +5124,23 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
                               (face-attribute 'default :height)))))
 #+end_src
 
-** Global Keybindings
-TODO: integrate into General Keybindigs later
+** Completions: LSP + AUCTeX + Cape
 #+begin_src emacs-lisp
-;; (with-eval-after-load 'general
-;;   (ar/global-leader
-;;     ;; === LaTeX Compilation ===
-;;     "l" '(:ignore t :wk "latex")
-;;     "l c" '(TeX-command-master :wk "Compile")
-;;     "l v" '(TeX-view :wk "View PDF")
-;;     "l l" '((lambda () (interactive) (TeX-command "LaTeX" 'TeX-master-file)) :wk "LaTeX")
-;;     "l k" '((lambda () (interactive) (TeX-command "LuaLaTeXmk" 'TeX-master-file)) :wk "LuaLaTeXmk")
-;;     "l w" '((lambda () (interactive) (TeX-command "LaTeXmk-Watch" 'TeX-master-file)) :wk "Watch")
+(defun ar/latex-setup-completion ()
+  "Configure super-powered completion for LaTeX: LSP + AUCTeX + Dabbrev."
+  (when (bound-and-true-p lsp-mode)
+    (require 'cape)
+    (setq-local completion-at-point-functions
+                (list (cape-capf-super
+                       #'lsp-completion-at-point      ; LSP intelligence (citations, refs)
+                       #'LaTeX-completion-at-point    ; AUCTeX specific macros
+                       #'TeX--completion-at-point)    ; TeX primitives
+                      #'cape-dabbrev                  ; Words in buffer
+                      #'cape-file))))                 ; File paths
 
-;;     ;; === Bibliography ===
-;;     "l b" '(:ignore t :wk "bibliography")
-;;     "l b i" '(citar-insert-citation :wk "Insert Citation")
-;;     "l b o" '(citar-open :wk "Open Entry")
-;;     "l b n" '(citar-create-note :wk "Create Note")
-;;     "l b s" '(ar/setup-project-bibliography :wk "Setup Project Bib")
-
-;;     ;; === Org LaTeX ===
-;;     "l p" '(:ignore t :wk "preview")
-;;     "l p p" '(org-latex-preview :wk "Toggle Preview")
-;;     "l p e" '(org-latex-export-to-pdf :wk "Export to PDF")
-;;     "l p f" '(org-fragtog-mode :wk "Toggle Fragtog")))
+;; Hook into LaTeX mode to activate this setup
+(add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
 #+end_src
-
 
 * General Keybindings
 #+begin_src emacs-lisp
