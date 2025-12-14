@@ -143,3 +143,59 @@ Search the web and the following links for the aforementioned emacs packages bef
 - [x] For the attached vanilla emacs configuration files, re-implement the escape key `[escape]` behaviour through the emacs configuration so that these parts of the configurations are correct, more polished and behave exactly as they are indented. Search the web, the documentations for evil and evil-collections from https://evil.readthedocs.io/en/latest/overview.html and https://github.com/emacs-evil/evil as well as the github packages for the relevent evil extensions and the emacs documentation in https://www.gnu.org/software/emacs/documentation.html before writing anything. Then only write out the changes that are needed and also list the links for the resources you have visited.
 
 - [ ] Rewrite the indent-bars configuration so that the indentation levels start at 0, have single color, have a single line for showing the lines, and the current indentation level is highlighted with a thicker line and different color
+
+
+Perform each of the following tasks methodically and thoroughly:
+1. You `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
+
+2. Then for your `second task`, write a comprehensive git-timemachine configuration for the Version Control section in this emacs config. Make sure the git-timemachine config does not impact the startup time of the emacs config. Place the new config in a separate source code block that is inside a single markdown code block.
+
+3. Then after that is done, your `third task` is to setup hydra/pretty-hydra config for the whole version control section that includes git-timemachine as well. The emacs.txt file already contains existing hydra/pretty-hydra configs for other sections as well. Make sure you follow the formatting and configuration style of the existing hydra/pretty-hydra config for these section for setting up the new hydra/pretty-hydra config for the version control section. But keep in mind that the existing hydra/pretty-hydra configs in emacs.txt are inside specific emacs package use-package configs, but for the version control section for the new hydra/pretty-hydra config should be placed in its own section separate source code block. This source code block will also be placed in its own single markdown code block.
+
+4. For your `fourth task` analyze the markdown configuration in the Markdown section of emacs.txt. There are few issues with this configuration. First the `markdown-imenu-generic-expression` is giving a void variable error. Fix that. Next the markdown-mode use-package block itself has config settings for `gfm-mode` but I am not and will not setup gfm-mode so I have no need for gfm-mode settings. So safely remove the settings from the markdown-mode use-package block. The whole markdown setting is setup to immediately render all markdown related elements in the markdown buffer instead of a live preview in a browser like gfm-mode does. But unfortunately there are optimization issues while typing resulting in some general sluggishness. Fix that as well. Next, while I am typing in the markdown file, some text inside emphasis markers seem to be flickering. Fix that as well. Next, the markdown file generally handles rendering markdown all at the same time, but while the cursor is placed in such an element, the rendering remains the same. I want markdown to dynamically toggle the rendering while the cursor is in this element. In other words, I want the rendered to be toggled off only when the cursor is placed in the element. I should also be able to escape the  Also setup a mnemonic keybinding for `markdown-toggle-markup-hiding` using general.el in the General Keybindings section using ar/global-leader. Next make - [ ]  appear like a filled-in checkbox. Many of the settings changes I mentioned are to replicate the render-markdown.nvim package for neovim. Next for the markdown-toc setting determine if the `:after markdown` line is needed if `:hook (markdown-mode . markdown-toc-mode)` is already set. Then rewrite the whole updated markdown configuration in a separate single markdown code block.
+
+5. Then for your `fifth and final task`, write a new hydra/pretty-hydra config for the lsp-mode config in Development Tools section in emacs.txt. Then take the hydra/pretty-hydra config from the lsp-ui use-package config in Development Tools as well, and combine the hydra/pretty-hydra configs from both into one well formatted hydra/pretty-hydra. This new combined hydra/pretty-hydra config should also be placed in a separated source code block in LSP Mode subheading in Development Tools. Then rewrite the lsp-mode and lsp-ui configs with the changes. Place the source code blocks for these updated configs in a single markdown code block.
+
+This is a series of very important and long tasks. Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so that to prevent any errors and issues in the configurations.
+
+
+***
+# First Series 
+this is a series of very important and long tasks.therefore, search the web and the necessary documentations very extensibly before proceed. for these series of tasks, make sure to think longer so as to prevent any errors and issues in the configurations. all the configurations with the changes in their separate markdown code blocks should be presented in the right side of the window. perform each of the following tasks methodically and thoroughly:
+
+1. you `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
+
+2. then for your `second task`, write a comprehensive git-timemachine configuration for the version control section in this emacs config. make sure the git-timemachine config does not impact the startup time of the emacs config. place the new config in a separate source code block that is inside a single markdown code block.
+
+repeat the previous task by carefully the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. also make sure you don't have redundant configuration options. present the updated configurations on the right side panel of the window. make sure to search the web and think longer before proceeding
+
+***
+# Second Series
+
+This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. All the configurations with the changes in their separate markdown code blocks should be placed in the right side of the window. Perform each of the following tasks methodically and thoroughly:
+
+1. Your `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
+
+
+2. Then after that is done, your `second task` is to setup hydra/pretty-hydra config for the whole version control section that includes git-timemachine as well. The emacs.txt file already contains existing hydra/pretty-hydra configs for other sections as well. Make sure you follow the formatting and configuration style of the existing hydra/pretty-hydra config for these section for setting up the new hydra/pretty-hydra config for the version control section. But keep in mind that the existing hydra/pretty-hydra configs in emacs.txt are inside specific emacs package use-package configs, but for the version control section, the new hydra/pretty-hydra config should be placed in its own section with a separate source code block. This source code block will also be placed in its own single markdown code block.
+
+
+
+`(global-set-key (kbd "C-c g") 'version-control-hydra/body)` is not needed in favor of the `ar/global-leader` keybinding.Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding
+
+
+***
+# Third Series
+
+This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. All the configurations with the changes in their separate markdown code blocks should be placed in the right side of the window. Perform each of the following tasks methodically and thoroughly:
+
+1. Your `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
+
+2. Your `second task` is to fix the increased startup time that git-timemachine introduced. Both magit and git-timemachine have transient as a dependency and transient is setup with `:defer t`. But the startup time only increased after setting up git-timemachine. Removing :custom-face from git-timemachine config also did not fix the startup time issue. Search the web and think longer for this task to fix this issue. If the issue cannot be fixed, find  a better alternate package to git-timemachine that provides same/similar functions to git-timemachine.
+
+
+Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding
+
+
+
+
