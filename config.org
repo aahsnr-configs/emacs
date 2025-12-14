@@ -93,13 +93,10 @@ Lower this if you experience freezing, raise if stuttering.")
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 
-(elpaca-wait)
-
 ;; Install use-package support
 (elpaca elpaca-use-package
   ;; Enable use-package :ensure support for Elpaca.
   (elpaca-use-package-mode))
-
 
 (eval-and-compile
   (setq use-package-verbose nil
@@ -111,6 +108,12 @@ Lower this if you experience freezing, raise if stuttering.")
 (eval-when-compile
   (require 'use-package)
   (require 'bind-key))
+#+end_src
+
+** Custom File
+#+begin_src emacs-lisp
+(setq custom-file (expand-file-name "customs.el" user-emacs-directory))
+(add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
 #+end_src
 
 ** Emacs Start Up Profiler
@@ -295,11 +298,6 @@ Profile startup time with detailed breakdown
 
 ;; Suppress redefinition warnings
 (setq ad-redefinition-action 'accept)
-
-;; Custom file location - CRITICAL: Load after Elpaca finishes
-(setq custom-file (concat user-emacs-directory "custom.el"))
-(add-hook 'elpaca-after-init-hook
-            (lambda () (load custom-file 'noerror)))
 
 ;; Require final newline
 (setq require-final-newline t)
