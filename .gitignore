@@ -3,6 +3,7 @@ custom.el
 .backup
 .cache/
 config.el
+customs.el
 log/
 eln-cache/
 elpa/
