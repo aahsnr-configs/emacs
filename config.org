@@ -7,12 +7,14 @@
 ** Lexical Binding
 #+begin_src emacs-lisp
 ;;; init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
+;;; Commentary:
+;; The contents of my whole emacs configuration
 #+end_src
 
 ** Garbage Collection
 #+begin_src emacs-lisp
 ;; CRITICAL: Restore GC after startup with optimized values
-(defvar better-gc-cons-threshold 134217728  ;; 128MB (increased from default 800KB)
+(defvar better-gc-cons-threshold 134217728  ;; 128MB
   "Optimal GC threshold for modern LSP-heavy workflows.
 Lower this if you experience freezing, raise if stuttering.")
 
@@ -98,11 +100,10 @@ Lower this if you experience freezing, raise if stuttering.")
 
 
 (eval-and-compile
-  (setq use-package-verbose nil  ;; Changed from t - reduce startup messages
+  (setq use-package-verbose nil
         use-package-expand-minimally t
-        use-package-compute-statistics nil  ;; Changed from t - disable unless profiling
-        ;;use-package-always-defer t
-        use-package-always-ensure t
+        use-package-compute-statistics nil
+                use-package-always-ensure t
         use-package-enable-imenu-support t))
 
 (eval-when-compile
@@ -111,13 +112,12 @@ Lower this if you experience freezing, raise if stuttering.")
 #+end_src
 
 ** Emacs Start Up Profiler
+Profile startup time with detailed breakdown
 #+begin_src emacs-lisp
-;; Profile startup time with detailed breakdown
 (use-package esup
   :defer t
   :commands esup
   :config
-  ;; Work around byte-compile issues
   (setq esup-depth 0))
 #+end_src
 
@@ -459,27 +459,28 @@ Lower this if you experience freezing, raise if stuttering.")
               tab-width 4
               indent-tabs-mode nil)
 
-;; === CRITICAL FIXES FOR BOUNDARY SIGNALS ===
-
-;; 1. Silence the Bell (Prevents Modeline Splashing)
-;; Ensure you have REMOVED (doom-themes-visual-bell-config) from your theme config
+;; Silence the Bell
 (setq visible-bell nil)
 (setq ring-bell-function #'ignore)
 
-;; 2. Suppress "End/Beginning of buffer" Messages
-;; This intercepts the signal before it prints to the echo area, allowing
-;; ElDoc's "Bottom Level" / "Top Level" to remain visible.
+;; Suppress "End/Beginning of buffer" Messages
 (setq command-error-function
       (lambda (data context caller)
         (when (not (memq (car data) '(beginning-of-buffer end-of-buffer)))
           (command-error-default-function data context caller))))
+
+;; Removes <dir> style
+(setq uniquify-buffer-name-style 'forward) 
 
 ;; Other Misc
 (setq inhibit-compacting-font-caches t
       delete-by-moving-to-trash t
       make-backup-files nil
       auto-save-default nil
-      uniquify-buffer-name-style 'post-forward-angle-brackets
+      adaptive-fill-regexp "[ t]+|[ t]*([0-9]+.|*+)[ t]*"
+      adaptive-fill-first-line-regexp "^* *$"
+      sentence-end "\\([。！？]\\|……\\|[.?!][]\"')}]*\\($\\|[ \t]\\)\\)[ \t\n]*"
+      sentence-end-double-space nil
       word-wrap-by-category t)
 #+end_src
 
@@ -768,10 +769,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
 * Remap C-g to Escape
 #+begin_src emacs-lisp
-;; Use key-translation-map to translate 'C-g' to '<escape>' at the lowest level. This ensures C-g works as Escape in Evil, Minibuffers, Company/Corfu, etc.
 (keymap-set key-translation-map "C-g" "<escape>")
-
-;; Since C-g is now Escape, you lose the ability to "Emergency Quit" (unfreeze) Emacs. We map C-M-g (Ctrl+Alt+g) to the real keyboard-quit command just in case.
 (keymap-global-set "C-M-g" #'keyboard-quit)
 #+end_src
 
@@ -784,7 +782,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :init
   (setq hydra-hint-display-type 'lv))
 
-(use-package pretty-hydra
+(use-package major-mode-hydra
   :ensure (:wait t)
   :demand t
   :bind ("<f6>" . toggles-hydra/body)
@@ -1629,9 +1627,6 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 Show the current Org headline hierarchy (Breadcrumbs) on demand.
 Replaces automatic display with a manual keybinding to reduce clutter.
 #+begin_src emacs-lisp
-;; Show the current Org headline hierarchy (Breadcrumbs) on demand.
-;; Replaces automatic display with a manual keybinding to reduce clutter.
-
 (with-eval-after-load 'org
   (defun ar/org-show-breadcrumb ()
     "Display a Doom-style breadcrumb path in the echo area.
@@ -2113,7 +2108,9 @@ Standard native folding, kept as fallback
   (rainbow-delimiters-depth-9-face ((t (:foreground "#73daca"))))) ; Teal
 #+end_src
 
-** Show matching parenthesis context when off-screen
+
+
+** Parenthesis Matching & Context
 #+begin_src emacs-lisp
 (use-package paren
   :ensure nil
@@ -2123,35 +2120,93 @@ Standard native folding, kept as fallback
   (show-paren-highlight-openparen t)
   (show-paren-when-point-inside-paren t)
   (show-paren-when-point-in-periphery t)
-  ;; Highlight expression if paren is off-screen
-  (show-paren-style 'mixed)
-  ;; CRITICAL: Show context when matching paren is off-screen
-  ;; 'overlay creates a childframe, t uses echo area
-  (show-paren-context-when-offscreen
-   (if (childframe-workable-p) 'overlay t)))
+  ;; 1. Clean Visuals: Only highlight the bracket character itself
+  (show-paren-style 'parenthesis)
+  ;; 2. Disable default messages: We use the custom ElDoc logic below
+  (show-paren-context-when-offscreen nil)
+  
+  :config
+  ;; === CUSTOM ELDOC BACKEND FOR PARENTHESIS ===
+  (defun ar/paren-eldoc-offscreen-context (callback &rest _)
+    "Show off-screen parenthesis context in Echo Area via ElDoc."
+    (let* ((pos (point))
+           (match-pos nil)
+           (label nil)
+           (line-content nil)
+           (syntax-at (when (char-after pos) (char-syntax (char-after pos))))
+           (syntax-before (when (char-before pos) (char-syntax (char-before pos))))
+           ;; Default bounds are the whole buffer
+           (scan-beg (point-min))
+           (scan-end (point-max)))
+
+      ;; 0. ORG MODE FIX: Constrain search to current source block
+      (when (and (derived-mode-p 'org-mode)
+                 (org-in-src-block-p))
+        (let ((elem (org-element-at-point)))
+          (when elem
+            (setq scan-beg (org-element-property :begin elem))
+            (setq scan-end (org-element-property :end elem)))))
+
+      (save-restriction
+        ;; Safety check: Ensure bounds are valid numbers before narrowing
+        (when (and (numberp scan-beg) (numberp scan-end) (< scan-beg scan-end))
+          (narrow-to-region scan-beg scan-end))
+
+        ;; 1. FIND MATCHING POSITION
+        ;; Note: Comments below must not contain raw parens to avoid Org syntax issues
+        (cond
+         ;; Case A: At Opening Bracket
+         ((eq syntax-at ?\()
+          (setq match-pos (ignore-errors (scan-sexps pos 1)))
+          (when match-pos
+            (setq match-pos (1- match-pos))
+            (setq label "Closing: ")))
+         
+         ;; Case B: At Closing Bracket (Evil/Block cursor)
+         ((eq syntax-at ?\))
+          (setq match-pos (ignore-errors (scan-sexps (1+ pos) -1)))
+          (setq label "Opening: "))
+         
+         ;; Case C: After Closing Bracket (Standard Emacs)
+         ((eq syntax-before ?\))
+          (setq match-pos (ignore-errors (scan-sexps pos -1)))
+          (setq label "Opening: ")))
+
+        ;; 2. RETRIEVE CONTENT IF OFF-SCREEN
+        (when (and match-pos 
+                   label
+                   (not (pos-visible-in-window-p match-pos)))
+          (with-current-buffer (current-buffer)
+            (save-excursion
+              (goto-char match-pos)
+              (setq line-content (string-trim (substring-no-properties (thing-at-point 'line t)))))))
+
+        ;; 3. DISPLAY
+        (when line-content
+          (funcall callback 
+                   (concat
+                    (propertize label 'face '(:inherit shadow :weight bold))
+                    (propertize line-content 'face '(:inherit font-lock-keyword-face :weight bold))))))))
+
+  ;; Register with ElDoc (High Priority -50) to appear before general docs
+  (add-hook 'eldoc-mode-hook
+            (lambda ()
+              (add-hook 'eldoc-documentation-functions #'ar/paren-eldoc-offscreen-context -50 t))))
 #+end_src
 
 ** Highlight TODO and similar keywords in comments and strings
 #+begin_src emacs-lisp
 (use-package hl-todo
   :defer t
-  ;; Ensure this custom command is known to Emacs before the package loads, so your 'SPC s T' keybinding works immediately.
   :commands (hl-todo-rg-project)
   
   :custom-face
-  ;; Visual Style: Inherit default font, make bold/condensed,
-  ;; and explicitly disable the background box (:inverse-video nil).
   (hl-todo ((t (:inherit default :height 0.9 :width condensed :weight bold :underline nil :inverse-video nil))))
   
   :hook ((elpaca-after-init . global-hl-todo-mode)
-         ;; Explicitly enable in Org mode so it highlights keywords in
-         ;; body text, comments, and lists (not just code blocks).
          (org-mode . hl-todo-mode))
   
   :init
-  ;; CRITICAL: This setting prevents hl-todo from clashing with Org headlines.
-  ;; Standard Org headlines (* TODO Task) do NOT have a colon.
-  ;; hl-todo will only trigger on "TODO:", "FIXME:", etc.
   (setq hl-todo-require-punctuation t
         hl-todo-highlight-punctuation ":")
   
@@ -3105,26 +3160,23 @@ targets."
 #+begin_src emacs-lisp
 (use-package cape
   :defer t
-  :commands (cape-file cape-elisp-block cape-keyword)
+  :commands (cape-file cape-elisp-block cape-keyword cape-file cape-tex)
   :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
   :autoload (cape-wrap-silent cape-wrap-purify)
   :init
-  ;; CRITICAL FIX: Use add-hook properly with APPEND argument
-  ;; When APPEND is nil (or omitted), functions are added to the FRONT
-  ;; When APPEND is non-nil, functions are added to the END
   (add-hook 'completion-at-point-functions #'cape-elisp-block 10)
   (add-hook 'completion-at-point-functions #'cape-keyword 30)
   (add-hook 'completion-at-point-functions #'cape-file 40)  
   (add-hook 'completion-at-point-functions #'cape-dabbrev 50)
+  (add-hook 'completion-at-point-functions #'cape-dict 60)
+  (add-hook 'completion-at-point-functions #'cape-tex 70)
 
-  
   ;; Make these capfs composable.
   (advice-add #'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
   (advice-add #'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive)
-  )
+  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
 #+end_src
 
 ** Dabbrev
@@ -3135,6 +3187,7 @@ targets."
   (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
   (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
   (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'vterm-mode)
   (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
 #+end_src
 
@@ -3989,6 +4042,7 @@ targets."
 ** Magit: The Core Git Client
 #+begin_src emacs-lisp
 (use-package transient :defer t)
+(use-package llama :defer t)
 
 (use-package magit
   :defer t
@@ -4053,6 +4107,98 @@ targets."
   (git-gutter-fr:deleted  ((t (:foreground "#f7768e")))))
 #+end_src
 
+** Git-Timemachine
+#+begin_src emacs-lisp
+;; (use-package git-timemachine
+;;   :defer t
+;;   :commands (git-timemachine git-timemachine-toggle)
+;;   :custom
+;;   (git-timemachine-abbreviation-length 7)
+;;   (git-timemachine-show-minibuffer-details t)
+
+;; ;;  :custom-face
+;; ;;  (git-timemachine-commit ((t (:foreground "#7aa2f7" :weight bold))))
+;; ;;  (git-timemachine-minibuffer-detail-face ((t (:foreground "#c0caf5"))))
+;; ;;  (git-timemachine-minibuffer-author-face ((t (:foreground "#bb9af7"))))
+  
+;;   :init
+;;   (with-eval-after-load 'lsp-mode
+;;     (add-to-list 'lsp-diagnostics-disabled-modes 'git-timemachine-mode))
+  
+;;   :config
+;;   (defun ar/git-timemachine-setup ()
+;;     "Disable interfering modes when entering git-timemachine."
+;;     (when (bound-and-true-p git-gutter-mode)
+;;       (git-gutter-mode -1)
+;;       (setq-local ar/git-gutter-was-active t))
+;;     (read-only-mode 1))
+  
+;;   (defun ar/git-timemachine-teardown ()
+;;     "Re-enable modes when exiting git-timemachine."
+;;     (when (bound-and-true-p ar/git-gutter-was-active)
+;;       (git-gutter-mode 1)
+;;       (kill-local-variable 'ar/git-gutter-was-active))
+;;     (read-only-mode -1))
+  
+;;   (add-hook 'git-timemachine-mode-hook #'ar/git-timemachine-setup)
+;;   (add-hook 'git-timemachine-mode-exit-hook #'ar/git-timemachine-teardown))
+#+end_src
+
+** Hydra Specific
+#+begin_src emacs-lisp
+(pretty-hydra-define version-control-hydra
+  (:title (pretty-hydra-title "Version Control" 'octicon "nf-oct-git_branch" :face 'nerd-icons-green)
+   :color amaranth
+   :quit-key ("q" "C-g"))
+  
+  ("Magit Core"
+   (("s" magit-status "status" :exit t)
+    ("c" magit-commit "commit" :exit t)
+    ("C" magit-commit-amend "amend" :exit t)
+    ("p" magit-push-current-to-pushremote "push")
+    ("P" magit-pull-from-upstream "pull")
+    ("f" magit-fetch "fetch")
+    ("F" magit-fetch-all "fetch all"))
+   
+   "Branch & Log"
+   (("b" magit-branch "branches" :exit t)
+    ("B" magit-checkout "checkout" :exit t)
+    ("m" magit-merge "merge" :exit t)
+    ("r" magit-rebase "rebase" :exit t)
+    ("l" magit-log-buffer-file "log file" :exit t)
+    ("L" magit-log-current "log branch" :exit t))
+   
+   "Diff & Stage"
+   (("d" magit-diff-unstaged "diff unstaged" :exit t)
+    ("D" magit-diff-staged "diff staged" :exit t)
+    ("S" magit-stage-file "stage file")
+    ("u" magit-unstage-file "unstage file")
+    ("U" magit-unstage-all "unstage all"))
+   
+   "Hunk Navigation"
+   (("n" git-gutter:next-hunk "next hunk")
+    ("N" git-gutter:previous-hunk "prev hunk")
+    ("h" git-gutter:popup-hunk "preview")
+    ("a" git-gutter:stage-hunk "stage")
+    ("v" git-gutter:revert-hunk "revert"))
+   
+   "Timemachine"
+   (("t" git-timemachine-toggle "toggle" :toggle git-timemachine-mode)
+    ("j" git-timemachine-show-next-revision "next")
+    ("k" git-timemachine-show-previous-revision "previous")
+    ("w" git-timemachine-kill-abbreviated-revision "copy hash")
+    ("W" git-timemachine-kill-revision "copy full hash")
+    ("y" git-timemachine-show-commit "show" :exit t))
+   
+   "Advanced"
+   (("z" magit-stash "stash" :exit t)
+    ("Z" magit-stash-pop "stash pop" :exit t)
+    ("x" magit-reset "reset" :exit t)
+    ("!" magit-run "run cmd" :exit t)
+    ("R" magit-refresh "refresh")
+    ("?" magit-dispatch "dispatch" :exit t))))
+#+end_src
+
 * Treemacs
 #+begin_src emacs-lisp
 (use-package treemacs
@@ -4115,115 +4261,132 @@ targets."
 #+begin_src emacs-lisp
 (use-package markdown-mode
   :defer t
-  :mode (("README\\.md\\'" . gfm-mode))
+  :mode (("README\\.md\\'" . gfm-mode)
+         ("\\.md\\'" . markdown-mode)
+         ("\\.markdown\\'" . markdown-mode))
   :init
-  (setq markdown-enable-wiki-links t
-        markdown-italic-underscore t
+  ;; Basic settings
+  (setq markdown-italic-underscore t
         markdown-asymmetric-header t
-        markdown-make-gfm-checkboxes-buttons t
-        markdown-gfm-uppercase-checkbox t
         markdown-fontify-code-blocks-natively t
+        markdown-gfm-uppercase-checkbox t
+        markdown-enable-math nil
+        markdown-header-scaling t
+        markdown-header-scaling-values '(1.2 1.15 1.1 1.05 1.0 1.0)
+        markdown-display-message nil
+        markdown-hide-urls t
+        markdown-hide-markup t)
 
-        markdown-content-type "application/xhtml+xml"
-        markdown-css-paths '("https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"
-                             "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css")
-        markdown-xhtml-header-content "
-<meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'>
-<style>
-body {
-  box-sizing: border-box;
-  max-width: 740px;
-  width: 100%;
-  margin: 40px auto;
-  padding: 0 10px;
-}
-</style>
+  ;; List indentation
+  (setq markdown-list-indent-width 2)
+  
+  ;; Performance optimizations
+  (setq markdown-fontify-whole-heading-line nil
+        markdown-fontify-quote-and-verse-blocks nil)
+  
+  ;; FIX: Set imenu expression to the simple version to avoid void variable error
+  (setq markdown-imenu-generic-expression 
+        '(("^\\(.*\\)[ \t]*\n=+$" 1)
+          ("^\\(.*\\)[ \t]*\n-+$" 1)
+          ("^\\(#+ .*\\)" 1)))
 
-<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/default.min.css'>
-<script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  document.body.classList.add('markdown-body');
-  document.querySelectorAll('pre code').forEach((code) => {
-    if (code.className != 'mermaid') {
-      hljs.highlightBlock(code);
-    }
-  });
-});
-</script>
+  :hook ((markdown-mode . visual-line-mode)
+         (markdown-mode . ar/markdown-setup-rendering))
 
-<script src='https://unpkg.com/mermaid@8.4.8/dist/mermaid.min.js'></script>
-<script>
-mermaid.initialize({
-  theme: 'default',  // default, forest, dark, neutral
-  startOnLoad: true
-});
-</script>
-"
-        markdown-gfm-additional-languages "Mermaid")
-
-  ;; `multimarkdown' is necessary for `highlight.js' and `mermaid.js'
-  (when (executable-find "multimarkdown")
-    (setq markdown-command "multimarkdown"))
   :config
-  ;; Support `mermaid'
-  (add-to-list 'markdown-code-lang-modes '("mermaid" . mermaid-mode))
+  ;; REMOVED: All gfm-mode specific settings as they are not needed
+  
+  ;; FIX: Dynamic markup toggle using text properties (proper method)
+  (defun ar/markdown-in-element-p ()
+    "Check if point is inside a markdown element that should show raw markup.
+Uses text properties to detect code, emphasis, and links."
+    (let ((face (get-text-property (point) 'face)))
+      (or
+       ;; Check for code blocks and inline code
+       (and face 
+            (or (eq face 'markdown-code-face)
+                (eq face 'markdown-inline-code-face)
+                (eq face 'markdown-pre-face)
+                (eq face 'markdown-gfm-code-block-face)
+                (and (listp face)
+                     (or (memq 'markdown-code-face face)
+                         (memq 'markdown-inline-code-face face)
+                         (memq 'markdown-pre-face face)
+                         (memq 'markdown-gfm-code-block-face face)))))
+       ;; Check for emphasis (bold, italic)
+       (and face
+            (or (eq face 'markdown-bold-face)
+                (eq face 'markdown-italic-face)
+                (and (listp face)
+                     (or (memq 'markdown-bold-face face)
+                         (memq 'markdown-italic-face face)))))
+       ;; Check for links
+       (and face
+            (or (eq face 'markdown-link-face)
+                (eq face 'markdown-url-face)
+                (and (listp face)
+                     (or (memq 'markdown-link-face face)
+                         (memq 'markdown-url-face face)))))
+       ;; Check if we're on markup characters themselves
+       (save-excursion
+         (and (looking-at-p "[*_`\\[\\]()]")
+              (or (looking-back "[*_`]" 1)
+                  (looking-at "[*_`]")))))))
+  
+  (defun ar/markdown-toggle-markup-at-point ()
+    "Toggle markup hiding based on cursor position.
+Shows markup when cursor is inside markdown elements."
+    (when (derived-mode-p 'markdown-mode)
+      (if (ar/markdown-in-element-p)
+          ;; Inside element: show markup locally
+          (remove-text-properties (line-beginning-position) (line-end-position)
+                                '(display nil composition nil))
+        ;; Outside element: restore hiding if enabled globally
+        (when markdown-hide-markup
+          (font-lock-flush (line-beginning-position) (line-end-position))))))
+  
+  (defun ar/markdown-setup-rendering ()
+    "Setup cursor-based markup visibility toggling."
+    ;; Use post-command-hook for immediate response
+    (add-hook 'post-command-hook #'ar/markdown-toggle-markup-at-point nil t))
+  
+  ;; FIX: Make checkboxes appear filled
+  (defface ar/markdown-checkbox-face
+    '((t (:inherit markdown-list-face :box (:line-width 1 :style released-button))))
+    "Face for markdown checkboxes."
+    :group 'markdown-faces)
+  
+  (defun ar/markdown-fontify-checkboxes (last)
+    "Fontify checkboxes with custom appearance up to LAST."
+    (when (markdown-match-generic-metadata "^[ \t]*- \\[[ X]\\]" last)
+      (let ((checkbox-begin (match-beginning 0))
+            (checkbox-end (match-end 0))
+            (checkbox-state (match-string 0)))
+        (if (string-match-p "\\[X\\]" checkbox-state)
+            ;; Checked checkbox - use filled square
+            (compose-region (+ checkbox-begin 2) (+ checkbox-begin 5) "☑")
+          ;; Unchecked checkbox - use empty square  
+          (compose-region (+ checkbox-begin 2) (+ checkbox-begin 5) "☐"))
+        (add-text-properties checkbox-begin checkbox-end
+                           '(face ar/markdown-checkbox-face)))
+      t))
+  
+  ;; Add checkbox fontification to markdown
+  (font-lock-add-keywords 'markdown-mode
+                         '((ar/markdown-fontify-checkboxes)) 'append)
+  
+  ;; Additional keybindings
+  (define-key markdown-mode-map (kbd "C-c C-x C-m") #'markdown-toggle-markup-hiding))
+#+end_src
 
-  (with-no-warnings
-    ;; Use `which-key' instead
-    (advice-add #'markdown--command-map-prompt :override #'ignore)
-    (advice-add #'markdown--style-map-prompt   :override #'ignore)
-
-   ))
-
-;; Table of contents
+#+begin_src emacs-lisp
 (use-package markdown-toc
   :defer t
-  :bind (:map markdown-mode-command-map
-         ("r" . markdown-toc-generate-or-refresh-toc))
+  ;; NOTE: :after is NOT needed because :hook already ensures markdown-mode is loaded
   :hook (markdown-mode . markdown-toc-mode)
-  :init (setq markdown-toc-indentation-space 2
-              markdown-toc-header-toc-title "\n## Table of Contents"
-              markdown-toc-user-toc-structure-manipulation-fn 'cdr)
   :config
-  (with-no-warnings
-    (define-advice markdown-toc-generate-toc (:around (fn &rest args) lsp)
-      "Generate or refresh toc after disabling lsp."
-      (cond
-       ((bound-and-true-p lsp-managed-mode)
-        (lsp-managed-mode -1)
-        (apply fn args)
-        (lsp-managed-mode 1))
-       ((bound-and-true-p eglot--manage-mode)
-        (eglot--manage-mode -1)
-        (apply fn args)
-        (eglot--manage-mode 1))
-       (t
-        (apply fn args))))))
-
-;; Preview markdown files
-;; @see https://github.com/seagle0128/grip-mode?tab=readme-ov-file#prerequisite
-(use-package grip-mode
-  :defer t
-  :defines markdown-mode-command-map org-mode-map grip-update-after-change grip-use-mdopen
-  :functions auth-source-user-and-password
-  :autoload grip-mode
-  :init
-  (with-eval-after-load 'markdown-mode
-    (bind-key "g" #'grip-mode markdown-mode-command-map))
-
-  (with-eval-after-load 'org
-    (bind-key "C-c C-g" #'grip-mode org-mode-map))
-
-  (setq grip-update-after-change nil)
-
-  ;; mdopen doesn't need credentials, and only support external browsers
-  (if (executable-find "mdopen")
-      (setq grip-use-mdopen t)
-    (when-let* ((credential (and (require 'auth-source nil t)
-                                 (auth-source-user-and-password "api.github.com"))))
-      (setq grip-github-user (car credential)
-            grip-github-password (cadr credential)))))
+  (setq markdown-toc-header-toc-title "\n## Table of Contents"
+        markdown-toc-user-toc-structure-manipulation-fn 'cdr))
 #+end_src
 
 * Reader
@@ -4318,7 +4481,6 @@ mermaid.initialize({
   :defer t
   :defines (lsp-diagnostics-disabled-modes lsp-clients-python-library-directories)
   :autoload lsp-enable-which-key-integration
-  :commands (lsp-format-buffer lsp-organize-imports)
   :hook ((prog-mode . (lambda ()
                        (unless (derived-mode-p
                                 'emacs-lisp-mode 'lisp-mode
@@ -4326,15 +4488,8 @@ mermaid.initialize({
                                 'ron-mode)
                          (lsp-deferred))))
          ((markdown-mode yaml-mode yaml-ts-mode) . lsp-deferred)
-         (lsp-mode . (lambda ()
-                       ;; Integrate `which-key'
-                      (lsp-enable-which-key-integration)
-
-                      ;; Format and organize imports
-                      (when (and my-lsp-format-on-save
-                                 (not (apply #'derived-mode-p my-lsp-format-on-save-ignore-modes)))
-                        (add-hook 'before-save-hook #'lsp-format-buffer t t)
-                        (add-hook 'before-save-hook #'lsp-organize-imports t t)))))
+         ;; Formatting logic removed from here to let Apheleia handle it exclusively
+         (lsp-mode . lsp-enable-which-key-integration))
   :bind (:map lsp-mode-map
          ("C-c C-d" . lsp-describe-thing-at-point)
          ([remap xref-find-definitions] . lsp-find-definition)
@@ -4345,26 +4500,24 @@ mermaid.initialize({
               lsp-keymap-prefix "C-c l"
               lsp-keep-workspace-alive nil
               lsp-signature-auto-activate nil
+              
               lsp-modeline-code-actions-enable nil
               lsp-modeline-diagnostics-enable nil
-              lsp-modeline-workspace-status-enable nil
+              lsp-modeline-workspace-status-enable nil 
+              lsp-progress-spinner-type nil
 
               lsp-semantic-tokens-enable t
-              lsp-progress-spinner-type 'progress-bar-filled
-
               lsp-enable-file-watchers nil
               lsp-enable-folding nil
               lsp-enable-symbol-highlighting nil
               lsp-enable-text-document-color nil
-
+              
+              ;; CRITICAL: Disable LSP formatting/indentation to defer to Apheleia/Major Mode
               lsp-enable-indentation nil
               lsp-enable-on-type-formatting nil
 
               ;; For diagnostics
-              lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode)
-
-              ;; For clients
-              lsp-clients-python-library-directories '("/usr/local/" "/usr/"))
+              lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode))
   :config
 
   (with-no-warnings
@@ -4503,7 +4656,6 @@ mermaid.initialize({
     (setq lsp-ui-doc-border
           (face-background 'posframe-border nil t)))
   (my-lsp-ui-doc-set-border)
-  (add-hook 'after-load-theme-hook #'my-lsp-ui-doc-set-border t)
   :config
   (with-no-warnings
     ;; Display peek in child frame if possible
@@ -4793,6 +4945,20 @@ mermaid.initialize({
   (eval `(lsp-org-babel-enable ,lang)))
 #+end_src
 
+*** Org Src Context
+#+begin_src emacs-lisp
+(use-package org-src-context
+  :ensure (:host github :repo "karthink/org-src-context")
+  :hook (org-src-mode . org-src-context-mode)
+  :init
+  (setq org-src-context-method 'inject)
+  :config
+  (defun ar/disable-apheleia-in-context-buffers ()
+    (when (bound-and-true-p org-src-context-mode)
+      (apheleia-mode -1)))
+  (add-hook 'org-src-mode-hook #'ar/disable-apheleia-in-context-buffers 100))
+#+end_src
+
 ** DAP
 #+begin_src emacs-lisp
 (use-package dape
@@ -4870,9 +5036,42 @@ mermaid.initialize({
 ** Formatting
 #+begin_src emacs-lisp
 (use-package apheleia
-  :defer t
+  :ensure t
+  :hook (elpaca-after-init . apheleia-global-mode)
   :config
-  (apheleia-global-mode +1))
+  ;; 1. Enable Apheleia in Org Source Buffers
+  ;; This allows manual formatting (C-x C-s) and prepares for the exit hook.
+  (add-hook 'org-src-mode-hook #'apheleia-mode)
+
+  ;; 2. Define a Synchronous Formatter for Org Exit
+  (defun ar/apheleia-format-on-org-exit (orig-fun &rest args)
+    "Run Apheleia formatting synchronously before exiting Org Src mode.
+    This prevents the buffer from being killed before the async formatter finishes."
+    ;; Only run if Apheleia is enabled in this buffer
+    (if (and (bound-and-true-p apheleia-mode)
+             (fboundp 'apheleia-format-buffer))
+        (progn
+          ;; CRITICAL FIX: Use 'call-interactively' to let Apheleia determine 
+          ;; the correct formatter argument automatically.
+          (call-interactively 'apheleia-format-buffer)
+          
+          ;; Wait for the async process to complete.
+          ;; Apheleia stores the active process in `apheleia--current-process`.
+          ;; We wait loop until this process is dead or nil.
+          (when (boundp 'apheleia--current-process)
+            (let ((proc apheleia--current-process))
+              (when (processp proc)
+                (while (process-live-p proc)
+                  (accept-process-output proc 0.1))))))
+      ;; If Apheleia isn't active, do nothing
+      )
+    
+    ;; 3. Proceed with the original exit function (which saves to parent and kills buffer)
+    (apply orig-fun args))
+
+  ;; 4. Apply the Advice to the Exit Command
+  ;; This ensures formatting happens every time you press C-c ' to save & exit.
+  (advice-add 'org-edit-src-exit :around #'ar/apheleia-format-on-org-exit))
 #+end_src
 
 * Utils
@@ -5639,13 +5838,15 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
     "g L" '(magit-log-current :wk "Log current branch")
     "g d" '(magit-diff-unstaged :wk "Diff")
     "g f" '(magit-fetch :wk "Fetch")
+    "g h" '(version-control-hydra/body :wk "VC hydra")
     "g m" '(magit-merge :wk "Merge")
     "g r" '(magit-rebase :wk "Rebase")
+    "g t" '(git-timemachine-toggle :wk "Timemachine")
     "g n" '(git-gutter:next-hunk :wk "Next hunk")
     "g N" '(git-gutter:previous-hunk :wk "Previous hunk")
     "g S" '(git-gutter:stage-hunk :wk "Stage hunk")
     "g R" '(git-gutter:revert-hunk :wk "Revert hunk")
-    "g h" '(git-gutter:popup-hunk :wk "Preview hunk"))
+    "g H" '(git-gutter:popup-hunk :wk "Preview hunk"))
 
   ;; Register/Bookmark operations (SPC r)
   (ar/global-leader
@@ -5849,8 +6050,8 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
   ;; Move text up and down
   (general-define-key
    :states '(normal visual insert)
-    "M-j" 'move-text-down
-    "M-k" 'move-text-up)
+   "M-j" 'move-text-down
+   "M-k" 'move-text-up)
   
   (ar/local-leader
     :keymaps 'org-mode-map
