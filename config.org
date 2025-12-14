@@ -4110,40 +4110,43 @@ targets."
 ** Git-Timemachine
 #+begin_src emacs-lisp
 (use-package git-timemachine
-     :ensure (:host codeberg :repo "pidu/git-timemachine")
-:defer t
-:commands (git-timemachine git-timemachine-toggle)
-:custom
-(git-timemachine-abbreviation-length 7)
-(git-timemachine-show-minibuffer-details t)
+  :ensure (git-timemachine
+           :host codeberg
+           :repo "pidu/git-timemachine"
+           :build (:not elpaca--byte-compil))
+  :defer t
+  :commands (git-timemachine git-timemachine-toggle)
+  :init
+  ;; Double-safety: Explicitly deny JIT native compilation for this file
+  (ignore-errors
+    (with-eval-after-load 'comp
+      (add-to-list 'native-comp-deferred-compilation-deny-list "git-timemachine")))
 
-  :custom-face
-  (git-timemachine-commit ((t (:foreground "#7aa2f7" :weight bold))))
-  (git-timemachine-minibuffer-detail-face ((t (:foreground "#c0caf5"))))
-  (git-timemachine-minibuffer-author-face ((t (:foreground "#bb9af7"))))
+  ;; Original exclusion logic
+  (with-eval-after-load 'lsp-mode
+    (add-to-list 'lsp-diagnostics-disabled-modes 'git-timemachine-mode))
 
-:init
-(with-eval-after-load 'lsp-mode
-  (add-to-list 'lsp-diagnostics-disabled-modes 'git-timemachine-mode))
+  :custom
+  (git-timemachine-abbreviation-length 7)
+  (git-timemachine-show-minibuffer-details t)
 
-:config
-(defun ar/git-timemachine-setup ()
-  "Disable interfering modes when entering git-timemachine."
-  (when (bound-and-true-p git-gutter-mode)
-    (git-gutter-mode -1)
-    (setq-local ar/git-gutter-was-active t))
-  (read-only-mode 1))
+  :config
+  (defun ar/git-timemachine-setup ()
+    "Disable interfering modes when entering git-timemachine."
+    (when (bound-and-true-p git-gutter-mode)
+      (git-gutter-mode -1)
+      (setq-local ar/git-gutter-was-active t))
+    (read-only-mode 1))
 
-(defun ar/git-timemachine-teardown ()
-  "Re-enable modes when exiting git-timemachine."
-  (when (bound-and-true-p ar/git-gutter-was-active)
-    (git-gutter-mode 1)
-    (kill-local-variable 'ar/git-gutter-was-active))
-  (read-only-mode -1))
+  (defun ar/git-timemachine-teardown ()
+    "Re-enable modes when exiting git-timemachine."
+    (when (bound-and-true-p ar/git-gutter-was-active)
+      (git-gutter-mode 1)
+      (kill-local-variable 'ar/git-gutter-was-active))
+    (read-only-mode -1))
 
-(add-hook 'git-timemachine-mode-hook #'ar/git-timemachi
-  ne-setup)
-(add-hook 'git-timemachine-mode-exit-hook #'ar/git-timemachine-teardown))
+  (add-hook 'git-timemachine-mode-hook #'ar/git-timemachine-setup)
+  (add-hook 'git-timemachine-mode-exit-hook #'ar/git-timemachine-teardown))
 #+end_src
 
 ** Hydra Specific
