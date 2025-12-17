@@ -4621,10 +4621,10 @@ Shows markup when cursor is inside markdown elements."
                                 'ron-mode)
                          (lsp-deferred))))
          ((markdown-mode yaml-mode yaml-ts-mode) . lsp-deferred)
-         ;; Formatting logic removed from here to let Apheleia handle it exclusively
          (lsp-mode . lsp-enable-which-key-integration))
   :bind (:map lsp-mode-map
          ("C-c C-d" . lsp-describe-thing-at-point)
+         ("C-c l h" . lsp-mode-hydra/body)
          ([remap xref-find-definitions] . lsp-find-definition)
          ([remap xref-find-references] . lsp-find-references))
   :init (setq lsp-use-plists t
@@ -4645,29 +4645,76 @@ Shows markup when cursor is inside markdown elements."
               lsp-enable-symbol-highlighting nil
               lsp-enable-text-document-color nil
               
-              ;; CRITICAL: Disable LSP formatting/indentation to defer to Apheleia/Major Mode
               lsp-enable-indentation nil
               lsp-enable-on-type-formatting nil
 
-              ;; For diagnostics
               lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode))
+  
+:pretty-hydra
+((:title (pretty-hydra-title "LSP Mode" 'codicon "nf-cod-code" :face 'nerd-icons-blue)
+  :color amaranth
+  :quit-key ("q" "C-g"))
+ ("Navigation"
+  (("d" lsp-find-definition "definition")
+   ("D" lsp-find-declaration "declaration")
+   ("y" lsp-find-type-definition "type definition")
+   ("r" lsp-find-references "references")
+   ("i" lsp-find-implementation "implementation")
+   ("h" lsp-describe-thing-at-point "describe")
+   ("s" consult-lsp-symbols "symbols")
+   ("I" lsp-ui-imenu "imenu" :exit t))
+  
+  "Refactoring"
+  (("R" lsp-rename "rename")
+   ("a" lsp-execute-code-action "code action")
+   ("o" lsp-organize-imports "organize imports")
+   ("f" lsp-format-buffer "format buffer")
+   ("F" lsp-format-region "format region"))
+  
+  "Workspace"
+  (("w r" lsp-workspace-restart "restart")
+   ("w s" lsp-workspace-shutdown "shutdown")
+   ("w d" lsp-describe-session "describe")
+   ("w D" lsp-disconnect "disconnect")
+   ("w a" lsp-workspace-folders-add "add folder")
+   ("w x" lsp-workspace-folders-remove "remove folder")
+   ("w b" lsp-workspace-blacklist-remove "unblacklist"))
+  
+  "Toggles"
+  (("T h" lsp-toggle-symbol-highlight "highlight" :toggle lsp-enable-symbol-highlighting)
+   ("T l" lsp-lens-mode "lens" :toggle lsp-lens-mode)
+   ("T b" lsp-headerline-breadcrumb-mode "breadcrumb" :toggle lsp-headerline-breadcrumb-mode)
+   ("T f" lsp-toggle-on-type-formatting "on-type format" :toggle lsp-enable-on-type-formatting)
+   ("T s" lsp-toggle-signature-auto-activate "signature" :toggle lsp-signature-auto-activate))
+  
+  "Diagnostics"
+  (("e l" lsp-treemacs-errors-list "error list" :exit t)
+   ("e n" flycheck-next-error "next error")
+   ("e p" flycheck-previous-error "prev error")
+   ("e c" flycheck-clear "clear")
+   ("e b" flycheck-buffer "check buffer")
+   ("e e" consult-flycheck "consult errors" :exit t))
+  
+  "Actions"
+  (("TAB" lsp-treemacs-symbols "symbols tree" :exit t)
+   ("C" lsp-treemacs-call-hierarchy "call hierarchy" :exit t)
+   ("t" lsp-treemacs-type-hierarchy "type hierarchy" :exit t)
+   ("u" lsp-ui-hydra/body "LSP UI" :exit t)
+   ("?" lsp-describe-session "info" :exit t))))
+  
   :config
-
   (with-no-warnings
-    ;; Disable `lsp-mode' in `git-timemachine-mode'
     (defun my-lsp--init-if-visible (fn &rest args)
       (unless (bound-and-true-p git-timemachine-mode)
         (apply fn args)))
     (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible)
 
-    ;; Enable `lsp-mode' in sh/bash/zsh
     (defun my-lsp-bash-check-sh-shell (&rest _)
       (and (memq major-mode '(sh-mode bash-ts-mode))
            (memq sh-shell '(sh bash zsh))))
     (advice-add #'lsp-bash-check-sh-shell :override #'my-lsp-bash-check-sh-shell)
     (add-to-list 'lsp-language-id-configuration '(bash-ts-mode . "shellscript"))
 
-    ;; Display icons
     (when (icons-displayable-p)
       (defun my-lsp-icons-get-by-file-ext (file-ext &optional feature)
         (when (and file-ext
@@ -4715,57 +4762,61 @@ Shows markup when cursor is inside markdown elements."
   :defer t
   :custom-face
   (lsp-ui-sideline-code-action ((t (:inherit warning))))
-  :pretty-hydra
-  ((:title (pretty-hydra-title "LSP UI" 'faicon "nf-fa-rocket" :face 'nerd-icons-green)
-    :color amaranth :quit-key ("q" "C-g"))
-   ("Doc"
-    (("d e" (progn
-              (lsp-ui-doc-enable (not lsp-ui-doc-mode))
-              (setq lsp-ui-doc-enable (not lsp-ui-doc-enable)))
-      "enable" :toggle lsp-ui-doc-mode)
-     ("d s" (setq lsp-ui-doc-include-signature (not lsp-ui-doc-include-signature))
-      "signature" :toggle lsp-ui-doc-include-signature)
-     ("d t" (setq lsp-ui-doc-position 'top)
-      "top" :toggle (eq lsp-ui-doc-position 'top))
-     ("d b" (setq lsp-ui-doc-position 'bottom)
-      "bottom" :toggle (eq lsp-ui-doc-position 'bottom))
-     ("d p" (setq lsp-ui-doc-position 'at-point)
-      "at point" :toggle (eq lsp-ui-doc-position 'at-point))
-     ("d h" (setq lsp-ui-doc-header (not lsp-ui-doc-header))
-      "header" :toggle lsp-ui-doc-header)
-     ("d f" (setq lsp-ui-doc-alignment 'frame)
-      "align frame" :toggle (eq lsp-ui-doc-alignment 'frame))
-     ("d w" (setq lsp-ui-doc-alignment 'window)
-      "align window" :toggle (eq lsp-ui-doc-alignment 'window)))
-    "Sideline"
-    (("s e" (progn
-              (lsp-ui-sideline-enable (not lsp-ui-sideline-mode))
-              (setq lsp-ui-sideline-enable (not lsp-ui-sideline-enable)))
-      "enable" :toggle lsp-ui-sideline-mode)
-     ("s h" (setq lsp-ui-sideline-show-hover (not lsp-ui-sideline-show-hover))
-      "hover" :toggle lsp-ui-sideline-show-hover)
-     ("s d" (setq lsp-ui-sideline-show-diagnostics (not lsp-ui-sideline-show-diagnostics))
-      "diagnostics" :toggle lsp-ui-sideline-show-diagnostics)
-     ("s s" (setq lsp-ui-sideline-show-symbol (not lsp-ui-sideline-show-symbol))
-      "symbol" :toggle lsp-ui-sideline-show-symbol)
-     ("s c" (setq lsp-ui-sideline-show-code-actions (not lsp-ui-sideline-show-code-actions))
-     "code actions" :toggle lsp-ui-sideline-show-code-actions)
-     ("s i" (setq lsp-ui-sideline-ignore-duplicate (not lsp-ui-sideline-ignore-duplicate))
-      "ignore duplicate" :toggle lsp-ui-sideline-ignore-duplicate))
-    "Action"
-    (("h" backward-char "←")
-     ("j" next-line "↓")
-     ("k" previous-line "↑")
-     ("l" forward-char "→")
-     ("C-a" mwim-beginning-of-code-or-line nil)
-     ("C-e" mwim-end-of-code-or-line nil)
-     ("C-b" backward-char nil)
-     ("C-n" next-line nil)
-     ("C-p" previous-line nil)
-     ("C-f" forward-char nil)
-     ("M-b" backward-word nil)
-     ("M-f" forward-word nil)
-     ("c" lsp-ui-sideline-apply-code-actions "apply code actions"))))
+:pretty-hydra
+((:title (pretty-hydra-title "LSP UI" 'codicon "nf-cod-symbol_color" :face 'nerd-icons-green)
+  :color amaranth
+  :quit-key ("q" "C-g"))
+ ("Peek"
+  (("p d" lsp-ui-peek-find-definitions "definitions")
+   ("p r" lsp-ui-peek-find-references "references")
+   ("p i" lsp-ui-peek-find-implementation "implementation")
+   ("p s" lsp-ui-peek-find-workspace-symbol "workspace symbol")
+   ("p j" lsp-ui-peek-jump-forward "jump forward")
+   ("p k" lsp-ui-peek-jump-backward "jump backward"))
+  
+  "Doc"
+  (("d s" lsp-ui-doc-show "show")
+   ("d h" lsp-ui-doc-hide "hide")
+   ("d g" lsp-ui-doc-glance "glance")
+   ("d f" lsp-ui-doc-focus-frame "focus")
+   ("d u" lsp-ui-doc-unfocus-frame "unfocus"))
+  
+  "Doc Toggle"
+  (("D e" (progn
+            (lsp-ui-doc-enable (not lsp-ui-doc-mode))
+            (setq lsp-ui-doc-enable (not lsp-ui-doc-enable)))
+    "enable" :toggle lsp-ui-doc-mode)
+   ("D i" (setq lsp-ui-doc-include-signature (not lsp-ui-doc-include-signature))
+    "signature" :toggle lsp-ui-doc-include-signature)
+   ("D h" (setq lsp-ui-doc-header (not lsp-ui-doc-header))
+    "header" :toggle lsp-ui-doc-header))
+  
+  "Doc Position"
+  (("D t" (setq lsp-ui-doc-position 'top) "top")
+   ("D b" (setq lsp-ui-doc-position 'bottom) "bottom")
+   ("D p" (setq lsp-ui-doc-position 'at-point) "at point"))
+  
+  "Sideline"
+  (("s e" (progn
+            (lsp-ui-sideline-enable (not lsp-ui-sideline-mode))
+            (setq lsp-ui-sideline-enable (not lsp-ui-sideline-enable)))
+    "enable" :toggle lsp-ui-sideline-mode)
+   ("s h" (setq lsp-ui-sideline-show-hover (not lsp-ui-sideline-show-hover))
+    "hover" :toggle lsp-ui-sideline-show-hover)
+   ("s d" (setq lsp-ui-sideline-show-diagnostics (not lsp-ui-sideline-show-diagnostics))
+    "diagnostics" :toggle lsp-ui-sideline-show-diagnostics)
+   ("s s" (setq lsp-ui-sideline-show-symbol (not lsp-ui-sideline-show-symbol))
+    "symbol" :toggle lsp-ui-sideline-show-symbol)
+   ("s a" (setq lsp-ui-sideline-show-code-actions (not lsp-ui-sideline-show-code-actions))
+   "code actions" :toggle lsp-ui-sideline-show-code-actions)
+   ("s i" (setq lsp-ui-sideline-ignore-duplicate (not lsp-ui-sideline-ignore-duplicate))
+    "ignore duplicate" :toggle lsp-ui-sideline-ignore-duplicate))
+  
+  "Actions"
+  (("I" lsp-ui-imenu "imenu" :exit t)
+   ("c" lsp-ui-sideline-apply-code-actions "apply code actions")
+   ("m" lsp-mode-hydra/body "LSP Mode" :exit t))))
+  
   :bind (("C-c u" . lsp-ui-imenu)
          :map lsp-ui-mode-map
          ("M-<f6>" . lsp-ui-hydra/body)
@@ -4783,16 +4834,15 @@ Shows markup when cursor is inside markdown elements."
                               ,(face-foreground 'font-lock-string-face)
                               ,(face-foreground 'font-lock-constant-face)
                               ,(face-foreground 'font-lock-variable-name-face)))
-  ;; Set correct color to borders
+  
   (defun my-lsp-ui-doc-set-border ()
     "Set the border color of lsp doc."
     (setq lsp-ui-doc-border
           (face-background 'posframe-border nil t)))
   (my-lsp-ui-doc-set-border)
+  
   :config
   (with-no-warnings
-    ;; Display peek in child frame if possible
-    ;; @see https://github.com/emacs-lsp/lsp-ui/issues/441
     (defvar-local lsp-ui-peek--buffer nil)
     (defun lsp-ui-peek--peek-display (fn src1 src2)
       (if (childframe-workable-p)
@@ -4803,12 +4853,12 @@ Shows markup when cursor is inside markdown elements."
                             (-map-indexed 'lsp-ui-peek--make-line it)
                             (-concat it (lsp-ui-peek--make-footer)))))
             (setq lsp-ui-peek--buffer (get-buffer-create " *lsp-peek--buffer*"))
-           (posframe-show lsp-ui-peek--buffer
-                          :string (mapconcat 'identity string "")
-                          :min-width (frame-width)
-                          :internal-border-color (face-background 'posframe-border nil t)
-                          :internal-border-width 1
-                          :poshandler #'posframe-poshandler-frame-center))
+            (posframe-show lsp-ui-peek--buffer
+                           :string (mapconcat 'identity string "")
+                           :min-width (frame-width)
+                           :internal-border-color (face-background 'posframe-border nil t)
+                           :internal-border-width 1
+                           :poshandler #'posframe-poshandler-frame-center))
         (funcall fn src1 src2)))
     (defun lsp-ui-peek--peek-destroy (fn)
       (if (childframe-workable-p)
@@ -4820,34 +4870,30 @@ Shows markup when cursor is inside markdown elements."
     (advice-add #'lsp-ui-peek--peek-new :around #'lsp-ui-peek--peek-display)
     (advice-add #'lsp-ui-peek--peek-hide :around #'lsp-ui-peek--peek-destroy)
 
-    ;; Handle docs
     (defun my-lsp-ui-doc--handle-hr-lines nil
       (let (bolp next before after)
         (goto-char 1)
         (while (setq next (next-single-property-change (or next 1) 'markdown-hr))
-         (when (get-text-property next 'markdown-hr)
-           (goto-char next)
-           (setq bolp (bolp)
-                 before (char-before))
-           (delete-region (point) (save-excursion (forward-visible-line 1) (point)))
-           (setq after- (char-after (1+ (point))))
-           (insert
-            (concat
-             (and bolp (not (equal before ?\n)) (propertize "\n" 'face '(:height 0.5)))
-             (propertize "\n" 'face '(:height 0.5))
-             (propertize " "
-                         ;; :align-to is added with lsp-ui-doc--fix-hr-props
-                         'display- '(space :height (1))
-                         'lsp-ui-doc--replace-hr t
-                         'face `(:background ,(face-foreground 'font-lock-comment-face nil t)))
-             ;; :align-to is added here too
-             (propertize " " 'display- '(space :height (1)))
-             (and (not (equal after ?\n)) (propertize " \n" 'face '(:height 0.5)))))))))
+          (when (get-text-property next 'markdown-hr)
+            (goto-char next)
+            (setq bolp (bolp)
+                  before (char-before))
+            (delete-region (point) (save-excursion (forward-visible-line 1) (point)))
+            (setq after (char-after (1+ (point))))
+            (insert
+             (concat
+              (and bolp (not (equal before ?\n)) (propertize "\n" 'face '(:height 0.5)))
+              (propertize "\n" 'face '(:height 0.5))
+              (propertize " "
+                          'display '(space :height (1))
+                          'lsp-ui-doc--replace-hr t
+                          'face `(:background ,(face-foreground 'font-lock-comment-face nil t)))
+              (propertize " " 'display '(space :height (1)))
+              (and (not (equal after ?\n)) (propertize " \n" 'face '(:height 0.5)))))))))
     (advice-add #'lsp-ui-doc--handle-hr-lines :override #'my-lsp-ui-doc--handle-hr-lines)))
 #+end_src
 
 *** Consult Integration
-
 #+begin_src emacs-lisp
 (use-package consult-lsp
   :defer t

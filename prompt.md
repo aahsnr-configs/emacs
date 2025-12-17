@@ -220,6 +220,6 @@ This is a series of very important and long tasks.Therefore, search the web and 
 
 1. Your `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
 
-2. Then for your `2nd task`, write a new hydra/pretty-hydra config for the lsp-mode config in Development Tools section in emacs.txt. Then take the hydra/pretty-hydra config from the lsp-ui use-package config in Development Tools as well, and combine the hydra/pretty-hydra configs from both into one well formatted hydra/pretty-hydra. This new combined hydra/pretty-hydra config should also be placed in a separated source code block in LSP Mode subheading in Development Tools. Then rewrite the lsp-mode and lsp-ui configs with the changes. Place the source code blocks for these updated configs in a single markdown code block.
+2. Then for your `2nd task`, write a new hydra/pretty-hydra config for the lsp-mode config in Development Tools section in emacs.txt.
 
 Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding
