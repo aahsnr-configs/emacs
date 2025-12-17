@@ -4039,169 +4039,267 @@ targets."
 #+end_src
 
 * Version Control
-** Magit: The Core Git Client
+** Magit: The Git Porcelain
 #+begin_src emacs-lisp
 (use-package transient :defer t)
-(use-package llama :defer t)
 
 (use-package magit
   :defer t
-  :init
-  (setq magit-auto-revert-mode nil)
-  :commands (magit-status magit-blame)
+  :commands (magit-status magit-blame magit-log-buffer-file)
   :custom
-  ;; For a focused view, display the Magit status buffer in its own frame.
+  ;; Display settings
   (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
-  ;; Automatically save file-visiting buffers before staging changes.
-  (magit-save-repository-buffers 'dont-confirmk))
+  (magit-bury-buffer-function #'magit-restore-window-configuration)
+  
+  ;; Performance
+  (magit-refresh-status-buffer t)
+  (magit-refresh-verbose nil)
+  (magit-git-executable "git")
+  
+  ;; Behavior
+  (magit-save-repository-buffers 'dontask)
+  (magit-commit-ask-to-stage 'stage)
+  (magit-commit-show-diff t)
+  (magit-revision-show-gravatars nil)
+  
+  ;; Diff settings
+  (magit-diff-refine-hunk 'all)
+  (magit-diff-paint-whitespace t)
+  (magit-diff-highlight-trailing t)
+  
+  :config
+  ;; Enable gravatars if desired (requires imagemagick)
+  (when (and (display-graphic-p)
+             (image-type-available-p 'imagemagick))
+    (setq magit-revision-show-gravatars '("^Author:     " . "^Commit:     "))))
 #+end_src
 
-** Forge: Git Forge Integration
+** Forge: GitHub/GitLab Integration
 #+begin_src emacs-lisp
-(use-package forge :defer t :after magit)
-#+end_src
-
-** Magit TODOS
-#+begin_src emacs-lisp
-;; (use-package magit-todos
-;;   :defer t
-;;   :after magit
-;;   :config (magit-todos-mode 1))
-
-;; (with-eval-after-load 'magit
-;;   (add-hook 'magit-log-wash-summary-hook
-;;             #'hl-todo-search-and-highlight t)
-;;   (add-hook 'magit-revision-wash-message-hook
-;;             #'hl-todo-search-and-highlight t))
-#+end_src
-
-** Visual Diff Indicators
-#+begin_src emacs-lisp
-(use-package git-gutter
+(use-package forge
+  :after magit
   :defer t
-  :commands (git-gutter:next-hunk git-gutter:previous-hunk git-gutter:stage-hunk git-gutter:revert-hunk git-gutter:popup-hunk)
-  :hook ((prog-mode . git-gutter-mode)
-         (conf-mode . git-gutter-mode)
-         (org-mode . git-gutter-mode)
-         (markdown-mode . git-gutter-mode))
-  :init
-  (setq git-gutter:update-interval 0.5)
-  ;; Do not ask when reverting a hunk
-  (setq git-gutter:ask-p nil)
   :config
-  ;; Enable globally to catch modes not covered by hooks
-  (global-git-gutter-mode +1))
-
-(use-package git-gutter-fringe
-  :after git-gutter
-  :config
-  ;; These create clean, modern vertical bars in the fringe
-  (define-fringe-bitmap 'git-gutter-fr:added [224] nil nil '(center repeated))
-  (define-fringe-bitmap 'git-gutter-fr:modified [224] nil nil '(center repeated))
-  (define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom)
-
-  ;; Tokyo Night Colors
-  :custom-face
-  (git-gutter-fr:added    ((t (:foreground "#9ece6a")))) 
-  (git-gutter-fr:modified ((t (:foreground "#e0af68")))) 
-  (git-gutter-fr:deleted  ((t (:foreground "#f7768e")))))
+  ;; Configure forge to use sqlite for storage
+  (setq forge-database-connector 'sqlite-builtin))
 #+end_src
 
-** Git-Timemachine
+** Magit Todos: Track TODOs in Commits
+#+begin_src emacs-lisp
+(use-package magit-todos
+  :after magit
+  :defer t
+  :commands (magit-todos-mode)
+  :hook (magit-status-mode . magit-todos-mode)
+  :config
+  (setq magit-todos-keywords-list '("TODO" "FIXME" "HACK" "REVIEW" "NOTE" "DEPRECATED"))
+  
+  ;; Integrate with hl-todo for consistent highlighting
+  (with-eval-after-load 'hl-todo
+    (setq magit-todos-keyword-suffix "\\(?:([^)]+)\\)?:?"))
+  
+  ;; Optional: Custom scanner for better performance
+  (when (executable-find "rg")
+    (setq magit-todos-scanner #'magit-todos--scan-with-rg)))
+#+end_src
+
+** Git-Timemachine: Step Through File History
 #+begin_src emacs-lisp
 (use-package git-timemachine
-  :ensure (git-timemachine
-           :host codeberg
-           :repo "pidu/git-timemachine"
-           :build (:not elpaca--byte-compil))
   :defer t
   :commands (git-timemachine git-timemachine-toggle)
+  
   :init
-  ;; Double-safety: Explicitly deny JIT native compilation for this file
-  (ignore-errors
+  ;; CRITICAL FIX: Only configure native-comp if it's actually available
+  (when (and (fboundp 'native-comp-available-p)
+             (native-comp-available-p))
     (with-eval-after-load 'comp
-      (add-to-list 'native-comp-deferred-compilation-deny-list "git-timemachine")))
-
-  ;; Original exclusion logic
+      (when (boundp 'native-comp-deferred-compilation-deny-list)
+        (add-to-list 'native-comp-deferred-compilation-deny-list "git-timemachine"))))
+  
+  ;; Disable interfering modes
   (with-eval-after-load 'lsp-mode
     (add-to-list 'lsp-diagnostics-disabled-modes 'git-timemachine-mode))
-
+  
   :custom
   (git-timemachine-abbreviation-length 7)
   (git-timemachine-show-minibuffer-details t)
-
+  
   :config
+  ;; Improve integration with other modes
   (defun ar/git-timemachine-setup ()
     "Disable interfering modes when entering git-timemachine."
+    ;; Disable git-gutter to avoid conflicts
     (when (bound-and-true-p git-gutter-mode)
       (git-gutter-mode -1)
       (setq-local ar/git-gutter-was-active t))
+    
+    ;; Disable flycheck/flymake (we're viewing history, not editing)
+    (when (bound-and-true-p flycheck-mode)
+      (flycheck-mode -1)
+      (setq-local ar/flycheck-was-active t))
+    
+    (when (bound-and-true-p flymake-mode)
+      (flymake-mode -1)
+      (setq-local ar/flymake-was-active t))
+    
+    ;; Make buffer read-only
     (read-only-mode 1))
-
+  
   (defun ar/git-timemachine-teardown ()
     "Re-enable modes when exiting git-timemachine."
+    ;; Restore git-gutter
     (when (bound-and-true-p ar/git-gutter-was-active)
       (git-gutter-mode 1)
       (kill-local-variable 'ar/git-gutter-was-active))
+    
+    ;; Restore flycheck
+    (when (bound-and-true-p ar/flycheck-was-active)
+      (flycheck-mode 1)
+      (kill-local-variable 'ar/flycheck-was-active))
+    
+    ;; Restore flymake
+    (when (bound-and-true-p ar/flymake-was-active)
+      (flymake-mode 1)
+      (kill-local-variable 'ar/flymake-was-active))
+    
+    ;; Disable read-only
     (read-only-mode -1))
-
+  
   (add-hook 'git-timemachine-mode-hook #'ar/git-timemachine-setup)
   (add-hook 'git-timemachine-mode-exit-hook #'ar/git-timemachine-teardown))
 #+end_src
 
-** Hydra Specific
+** Git-Gutter: Show Changes in Fringe
 #+begin_src emacs-lisp
-(pretty-hydra-define version-control-hydra
-  (:title (pretty-hydra-title "Version Control" 'octicon "nf-oct-git_branch" :face 'nerd-icons-green)
-   :color amaranth
-   :quit-key ("q" "C-g"))
+(use-package git-gutter
+  :defer t
+  :commands (git-gutter-mode 
+             git-gutter:next-hunk 
+             git-gutter:previous-hunk 
+             git-gutter:stage-hunk 
+             git-gutter:revert-hunk 
+             git-gutter:popup-hunk)
   
-  ("Magit Core"
-   (("s" magit-status "status" :exit t)
-    ("c" magit-commit "commit" :exit t)
-    ("C" magit-commit-amend "amend" :exit t)
-    ("p" magit-push-current-to-pushremote "push")
-    ("P" magit-pull-from-upstream "pull")
-    ("f" magit-fetch "fetch")
-    ("F" magit-fetch-all "fetch all"))
-   
-   "Branch & Log"
-   (("b" magit-branch "branches" :exit t)
-    ("B" magit-checkout "checkout" :exit t)
-    ("m" magit-merge "merge" :exit t)
-    ("r" magit-rebase "rebase" :exit t)
-    ("l" magit-log-buffer-file "log file" :exit t)
-    ("L" magit-log-current "log branch" :exit t))
-   
-   "Diff & Stage"
-   (("d" magit-diff-unstaged "diff unstaged" :exit t)
-    ("D" magit-diff-staged "diff staged" :exit t)
-    ("S" magit-stage-file "stage file")
-    ("u" magit-unstage-file "unstage file")
-    ("U" magit-unstage-all "unstage all"))
-   
-   "Hunk Navigation"
-   (("n" git-gutter:next-hunk "next hunk")
-    ("N" git-gutter:previous-hunk "prev hunk")
-    ("h" git-gutter:popup-hunk "preview")
-    ("a" git-gutter:stage-hunk "stage")
-    ("v" git-gutter:revert-hunk "revert"))
-   
-   "Timemachine"
-   (("t" git-timemachine-toggle "toggle" :toggle git-timemachine-mode)
-    ("j" git-timemachine-show-next-revision "next")
-    ("k" git-timemachine-show-previous-revision "previous")
-    ("w" git-timemachine-kill-abbreviated-revision "copy hash")
-    ("W" git-timemachine-kill-revision "copy full hash")
-    ("y" git-timemachine-show-commit "show" :exit t))
-   
-   "Advanced"
-   (("z" magit-stash "stash" :exit t)
-    ("Z" magit-stash-pop "stash pop" :exit t)
-    ("x" magit-reset "reset" :exit t)
-    ("!" magit-run "run cmd" :exit t)
-    ("R" magit-refresh "refresh")
-    ("?" magit-dispatch "dispatch" :exit t))))
+  :hook ((prog-mode . git-gutter-mode)
+         (conf-mode . git-gutter-mode)
+         (org-mode . git-gutter-mode)
+         (markdown-mode . git-gutter-mode)
+         (text-mode . git-gutter-mode))
+  
+  :init
+  (setq git-gutter:update-interval 0.5
+        git-gutter:ask-p nil
+        git-gutter:modified-sign "▎"
+        git-gutter:added-sign "▎"
+        git-gutter:deleted-sign "▁"
+        git-gutter:hide-gutter t)
+  
+  :config
+  ;; Jump to next/previous hunk with wrapping
+  (defun ar/git-gutter-next-hunk ()
+    "Jump to next hunk, wrapping around."
+    (interactive)
+    (if (git-gutter:search-here-or-after-p (point) t)
+        (git-gutter:next-hunk 1)
+      (progn
+        (goto-char (point-min))
+        (git-gutter:next-hunk 1))))
+  
+  (defun ar/git-gutter-previous-hunk ()
+    "Jump to previous hunk, wrapping around."
+    (interactive)
+    (if (git-gutter:search-here-or-before-p (point))
+        (git-gutter:previous-hunk 1)
+      (progn
+        (goto-char (point-max))
+        (git-gutter:previous-hunk 1))))
+  
+  ;; Enable globally with smart exclusions
+  (global-git-gutter-mode +1))
+#+end_src
+
+** Git-Gutter-Fringe: Better Visual Appearance
+#+begin_src emacs-lisp
+(use-package git-gutter-fringe
+  :after git-gutter
+  :demand t
+  :config
+  ;; Clean, modern vertical bars in the fringe
+  (define-fringe-bitmap 'git-gutter-fr:added 
+    [224] nil nil '(center repeated))
+  (define-fringe-bitmap 'git-gutter-fr:modified 
+    [224] nil nil '(center repeated))
+  (define-fringe-bitmap 'git-gutter-fr:deleted 
+    [128 192 224 240] nil nil 'bottom)
+  
+  ;; Tokyo Night Colors (adjust to match your theme)
+  :custom-face
+  (git-gutter-fr:added    ((t (:foreground "#9ece6a"))))
+  (git-gutter-fr:modified ((t (:foreground "#e0af68"))))
+  (git-gutter-fr:deleted  ((t (:foreground "#f7768e")))))
+#+end_src
+
+** Comprehensive VC Hydra
+#+begin_src emacs-lisp
+(with-eval-after-load 'hydra
+  (pretty-hydra-define version-control-hydra
+    (:title (pretty-hydra-title "Version Control" 'octicon "nf-oct-git_branch" :face 'nerd-icons-green)
+     :color amaranth
+     :quit-key ("q" "C-g"))
+    
+    ("Magit Core"
+     (("s" magit-status "status" :exit t)
+      ("c" magit-commit "commit" :exit t)
+      ("C" magit-commit-amend "amend" :exit t)
+      ("p" magit-push-current-to-pushremote "push")
+      ("P" magit-pull-from-upstream "pull")
+      ("f" magit-fetch "fetch")
+      ("F" magit-fetch-all "fetch all"))
+     
+     "Branch & Log"
+     (("b" magit-branch "branches" :exit t)
+      ("B" magit-checkout "checkout" :exit t)
+      ("m" magit-merge "merge" :exit t)
+      ("r" magit-rebase "rebase" :exit t)
+      ("l" ar/magit-log-buffer-file-and-follow "log file" :exit t)
+      ("L" magit-log-current "log branch" :exit t))
+     
+     "Diff & Stage"
+     (("d" magit-diff-unstaged "diff unstaged" :exit t)
+      ("D" magit-diff-staged "diff staged" :exit t)
+      ("S" magit-stage-file "stage file")
+      ("u" magit-unstage-file "unstage file")
+      ("U" magit-unstage-all "unstage all"))
+     
+     "File History"
+     (("t" git-timemachine-toggle "timemachine" :toggle git-timemachine-mode)
+      ("n" git-timemachine-show-next-revision "next revision" :exit t)
+      ("N" git-timemachine-show-previous-revision "prev revision" :exit t)
+      ("w" git-timemachine-kill-abbreviated-revision "copy hash")
+      ("W" git-timemachine-kill-revision "copy full hash")
+      ("y" git-timemachine-show-commit "show commit" :exit t))
+     
+     "Hunk Navigation"
+     (("j" ar/git-gutter-next-hunk "next hunk")
+      ("k" ar/git-gutter-previous-hunk "prev hunk")
+      ("h" git-gutter:popup-hunk "preview")
+      ("a" git-gutter:stage-hunk "stage")
+      ("v" git-gutter:revert-hunk "revert"))
+     
+     "Blame & Messages"
+     (("A" ar/magit-blame-addition "blame" :exit t)
+      ("M" git-messenger:popup-message "message" :exit t)
+      ("o" browse-at-remote "open remote" :exit t)
+      ("O" git-link "get link" :exit t))
+     
+     "Advanced"
+     (("z" magit-stash "stash" :exit t)
+      ("Z" magit-stash-pop "stash pop" :exit t)
+      ("x" magit-reset "reset" :exit t)
+      ("!" magit-run "run cmd" :exit t)
+      ("R" magit-refresh "refresh")
+      ("?" magit-dispatch "dispatch" :exit t)))))
 #+end_src
 
 * Treemacs
@@ -4285,23 +4383,42 @@ targets."
   ;; List indentation
   (setq markdown-list-indent-width 2)
   
-  ;; Performance optimizations
+  ;; PERFORMANCE OPTIMIZATIONS - Reduce fontification overhead
   (setq markdown-fontify-whole-heading-line nil
         markdown-fontify-quote-and-verse-blocks nil)
   
-  ;; FIX: Set imenu expression to the simple version to avoid void variable error
+  ;; Defer expensive calculations
+  (setq jit-lock-defer-time 0.05  ;; Small delay before fontifying
+        jit-lock-stealth-time 1)   ;; Fontify invisible text after 1s idle
+
+  :hook ((markdown-mode . lsp)
+         (markdown-mode . visual-line-mode)
+         (markdown-mode . ar/markdown-setup-rendering)
+         (markdown-mode . ar/markdown-optimize-fontification))
+
+  :config
+  (require 'lsp-marksman)
+  
+  ;; FIX: Set imenu expression in :config after markdown-mode is loaded
   (setq markdown-imenu-generic-expression 
         '(("^\\(.*\\)[ \t]*\n=+$" 1)
           ("^\\(.*\\)[ \t]*\n-+$" 1)
           ("^\\(#+ .*\\)" 1)))
-
-  :hook ((markdown-mode . visual-line-mode)
-         (markdown-mode . ar/markdown-setup-rendering))
-
-  :config
-  ;; REMOVED: All gfm-mode specific settings as they are not needed
   
-  ;; FIX: Dynamic markup toggle using text properties (proper method)
+  ;; OPTIMIZATION: Reduce fontification frequency
+  (defun ar/markdown-optimize-fontification ()
+    "Optimize font-lock for markdown to reduce sluggishness."
+    ;; Reduce how often font-lock runs
+    (setq-local font-lock-multiline t)
+    (setq-local font-lock-maximum-decoration 2) ;; Reduce decoration level
+    
+    ;; Increase chunk size for jit-lock to reduce calls
+    (setq-local jit-lock-chunk-size 1000)
+    
+    ;; Don't fontify during input
+    (setq-local jit-lock-defer-time 0.1))
+  
+  ;; DYNAMIC RENDERING: Detect when cursor is in markdown element
   (defun ar/markdown-in-element-p ()
     "Check if point is inside a markdown element that should show raw markup.
 Uses text properties to detect code, emphasis, and links."
@@ -4338,24 +4455,38 @@ Uses text properties to detect code, emphasis, and links."
               (or (looking-back "[*_`]" 1)
                   (looking-at "[*_`]")))))))
   
+  ;; ANTI-FLICKER: Throttled markup toggling to prevent rapid refontification
+  (defvar ar/markdown-toggle-timer nil
+    "Timer to throttle markup visibility toggling.")
+  
   (defun ar/markdown-toggle-markup-at-point ()
-    "Toggle markup hiding based on cursor position.
+    "Toggle markup hiding based on cursor position with throttling.
 Shows markup when cursor is inside markdown elements."
     (when (derived-mode-p 'markdown-mode)
-      (if (ar/markdown-in-element-p)
-          ;; Inside element: show markup locally
-          (remove-text-properties (line-beginning-position) (line-end-position)
-                                '(display nil composition nil))
-        ;; Outside element: restore hiding if enabled globally
-        (when markdown-hide-markup
-          (font-lock-flush (line-beginning-position) (line-end-position))))))
+      ;; Cancel any pending toggle
+      (when ar/markdown-toggle-timer
+        (cancel-timer ar/markdown-toggle-timer))
+      
+      ;; Schedule toggle with small delay to batch rapid cursor movements
+      (setq ar/markdown-toggle-timer
+            (run-with-idle-timer 0.05 nil
+              (lambda ()
+                (when (buffer-live-p (current-buffer))
+                  (with-current-buffer (current-buffer)
+                    (if (ar/markdown-in-element-p)
+                        ;; Inside element: show markup on current line only
+                        (remove-text-properties (line-beginning-position) (line-end-position)
+                                              '(display nil composition nil invisible nil))
+                      ;; Outside element: restore hiding if enabled globally
+                      (when markdown-hide-markup
+                        (font-lock-flush (line-beginning-position) (line-end-position)))))))))))
   
   (defun ar/markdown-setup-rendering ()
     "Setup cursor-based markup visibility toggling."
     ;; Use post-command-hook for immediate response
     (add-hook 'post-command-hook #'ar/markdown-toggle-markup-at-point nil t))
   
-  ;; FIX: Make checkboxes appear filled
+  ;; CHECKBOX RENDERING: Make checkboxes appear filled
   (defface ar/markdown-checkbox-face
     '((t (:inherit markdown-list-face :box (:line-width 1 :style released-button))))
     "Face for markdown checkboxes."
@@ -4378,16 +4509,13 @@ Shows markup when cursor is inside markdown elements."
   
   ;; Add checkbox fontification to markdown
   (font-lock-add-keywords 'markdown-mode
-                         '((ar/markdown-fontify-checkboxes)) 'append)
-  
-  ;; Additional keybindings
-  (define-key markdown-mode-map (kbd "C-c C-x C-m") #'markdown-toggle-markup-hiding))
+                         '((ar/markdown-fontify-checkboxes)) 'append))
 #+end_src
 
 #+begin_src emacs-lisp
 (use-package markdown-toc
   :defer t
-  ;; NOTE: :after is NOT needed because :hook already ensures markdown-mode is loaded
+  :after markdown-mode
   :hook (markdown-mode . markdown-toc-mode)
   :config
   (setq markdown-toc-header-toc-title "\n## Table of Contents"
@@ -5754,7 +5882,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
     "t l" '(display-line-numbers-mode :wk "Line numbers")
     "t w" '(whitespace-mode :wk "Whitespace")
     "t f" '(toggle-frame-fullscreen :wk "Fullscreen")
-    "t m" '(toggle-frame-maximized :wk "Maximize")
+    "t m" '(markdown-toggle-markup-hiding :wk "Markdown markup")
     "t t" '(consult-theme :wk "Theme")
     "t v" '(visual-line-mode :wk "Visual line mode")
     "t r" '(rainbow-mode :wk "Rainbow mode")

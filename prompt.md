@@ -160,7 +160,7 @@ This is a series of very important and long tasks. Therefore, search the web and
 
 
 ***
-# First Series 
+# First Series
 this is a series of very important and long tasks.therefore, search the web and the necessary documentations very extensibly before proceed. for these series of tasks, make sure to think longer so as to prevent any errors and issues in the configurations. all the configurations with the changes in their separate markdown code blocks should be presented in the right side of the window. perform each of the following tasks methodically and thoroughly:
 
 1. you `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
@@ -199,3 +199,27 @@ Then repeat the previous task by carefully following the instructions in the pre
 
 
 
+***
+# Fourth Series
+
+  * [ ] This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. All the configurations with the changes in their separate markdown code blocks should be placed in the right side of the window. Perform each of the following tasks methodically and thoroughly:
+
+1. Your `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
+
+2. For your `2nd task` analyze the markdown configuration in the Markdown section of emacs.txt. There are few issues with this configuration. First the `markdown-imenu-generic-expression` is giving a void variable error. Fix that. Next the markdown-mode use-package block itself has config settings for `gfm-mode` but I am not and will not setup gfm-mode so I have no need for gfm-mode settings. So safely remove the settings from the markdown-mode use-package block. The whole markdown setting is setup to immediately render all markdown related elements in the markdown buffer instead of a live preview in a browser like gfm-mode does. But unfortunately there are optimization issues while typing resulting in some general sluggishness. Fix that as well. To be clear, I still want the rendering to be done inside the markdown buffer itself. Next, while I am typing in the markdown file, some text inside emphasis markers seem to be flickering. Fix that as well. Next, the markdown file generally handles rendering markdown all at the same time, but while the cursor is placed in such an element, the rendering remains the same. I want markdown to dynamically toggle the rendering while the cursor is in this element. In other words, I want the rendered to be toggled off only when the cursor is placed in the element. Also setup a mnemonic keybinding for `markdown-toggle-markup-hiding` using general.el in the General Keybindings section using ar/global-leader. Next make `- [ ]`  appear like a filled-in checkbox. Many of the settings changes I mentioned are to replicate the render-markdown.nvim package for neovim. Next for the markdown-toc setting determine if the `:after markdown` line is needed if `:hook (markdown-mode . markdown-toc-mode)` is already set. Then rewrite the whole updated markdown configuration in a separate single markdown code block.
+
+Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding
+
+
+
+
+***
+# Fifth Series
+
+This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. All the configurations with the changes in their separate markdown code blocks should be placed in the right side of the window. Perform each of the following tasks methodically and thoroughly:
+
+1. Your `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
+
+2. Then for your `2nd task`, write a new hydra/pretty-hydra config for the lsp-mode config in Development Tools section in emacs.txt. Then take the hydra/pretty-hydra config from the lsp-ui use-package config in Development Tools as well, and combine the hydra/pretty-hydra configs from both into one well formatted hydra/pretty-hydra. This new combined hydra/pretty-hydra config should also be placed in a separated source code block in LSP Mode subheading in Development Tools. Then rewrite the lsp-mode and lsp-ui configs with the changes. Place the source code blocks for these updated configs in a single markdown code block.
+
+Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding

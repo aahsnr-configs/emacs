@@ -93,3 +93,5 @@ dd-hook 'after-init-hook #'global-visual-line-mode)
 [NOTE]: __Query for the folowing tasks after applying the above fixes__
 - [ ] **Medium** When I yank a word/phrase using the `y` key and paste it over another word/phrase using the `p` key, the latter word/phrase gets copied by evil. I am doing this in visual mode and I don't that behaviour. Instead I want the former word/phrase to be still be able to be pasted.
 - [ ] **Medium** When I yank and paste something in visual mode, I want to visual flash as feedback to confirm that yank and paste have worked using the `y` and `p` keys from evil
+
+- [ ] **Return to aahsnr@duck** 
