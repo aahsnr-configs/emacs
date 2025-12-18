@@ -92,3 +92,5 @@
 - [ ] scimax-ob.el
 - [ ] scimax-jupyter.el [Remove hydra stuff for now]
 - [ ] scimax-latex.el
+
+- [ ] `I have updated the language check to use org-element-at-point which is technically more robust than context for retrieving block properties in complex documents.` in cape config. Will this interfere with org-src-context file

@@ -3695,7 +3695,7 @@ targets."
               (run-with-idle-timer 2 nil #'my-tabspaces-safe-restore))))
 #+end_src
 
-* Window
+* TODO Window
 ** Winner
 #+begin_src emacs-lisp
 (use-package winner
@@ -4025,7 +4025,7 @@ targets."
     (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
 #+end_src
 
-* Version Control
+* TODO Version Control
 ** Magit: The Git Porcelain
 #+begin_src emacs-lisp
 (use-package transient :defer t)
@@ -4289,7 +4289,7 @@ targets."
       ("?" magit-dispatch "dispatch" :exit t)))))
 #+end_src
 
-* Treemacs
+* TODO Treemacs
 #+begin_src emacs-lisp
 (use-package treemacs
   :defer t
@@ -4347,7 +4347,7 @@ targets."
     (kbd "q")   #'treemacs-quit))
 #+end_src
 
-* Markdown
+* TODO Markdown
 #+begin_src emacs-lisp
 (use-package markdown-mode
   :defer t
@@ -4509,7 +4509,7 @@ Shows markup when cursor is inside markdown elements."
         markdown-toc-user-toc-structure-manipulation-fn 'cdr))
 #+end_src
 
-* Reader
+* TODO Reader
 ** PDF Tools
 #+begin_src emacs-lisp
 (when (display-graphic-p)
@@ -5199,7 +5199,7 @@ Shows markup when cursor is inside markdown elements."
   (flycheck-hl-todo-setup))
 #+end_src
 
-* Utils
+* TODO Utils
 ** Which Key
 #+begin_src emacs-lisp
 (use-package which-key
@@ -5431,7 +5431,7 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
                 (setq-local lsp-format-buffer-on-save nil)))))
 #+end_src
 
-* Nix Development
+* TODO Nix Development
 #+begin_src emacs-lisp
 (use-package nix-mode
   :mode "\\.nix\\'")
@@ -5440,7 +5440,7 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
  :mode "\\.nix\\'")
 #+end_src
 
-* LaTeX Writing Environment
+* TODO LaTeX Writing Environment
 ** Project Awareness
 #+begin_src emacs-lisp
 (defun ar/get-project-bibliographies ()
@@ -5784,6 +5784,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 ;; Hook into LaTeX mode to activate this setup
 (add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
 #+end_src
+
 
 * General Keybindings
 #+begin_src emacs-lisp

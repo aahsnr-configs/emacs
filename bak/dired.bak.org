@@ -1,0 +1,257 @@
+* Dired/Dirvish
+** Core Dired Configuration
+#+begin_src emacs-lisp
+(use-package dired
+  :defer t
+  :ensure nil
+  :commands (dired dired-jump)
+  :custom 
+  (dired-listing-switches "-l --almost-all --human-readable --time-style=long-iso --group-directories-first --no-group")
+  (dired-dwim-target t)
+  (dired-recursive-copies 'always)
+  (dired-recursive-deletes 'top)
+  (delete-by-moving-to-trash t)
+  (dired-mouse-drag-files t)
+  (mouse-drag-and-drop-region-cross-program t)
+  (dired-kill-when-opening-new-dired-buffer t)
+  (dired-hide-details-hide-symlink-targets nil)
+  (dired-isearch-filenames 'dwim)
+  
+  :hook
+  (dired-mode . dired-hide-details-mode)
+  (dired-mode . hl-line-mode)
+  :config
+  (setq insert-directory-program "/usr/bin/ls"))
+
+;; Dired Extra: additional features
+(use-package dired-x
+  :ensure nil
+  :hook (dired-mode . dired-omit-mode)
+  :config
+  (require 'dired-x)
+  (setq dired-omit-verbose nil
+        dired-omit-files
+        (concat "^\\.?#\\|^\\.$\\|^\\.\\.$"
+                "\\|^\\.DS_Store\\'"
+                "\\|^flycheck_.*"
+                "\\|^\\.project\\(?:ile\\)?\\'"
+                "\\|^\\.\\(?:svn\\|git\\)\\'"
+                "\\|^\\.ccls-cache\\'"
+                "\\|\\(?:\\.js\\)?\\.meta\\'"
+                "\\|\\.\\(?:elc\\|o\\|pyo\\|swp\\|class\\)\\'"))
+
+  (setq dired-clean-confirm-killing-deleted-buffers nil))
+
+(use-package diredfl
+  :hook (dired-mode . diredfl-mode))
+
+;; Writable dired buffers - edit filenames like text
+(use-package wdired
+  :ensure nil
+  :after dired
+  :custom
+  (wdired-allow-to-change-permissions t)
+  (wdired-create-parent-directories t))
+#+end_src
+
+** Dirvish - Ranger-style File Manager
+#+begin_src emacs-lisp
+(use-package dirvish
+  :after dired
+  :custom
+  (dirvish-cache-dir (expand-file-name "dirvish/" user-emacs-directory))
+  (dirvish-attributes
+   '(nerd-icons file-size collapse subtree-state vc-state git-msg))
+  
+  (dirvish-default-layout '(1 0.11 0.55))
+  
+  (dirvish-layout-recipes
+   '((0 0   0.4)   ; No parent, smaller preview
+     (1 0.1 0.5)   ; Balanced layout
+     (1 0.15 0.6))) ; More preview space
+  
+  (dirvish-quick-access-entries
+   `(("h" "~/" "Home")
+     ("e" ,user-emacs-directory "Emacs")
+     ("d" "~/Downloads/" "Downloads")
+     ("D" "~/Documents/" "Documents")
+     ("p" "~/projects/" "Projects")
+     ("o" ,my/org-directory "Org")
+     ("c" "~/.config/" "Config")
+     ("t" "~/.local/share/Trash/files/" "Trash")))
+  
+  (dirvish-mode-line-format
+   '(:left (sort file-time " " file-size symlink)
+     :right (omit yank index)))
+  
+  (dirvish-header-line-format
+   '(:left (path) :right (free-space)))
+  
+   (dirvish-preview-dispatchers
+   '(image gif video audio epub archive pdf))
+  
+  (dirvish-use-header-line t)
+  (dirvish-use-mode-line t)
+  
+  ;; Session management - set to nil for ranger-like behavior
+  ;; (creates fresh sessions, kills all buffers on quit)
+  (dirvish-reuse-session nil)
+  
+  ;; Hide cursor in non-selected windows
+  (dirvish-hide-cursor t)
+  
+  ;; Hide details in specific contexts
+  (dirvish-hide-details '(dirvish dirvish-side))
+  
+  ;; Emerge settings for full-frame mode
+  (dirvish-emerge-groups
+   '(("Recent files" (predicate . recent-files-2h))
+     ("Documents" (extensions "pdf" "tex" "bib" "epub"))
+     ("Video" (extensions "mp4" "mkv" "webm"))
+     ("Pictures" (extensions "jpg" "png" "svg" "gif"))
+     ("Audio" (extensions "mp3" "flac" "wav" "ape"))
+     ("Archives" (extensions "gz" "rar" "zip"))))
+  
+  :config
+  ;; Enable dirvish globally (replaces dired)
+  (dirvish-override-dired-mode)
+  
+  ;; Enable automatic preview in minibuffer
+  ;;(dirvish-peek-mode)
+  
+  ;; Side window configuration (for dirvish-side)
+  (setq dirvish-side-width 35)
+  (setq dirvish-side-follow-buffer-file t)
+  (setq dirvish-side-display-alist
+        '((side . left)
+          (slot . -1)
+          (window-width . 0.2)))
+  
+  :bind
+  ;; Main dirvish bindings
+  (:map dirvish-mode-map
+   ;; Help and navigation
+   ("?"   . dirvish-dispatch)         ; Main help menu (transient)
+   ("q"   . dirvish-quit)             ; Quit dirvish
+   
+   ;; Ranger-style layout controls
+   ("F"   . dirvish-layout-toggle)    ; Toggle fullscreen layout
+   ("M-t" . dirvish-layout-switch)    ; Cycle through layouts
+   
+   ;; File operations
+   ("TAB" . dirvish-subtree-toggle)   ; Expand/collapse directories
+   ("f"   . dirvish-file-info-menu)   ; File info menu
+   ("y"   . dirvish-yank-menu)        ; Yank/copy menu
+   ("s"   . dirvish-quicksort)        ; Quick sort menu
+   ("a"   . dirvish-quick-access)     ; Quick access bookmarks
+   
+   ;; History and navigation
+   ("SPC" . dirvish-show-history)     ; Show directory history
+   ("M-f" . dirvish-history-go-forward)
+   ("M-b" . dirvish-history-go-backward)
+   ("M-n" . dirvish-history-go-forward)
+   ("M-p" . dirvish-history-go-backward)
+   
+   ;; Advanced features
+   ("M-s" . dirvish-setup-menu)       ; Setup menu
+   ("M-e" . dirvish-emerge-menu)      ; Emerge menu (grouping)
+   ("M-j" . dirvish-fd-jump)          ; Fast directory jump with fd
+   ("M-l" . dirvish-ls-switches-menu) ; Listing switches menu
+   ("M-m" . dirvish-mark-menu)        ; Mark menu
+   
+   ;; Version control
+   ("v"   . dirvish-vc-menu)))        ; Git/VC operations
+#+end_src
+
+** Evil Integration for Dirvish
+#+begin_src emacs-lisp
+;; Enhanced Evil bindings for ranger-like navigation
+(with-eval-after-load 'dirvish
+  (when (featurep 'evil)
+    (evil-define-key 'normal dirvish-mode-map
+      ;; Vim-style navigation (ranger-like)
+      (kbd "h") 'dired-up-directory          ; Go to parent directory
+      (kbd "l") 'dired-find-file             ; Open file/enter directory
+      (kbd "j") 'dired-next-line             ; Move down
+      (kbd "k") 'dired-previous-line         ; Move up
+      
+      ;; Ranger-style shortcuts
+      (kbd "gg") 'evil-goto-first-line       ; Go to top
+      (kbd "G")  'evil-goto-line             ; Go to bottom
+      (kbd "~")  'dirvish-quick-access       ; Quick bookmarks
+      (kbd "`")  'dirvish-show-history       ; History
+      (kbd "zh") 'dired-omit-mode            ; Toggle hidden files
+      
+      ;; Subtree operations
+      (kbd "TAB")   'dirvish-subtree-toggle  ; Expand/collapse
+      (kbd "S-TAB") 'dirvish-subtree-up      ; Go up in subtree
+      
+      ;; File operations
+      (kbd "i") 'wdired-change-to-wdired-mode ; Edit mode
+      (kbd "o") 'dired-find-file-other-window ; Open in other window
+      (kbd "v") 'dired-view-file             ; View file (read-only)
+      (kbd "I") 'dired-info                  ; File info
+      
+      ;; Marking
+      (kbd "m") 'dired-mark                  ; Mark file
+      (kbd "u") 'dired-unmark                ; Unmark file
+      (kbd "U") 'dired-unmark-all-marks      ; Unmark all
+      (kbd "V") 'dired-mark-files-regexp     ; Visual mark by regex
+      (kbd "*") 'dired-mark-executables      ; Mark executables
+      
+      ;; Operations
+      (kbd "c") 'dired-do-copy               ; Copy
+      (kbd "C") 'dired-create-directory      ; Create directory
+      (kbd "d") 'dired-do-delete             ; Delete
+      (kbd "D") 'dired-do-delete             ; Delete (synonym)
+      (kbd "r") 'dired-do-rename             ; Rename
+      (kbd "R") 'dired-do-rename             ; Rename (synonym)
+      (kbd "Y") 'dirvish-yank-menu           ; Yank menu
+      
+      ;; Sorting and filtering
+      (kbd "s") 'dirvish-quicksort           ; Sort menu
+      (kbd "O") 'dired-do-chown              ; Change owner
+      (kbd "M") 'dired-do-chmod              ; Change mode
+      
+      ;; Special operations
+      (kbd "!") 'dired-do-shell-command      ; Shell command
+      (kbd "&") 'dired-do-async-shell-command ; Async shell command
+      
+      ;; Layout controls
+      (kbd "F") 'dirvish-layout-toggle       ; Toggle fullscreen
+      (kbd "+") 'dired-create-directory      ; Create directory
+      
+      ;; Help and quit
+      (kbd "?") 'dirvish-dispatch            ; Help menu
+      (kbd "q") 'dirvish-quit)))             ; Quit
+#+end_src
+
+** Additional Dirvish Extensions
+#+begin_src emacs-lisp
+;; Load additional dirvish extensions if needed
+(with-eval-after-load 'dirvish
+  ;; Ensure extensions are loaded
+  (require 'dirvish-side nil t)
+  (require 'dirvish-fd nil t)
+  (require 'dirvish-narrow nil t)
+  (require 'dirvish-emerge nil t)
+  (require 'dirvish-subtree nil t)
+  (require 'dirvish-yank nil t)
+  
+  ;; Optional: Customize preview for specific file types
+  
+  ;; Use eza for directory previews (if available)
+  (when (executable-find "eza")
+    (setq dirvish-preview-dired-command
+          '("eza" "-al" "--color=always" "--icons" "--group-directories-first")))
+  
+  ;; Image preview settings
+  (setq dirvish-media-auto-cache-threshold '(500 . 8192)) ; Cache images 500KB-8MB
+  
+  ;; Video thumbnail settings
+  (when (executable-find "ffmpegthumbnailer")
+    (setq dirvish-video-thumbnail-options
+          '(:create-if-absent t
+            :size 512))))
+#+end_src
+

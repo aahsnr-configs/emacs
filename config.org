@@ -956,6 +956,69 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+end_src
 
 * Editor Behaviour
+#+begin_src comment
+=============================================================================
+  ELDOC ARCHITECTURE & BREADCRUMB INTEGRATION GUIDE
+=============================================================================
+
+1. GLOBAL BEHAVIOR & PERFORMANCE
+   - eldoc-idle-delay (0.1s): 
+     * What: The time Emacs waits after a cursor movement before showing docs.
+     * Set: via :custom in the eldoc use-package block.
+     * Debug: If docs feel "laggy," increase this. If they feel "slow," decrease.
+   - eldoc-echo-area-use-multiline-p (2): 
+     * What: Allows ElDoc to expand the echo area up to 2 lines.
+     * Set: via :custom.
+     * Debug: Check variable value if docs are being cut off prematurely.
+   - eldoc-documentation-strategy (eldoc-documentation-compose):
+     * What: Tells ElDoc to combine results from ALL active backends (e.g., LSP 
+       + Breadcrumbs) rather than just picking the first one.
+     * Debug: Check 'eldoc-documentation-functions' to see which backends are active.
+
+2. UI & MANUAL INTERACTION
+   - ar/show-eldoc-buffer (C-h .):
+     * What: A safe wrapper around 'eldoc-doc-buffer'. It forces a full buffer
+       to open with complete documentation.
+     * Debug: If C-h . shows nothing, the current backend lacks a "long-form" 
+       doc string. Check the *Messages* buffer for error logs.
+
+3. ORG-MODE BREADCRUMBS (ar/get-org-breadcrumb-string)
+   - What: A structural context engine. It calculates the heading hierarchy
+     (Parent › Current) using 'org-get-outline-path'.
+   - Specific Logic:
+     a) EOB Check: Detects if you are at the bottom of the file.
+     b) Src-Block Check: Returns nil inside code blocks so that LSP/ElDoc can 
+        show function signatures instead of headings.
+     c) Face Application: Uses 'shadow' for parents and 'bold-keyword' for 
+        the current heading to provide visual depth.
+   - Debug: Run (ar/get-org-breadcrumb-string) in M-x ielm while in an Org 
+     file to see the raw string generated.
+
+4. GENERIC CONTEXT FALLBACK (ar/generic-eldoc-backend)
+   - What: When not in Org-mode and not using LSP, this uses 'which-function'
+     to show which class/function your cursor is currently inside.
+   - Dependency: Requires 'which-function-mode' to be 1.
+   - Debug: If context doesn't appear in programming modes, verify 
+     'which-function-mode' is active.
+
+5. HOVER SUPPORT (eldoc-mouse)
+   - What: Displays ElDoc documentation in a floating childframe when the 
+     mouse hovers over a symbol.
+   - Set: Enabled via 'eldoc-mouse-mode' hook.
+   - Integration: Customizes 'posframe-border' to match your UI theme and 
+     disables standard tooltips to prevent "double popups."
+   - Debug: Check if 'childframe-workable-p' returns T. Ensure 'posframe' 
+     is installed.
+
+6. DEBUGGING BACKEND PRIORITY
+   - Backend priority is managed via 'add-hook' depth values:
+     * Org Breadcrumbs: -100 (Highest - always runs first).
+     * Generic Context: 0 (Default - runs if others aren't managing).
+   - Debug: Run 'C-h v eldoc-documentation-functions' in any buffer to see 
+      the execution order.
+=============================================================================
+#+end_src
+
 ** Eldoc
 #+begin_src emacs-lisp
 ;; Dependency: Enable which-function-mode globally
@@ -1622,20 +1685,6 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   (add-to-list 'org-structure-template-alist '("tex" . "src latex")))
 #+end_src
 
-** Org Appear
-#+begin_src emacs-lisp
-(use-package org-appear
-  :hook (org-mode . org-appear-mode)
-  :custom
-  (org-appear-autoentities t)
-  (org-appear-autokeywords t)
-  (org-appear-autolinks t)
-  (org-appear-autosubmarkers t)
-  (org-appear-inside-latex t)
-  (org-appear-manual-linger t)
-  (org-appear-delay 0.5))
-#+end_src
-
 ** Org Roam
 #+begin_src emacs-lisp
 ;; Org-Roam Configuration
@@ -1864,6 +1913,20 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
 ;; Override the internal Org function
 (advice-add 'org-src--construct-edit-buffer-name :override #'ar/org-src-simplify-buffer-name)
+#+end_src
+
+** Org Src Context
+#+begin_src emacs-lisp
+;; (use-package org-src-context
+;;   :ensure (:host github :repo "karthink/org-src-context")
+;;   :hook (org-src-mode . org-src-context-mode)
+;;   :init
+;;   (setq org-src-context-method 'inject))
+  ;; :config
+  ;; (defun ar/disable-apheleia-in-context-buffers ()
+  ;;   (when (bound-and-true-p org-src-context-mode)
+  ;;     (apheleia-mode -1)))
+  ;; (add-hook 'org-src-mode-hook #'ar/disable-apheleia-in-context-buffers 100))
 #+end_src
 
 * Treesitter/Folding
@@ -2827,9 +2890,9 @@ Re-enables it after save. Prevents indentation issues."
 (use-package orderless
   :custom
   (completion-styles '(orderless basic))
-  (completion-category-defaults nil)
-  (completion-category-overrides '((file (styles basic partial-completion))))
-  (orderless-component-separator #'orderless-escapable-split-on-space))
+  (completion-category-overrides '((file (styles partial-completion))))
+  (completion-category-defaults nil) ;; Disable defaults, use our settings
+  (completion-pcm-leading-wildcard t)) ;; Emacs 31: partial-completion behaves like substring
 #+end_src
 
 ** Vertico
@@ -3043,11 +3106,14 @@ targets."
 ** Corfu
 #+begin_src emacs-lisp
 (use-package corfu
+  :autoload (corfu-quit consult-completion-in-region)
+  :functions (persistent-scratch-save corfu-move-to-minibuffer)
   :custom
   (corfu-cycle t)
   (corfu-auto t)
   (corfu-auto-prefix 2)
   (corfu-count 12)
+  (corfu-preselect 'prompt)
   (corfu-preview-current nil)
   (corfu-on-exact-match nil)
   (corfu-auto-delay 0.2)
@@ -3068,7 +3134,11 @@ targets."
         ([backtab] . corfu-previous)
         ("M-h" . corfu-info-documentation))
   :hook ((elpaca-after-init . global-corfu-mode)
-         (global-corfu-mode . corfu-history-mode)))
+         (global-corfu-mode . corfu-history-mode))
+  :config
+  ;;Quit completion before saving
+  (add-hook 'before-save-hook #'corfu-quit)
+  (advice-add #'persistent-scratch-save :before #'corfu-quit))
 #+end_src
 
 ** Basic Completion
@@ -3090,27 +3160,120 @@ targets."
 #+end_src
 
 ** Cape
+
+#+begin_comment
+===========================================================================
+CAPE / CORFU CONFIGURATION & DEBUGGING GUIDE
+===========================================================================
+
+CONTEXT:
+Emacs completion in Org Mode source blocks is complex due to three conflicting factors:
+1. Org Mode's Native Completion: Org has its own CAPF (`org-block-capf`) that
+   often aggressively claims priority, preventing other backends from running.
+2. Large File Optimization (JIT Lock): In files >3000 lines, Emacs delays
+   fontification (syntax highlighting). `cape-elisp-block` natively relies on
+   detecting the `org-block` face to know it's inside code. In large files,
+   this face is often missing, causing Cape to fail (return nil).
+3. Syntax Corruption: Even if detection works, standard `elisp-completion-at-point`
+   uses the buffer's global syntax table (Org syntax). In large files, parsing
+   state (`syntax-ppss`) gets corrupted by previous Org headings/drawers, causing
+   the Lisp parser to think it's inside a string/comment and return no results.
+
+THE SOLUTION (`ar/org-elisp-capf`):
+We implement a custom Completion-At-Point Function (CAPF) that:
+1. STRUCTURAL DETECTION: Uses `org-element-at-point` instead of visual faces,
+   guaranteeing detection even in un-fontified large files.
+2. NARROWING: We `narrow-to-region` around the code block content. This is
+   critical because it resets the `syntax-ppss` parser cache, forcing it to
+   parse the Lisp code from a clean state (point-min) without pollution from
+   the preceding 50,000 lines of Org text.
+3. BOUNDARY SAFETY: We manually calculate start/end points to exclude
+   `#+begin_src` headers so the parser sees only pure Lisp code.
+4. SYNTAX SWAPPING: We temporarily enforce `emacs-lisp-mode-syntax-table`
+   so atoms/lists are read correctly.
+
+DEBUGGING / TESTING:
+If completion fails in the future, check these:
+1. Run `M-x describe-char` inside the block. If `face: org-block` is missing,
+   the structural fix is doing its job.
+2. Verify `completion-at-point-functions` variable (C-h v). `ar/org-elisp-capf`
+   must be at the START of the list (depth -100).
+3. If Corfu crashes with "Point outside narrowing", ensure the manual
+   boundary calculation logic handles the current cursor position.
+
+===========================================================================
+#+end_comment
+
 #+begin_src emacs-lisp
 (use-package cape
-  :defer t
-  :commands (cape-file cape-elisp-block cape-keyword cape-file cape-tex)
-  :autoload (cape-wrap-noninterruptible cape-wrap-nonexclusive cape-wrap-buster)
-  :autoload (cape-wrap-silent cape-wrap-purify)
+  :bind ("C-c p" . cape-prefix-map)
   :init
-  (add-hook 'completion-at-point-functions #'cape-elisp-block 10)
-  (add-hook 'completion-at-point-functions #'cape-keyword 30)
-  (add-hook 'completion-at-point-functions #'cape-file 40)  
-  (add-hook 'completion-at-point-functions #'cape-dabbrev 50)
-  (add-hook 'completion-at-point-functions #'cape-dict 60)
-  (add-hook 'completion-at-point-functions #'cape-tex 70)
+  ;; 1. Global Setup
+  (add-hook 'completion-at-point-functions #'cape-tex)
+  (add-hook 'completion-at-point-functions #'cape-dict)
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file)
+  (add-hook 'completion-at-point-functions #'cape-keyword)
+  
+  ;; NOTE: We do NOT add cape-elisp-block globally here.
+  ;; We use the custom function below for Org mode instead.
 
-  ;; Make these capfs composable.
+  ;; -----------------------------------------------------------------------
+  ;; 2. Robust Elisp Completion for Large Org Files (Narrowing Strategy)
+  ;; -----------------------------------------------------------------------
+  (defun ar/org-elisp-capf ()
+    "A robust Capf for Elisp in Org mode.
+    It identifies the block, narrows to the inner content (excluding headers),
+    switches to Elisp syntax, and then completes."
+    ;; Cheap check first to avoid overhead
+    (when (org-in-src-block-p)
+      (let ((element (org-element-at-point)))
+        (when (and (eq (org-element-type element) 'src-block)
+                   (member (org-element-property :language element)
+                           '("elisp" "emacs-lisp")))
+          (let* ((block-start (org-element-property :post-affiliated element))
+                 (block-end (org-element-property :end element))
+                 ;; Calculate inner start: Jump to header start, move down 1 line
+                 (code-beg (save-excursion
+                             (goto-char block-start)
+                             (forward-line 1)
+                             (point)))
+                 ;; Calculate inner end: Jump to block end, move up 1 line
+                 ;; (This excludes the #+end_src line)
+                 (code-end (save-excursion
+                             (goto-char block-end)
+                             (forward-line -1)
+                             (point))))
+            ;; ROBUSTNESS CHECK 1: Ensure boundaries are valid numbers
+            (when (and (numberp code-beg) 
+                       (numberp code-end) 
+                       (< code-beg code-end))
+              ;; ROBUSTNESS CHECK 2: Ensure point is strictly inside the code.
+              ;; If we are on #+begin_src, narrowing would fail/crash.
+              ;; Returning nil lets Org handle header completion instead.
+              (when (and (>= (point) code-beg)
+                         (<= (point) code-end))
+                (save-restriction
+                  ;; Narrow to the code itself so the parser doesn't see Org headers
+                  ;; and the syntax-ppss cache is reset for this region.
+                  (narrow-to-region code-beg code-end)
+                  (with-syntax-table emacs-lisp-mode-syntax-table
+                    (elisp-completion-at-point))))))))))
+
+  (defun ar/setup-org-cape-completion ()
+    ;; Add to the VERY FRONT (-100) to bypass Org's native completion
+    (add-hook 'completion-at-point-functions #'ar/org-elisp-capf -100 t))
+
+  (add-hook 'org-mode-hook #'ar/setup-org-cape-completion)
+  
+  ;; -----------------------------------------------------------------------
+  ;; 3. Advice Wrappers
+  ;; -----------------------------------------------------------------------
   (advice-add #'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
   (advice-add #'lsp-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
-
 #+end_src
 
 ** Dabbrev
@@ -3168,47 +3331,27 @@ targets."
 ** Core Dired Configuration
 #+begin_src emacs-lisp
 (use-package dired
-  :defer t
   :ensure nil
   :commands (dired dired-jump)
+  :hook (dired-mode . dired-hide-details-mode)
+  :hook (dired-mode . hl-line-mode)
   :custom 
-  (dired-listing-switches "-l --almost-all --human-readable --time-style=long-iso --group-directories-first --no-group")
-
-  
-  ;; Guess target directory for operations (very useful with split windows)
-  (dired-dwim-target t)
-  
-  ;; Copy/move recursively without asking
+  ;; Doom-like cleanup: Don't confirm simple recursive deletes
   (dired-recursive-copies 'always)
   (dired-recursive-deletes 'top)
-  
-  ;; Use trash instead of permanent deletion
   (delete-by-moving-to-trash t)
+  (dired-dwim-target t)
   
-  ;; Enable drag-and-drop on Emacs 29+
-  (dired-mouse-drag-files t)
-  (mouse-drag-and-drop-region-cross-program t)
-  
-  ;; Kill buffers of deleted files/directories
-  (dired-kill-when-opening-new-dired-buffer t)
-  
-  ;; Hide details by default
-  (dired-hide-details-hide-symlink-targets nil)
-  
-  ;; Better file name completion in minibuffer
-  (dired-isearch-filenames 'dwim)
-  
-  :hook
-  (dired-mode . dired-hide-details-mode)
-  (dired-mode . hl-line-mode))
+  ;; Performance & UX
+  (dired-auto-revert-buffer t)
+  (dired-kill-when-opening-new-dired-buffer t) 
+  (insert-directory-program "/usr/bin/ls")
+  (dired-listing-switches "-l --almost-all --human-readable --time-style=long-iso --group-directories-first --no-group"))
 
-;; Dired Extra: additional features
 (use-package dired-x
   :ensure nil
   :hook (dired-mode . dired-omit-mode)
   :config
-  (require 'dired-x)
-
   (setq dired-omit-verbose nil
         dired-omit-files
         (concat "^\\.?#\\|^\\.$\\|^\\.\\.$"
@@ -3219,16 +3362,12 @@ targets."
                 "\\|^\\.ccls-cache\\'"
                 "\\|\\(?:\\.js\\)?\\.meta\\'"
                 "\\|\\.\\(?:elc\\|o\\|pyo\\|swp\\|class\\)\\'"))
-
-  ;; Disable the prompt about whether I want to kill the Dired buffer for a
-  ;; deleted directory. Of course I do!
+ 
   (setq dired-clean-confirm-killing-deleted-buffers nil))
 
-;; Colorful dired with better syntax highlighting
 (use-package diredfl
   :hook (dired-mode . diredfl-mode))
 
-;; Writable dired buffers - edit filenames like text
 (use-package wdired
   :ensure nil
   :after dired
@@ -3237,30 +3376,25 @@ targets."
   (wdired-create-parent-directories t))
 #+end_src
 
-** Dirvish - Ranger-style File Manager
+** Dirvish (Doom Style)
 #+begin_src emacs-lisp
 (use-package dirvish
   :after dired
+  :init
+  ;; MAGIC: This makes ALL dired commands use Dirvish interfaces
+  (dirvish-override-dired-mode)
+  
   :custom
-  ;; Cache directory
   (dirvish-cache-dir (expand-file-name "dirvish/" user-emacs-directory))
   
-  ;; Attributes to show (file-size, icons, git status, etc.)
-  (dirvish-attributes
-   '(nerd-icons file-size collapse subtree-state vc-state git-msg))
-  
-  ;; RANGER-LIKE LAYOUT: Miller columns with parent, current, and preview
-  ;; Format: (PARENT-DEPTH PARENT-WIDTH PREVIEW-WIDTH)
-  ;; (1 0.11 0.55) = 1 parent column : 3 current : 5 preview (1:3:5 ratio)
+  ;; Restored your specific layout ratios
   (dirvish-default-layout '(1 0.11 0.55))
-  
-  ;; Layout recipes for different use cases
   (dirvish-layout-recipes
    '((0 0   0.4)   ; No parent, smaller preview
      (1 0.1 0.5)   ; Balanced layout
      (1 0.15 0.6))) ; More preview space
-  
-  ;; Quick access bookmarks (like ranger's bookmarks)
+
+  ;; Restored your shortcuts
   (dirvish-quick-access-entries
    `(("h" "~/" "Home")
      ("e" ,user-emacs-directory "Emacs")
@@ -3271,34 +3405,26 @@ targets."
      ("c" "~/.config/" "Config")
      ("t" "~/.local/share/Trash/files/" "Trash")))
   
-  ;; Mode line format (bottom bar)
+  ;; Attributes
+  (dirvish-attributes
+   '(nerd-icons file-time file-size collapse subtree-state vc-state git-msg))
+  
+  ;; Doom-like UI: Headers and Mode lines
+  (dirvish-use-header-line t)
+  (dirvish-use-mode-line t)
+  (dirvish-header-line-height '(25 . 35))
+  (dirvish-mode-line-height 25)
+  (dirvish-header-line-format '(:left (path) :right (free-space)))
   (dirvish-mode-line-format
    '(:left (sort file-time " " file-size symlink)
      :right (omit yank index)))
   
-  ;; Header line format (top bar)
-  (dirvish-header-line-format
-   '(:left (path) :right (free-space)))
-  
-  ;; Preview dispatchers (file types to preview)
-  (dirvish-preview-dispatchers
-   '(image gif video audio epub archive pdf))
-  
-  ;; Peek mode settings
-  (dirvish-use-header-line t)
-  (dirvish-use-mode-line t)
-  
-  ;; Session management - set to nil for ranger-like behavior
-  ;; (creates fresh sessions, kills all buffers on quit)
+  ;; Restored: Ranger-like session behavior (kill on quit)
   (dirvish-reuse-session nil)
-  
-  ;; Hide cursor in non-selected windows
   (dirvish-hide-cursor t)
-  
-  ;; Hide details in specific contexts
   (dirvish-hide-details '(dirvish dirvish-side))
   
-  ;; Emerge settings for full-frame mode
+  ;; Restored: Emerge groups
   (dirvish-emerge-groups
    '(("Recent files" (predicate . recent-files-2h))
      ("Documents" (extensions "pdf" "tex" "bib" "epub"))
@@ -3307,147 +3433,48 @@ targets."
      ("Audio" (extensions "mp3" "flac" "wav" "ape"))
      ("Archives" (extensions "gz" "rar" "zip"))))
   
+  ;; Previews
+  (dirvish-preview-dispatchers
+   '(image gif video audio epub archive pdf))
+  
   :config
-  ;; Enable dirvish globally (replaces dired)
-  (dirvish-override-dired-mode)
+  (require 'dirvish-side)
+  (require 'dirvish-fd)
+  (require 'dirvish-emerge)
   
-  ;; Enable automatic preview in minibuffer
-  ;;(dirvish-peek-mode)
-  
-  ;; Side window configuration (for dirvish-side)
-  (setq dirvish-side-width 35)
-  (setq dirvish-side-follow-buffer-file t)
-  (setq dirvish-side-display-alist
-        '((side . left)
-          (slot . -1)
-          (window-width . 0.2)))
-  
-  :bind
-  ;; Main dirvish bindings
-  (:map dirvish-mode-map
-   ;; Help and navigation
-   ("?"   . dirvish-dispatch)         ; Main help menu (transient)
-   ("q"   . dirvish-quit)             ; Quit dirvish
-   
-   ;; Ranger-style layout controls
-   ("F"   . dirvish-layout-toggle)    ; Toggle fullscreen layout
-   ("M-t" . dirvish-layout-switch)    ; Cycle through layouts
-   
-   ;; File operations
-   ("TAB" . dirvish-subtree-toggle)   ; Expand/collapse directories
-   ("f"   . dirvish-file-info-menu)   ; File info menu
-   ("y"   . dirvish-yank-menu)        ; Yank/copy menu
-   ("s"   . dirvish-quicksort)        ; Quick sort menu
-   ("a"   . dirvish-quick-access)     ; Quick access bookmarks
-   
-   ;; History and navigation
-   ("SPC" . dirvish-show-history)     ; Show directory history
-   ("M-f" . dirvish-history-go-forward)
-   ("M-b" . dirvish-history-go-backward)
-   ("M-n" . dirvish-history-go-forward)
-   ("M-p" . dirvish-history-go-backward)
-   
-   ;; Advanced features
-   ("M-s" . dirvish-setup-menu)       ; Setup menu
-   ("M-e" . dirvish-emerge-menu)      ; Emerge menu (grouping)
-   ("M-j" . dirvish-fd-jump)          ; Fast directory jump with fd
-   ("M-l" . dirvish-ls-switches-menu) ; Listing switches menu
-   ("M-m" . dirvish-mark-menu)        ; Mark menu
-   
-   ;; Version control
-   ("v"   . dirvish-vc-menu)))        ; Git/VC operations
-#+end_src
-
-** Evil Integration for Dirvish
-#+begin_src emacs-lisp
-;; Enhanced Evil bindings for ranger-like navigation
-(with-eval-after-load 'dirvish
-  (when (featurep 'evil)
+  ;; Side window configuration (Restored to Left side)
+  (setq dirvish-side-width 35
+        dirvish-side-follow-buffer-file t
+        dirvish-side-display-alist '((side . left) (slot . -1)))
+        
+  ;; Enhanced Evil Bindings with ARROW KEYS
+  ;; We use evil-define-key instead of :bind so they persist properly in Evil states
+  (with-eval-after-load 'evil
     (evil-define-key 'normal dirvish-mode-map
-      ;; Vim-style navigation (ranger-like)
-      (kbd "h") 'dired-up-directory          ; Go to parent directory
-      (kbd "l") 'dired-find-file             ; Open file/enter directory
-      (kbd "j") 'dired-next-line             ; Move down
-      (kbd "k") 'dired-previous-line         ; Move up
+      ;; Navigation (Arrow Keys)
+      (kbd "<left>")  'dired-up-directory    ; Go up one directory
+      (kbd "<right>") 'dired-find-file       ; Enter directory / Open file
+      (kbd "<up>")    'dired-previous-line   ; Move up
+      (kbd "<down>")  'dired-next-line       ; Move down
       
-      ;; Ranger-style shortcuts
-      (kbd "gg") 'evil-goto-first-line       ; Go to top
-      (kbd "G")  'evil-goto-line             ; Go to bottom
-      (kbd "~")  'dirvish-quick-access       ; Quick bookmarks
-      (kbd "`")  'dirvish-show-history       ; History
-      (kbd "zh") 'dired-omit-mode            ; Toggle hidden files
+      (kbd "q") 'dirvish-quit
+      (kbd "TAB") 'dirvish-subtree-toggle
       
-      ;; Subtree operations
-      (kbd "TAB")   'dirvish-subtree-toggle  ; Expand/collapse
-      (kbd "S-TAB") 'dirvish-subtree-up      ; Go up in subtree
+      ;; Layout & History
+      (kbd "M-t") 'dirvish-layout-switch     ; Restored your cycle layout binding
+      (kbd "F")   'dirvish-layout-toggle     ; Toggle fullscreen
+      (kbd "b")   'dirvish-history-go-backward
+      (kbd "f")   'dirvish-history-go-forward
       
-      ;; File operations
-      (kbd "i") 'wdired-change-to-wdired-mode ; Edit mode
-      (kbd "o") 'dired-find-file-other-window ; Open in other window
-      (kbd "v") 'dired-view-file             ; View file (read-only)
-      (kbd "I") 'dired-info                  ; File info
-      
-      ;; Marking
-      (kbd "m") 'dired-mark                  ; Mark file
-      (kbd "u") 'dired-unmark                ; Unmark file
-      (kbd "U") 'dired-unmark-all-marks      ; Unmark all
-      (kbd "V") 'dired-mark-files-regexp     ; Visual mark by regex
-      (kbd "*") 'dired-mark-executables      ; Mark executables
-      
-      ;; Operations
-      (kbd "c") 'dired-do-copy               ; Copy
-      (kbd "C") 'dired-create-directory      ; Create directory
-      (kbd "d") 'dired-do-delete             ; Delete
-      (kbd "D") 'dired-do-delete             ; Delete (synonym)
-      (kbd "r") 'dired-do-rename             ; Rename
-      (kbd "R") 'dired-do-rename             ; Rename (synonym)
-      (kbd "Y") 'dirvish-yank-menu           ; Yank menu
-      
-      ;; Sorting and filtering
-      (kbd "s") 'dirvish-quicksort           ; Sort menu
-      (kbd "O") 'dired-do-chown              ; Change owner
-      (kbd "M") 'dired-do-chmod              ; Change mode
-      
-      ;; Special operations
-      (kbd "!") 'dired-do-shell-command      ; Shell command
-      (kbd "&") 'dired-do-async-shell-command ; Async shell command
-      
-      ;; Layout controls
-      (kbd "F") 'dirvish-layout-toggle       ; Toggle fullscreen
-      (kbd "+") 'dired-create-directory      ; Create directory
-      
-      ;; Help and quit
-      (kbd "?") 'dirvish-dispatch            ; Help menu
-      (kbd "q") 'dirvish-quit)))             ; Quit
-#+end_src
-
-** Additional Dirvish Extensions
-#+begin_src emacs-lisp
-;; Load additional dirvish extensions if needed
-(with-eval-after-load 'dirvish
-  ;; Ensure extensions are loaded
-  (require 'dirvish-side nil t)
-  (require 'dirvish-fd nil t)
-  (require 'dirvish-narrow nil t)
-  (require 'dirvish-emerge nil t)
-  (require 'dirvish-subtree nil t)
-  (require 'dirvish-yank nil t)
-  
-  ;; Optional: Customize preview for specific file types
-  
-  ;; Use eza for directory previews (if available)
-  (when (executable-find "eza")
-    (setq dirvish-preview-dired-command
-          '("eza" "-al" "--color=always" "--icons" "--group-directories-first")))
-  
-  ;; Image preview settings
-  (setq dirvish-media-auto-cache-threshold '(500 . 8192)) ; Cache images 500KB-8MB
-  
-  ;; Video thumbnail settings
-  (when (executable-find "ffmpegthumbnailer")
-    (setq dirvish-video-thumbnail-options
-          '(:create-if-absent t
-            :size 512))))
+      ;; Menus & Actions
+      (kbd "?")   'dirvish-dispatch
+      (kbd "a")   'dirvish-quick-access
+      (kbd "s")   'dirvish-quicksort
+      (kbd "y")   'dirvish-yank-menu
+      (kbd "v")   'dirvish-vc-menu
+      (kbd "M-e") 'dirvish-emerge-menu       ; Restored emerge menu
+      (kbd "M-j") 'dirvish-fd-jump           ; Restored FD jump
+      (kbd "M-s") 'dirvish-setup-menu)))
 #+end_src
 
 * iBuffer
@@ -3496,6 +3523,571 @@ targets."
         (setq ibuffer-project-root-functions
               '((ibuffer-project-project-root . "Project")
                 (file-remote-p . "Remote")))))))
+#+end_src
+
+* Tabspaces
+#+begin_src emacs-lisp
+(use-package tabspaces
+  :hook (elpaca-after-init . tabspaces-mode)
+  :custom
+  (tab-bar-show nil) ;; We use the modeline/consult to visualize tabs
+  
+  ;; Filter buffers by default so Project A only sees Project A's buffers
+  (tabspaces-use-filtered-buffers-as-default t)
+  (tabspaces-default-tab "Default")
+  (tabspaces-remove-to-default t)
+  (tabspaces-include-buffers '("*scratch*" "*Messages*"))
+  
+  ;; CRITICAL FIX: Set to nil to ensure terminals are ISOLATED to their workspace.
+  ;; If we added *vterm* here, it would be visible in ALL tabs (Global).
+  (tabspaces-exclude-buffers nil)
+
+  ;; Session management settings
+  (tabspaces-session t)
+  (tabspaces-session-auto-restore nil) ; We use a custom robust timer for this
+
+  :config
+  ;; --- Consult Integration ---
+  ;; This safety check is REQUIRED because consult might not be loaded yet.
+  (with-eval-after-load 'consult
+    ;; Hide the full buffer list by default (so we rely on the workspace source)
+    (consult-customize consult--source-buffer :hidden t :default nil)
+
+    ;; Define a source that lists ONLY buffers in the current tabspace
+    (defvar consult--source-workspace
+      (list :name     "Workspace Buffer"
+            :narrow   ?w
+            :history  'buffer-name-history
+            :category 'buffer
+            :state    #'consult--buffer-state
+            :default  t
+            :items    (lambda () (consult--buffer-query
+                               :predicate #'tabspaces--local-buffer-p
+                               :sort 'visibility
+                               :as #'buffer-name)))
+      "Set workspace buffer list for consult-buffer.")
+    
+    ;; Add the workspace source to consult
+    (add-to-list 'consult-buffer-sources 'consult--source-workspace))
+
+  ;; --- Crash Prevention & Cleanup ---
+
+  (defun my-tabspaces-delete-childframe (&rest _)
+    "Delete all child frames (posframes) before saving session to prevent read errors."
+    (when (and (fboundp 'posframe-delete-all)
+               (featurep 'posframe))
+      (ignore-errors (posframe-delete-all))))
+
+  (defun my-tabspaces-clean-markers (&rest _)
+    "Clean up dead markers in buffer-local variables to prevent invalid-read-syntax errors."
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (dolist (var (buffer-local-variables))
+          (when (and (consp var) (markerp (cdr var)))
+            (let ((marker (cdr var)))
+              (unless (and (marker-buffer marker)
+                           (buffer-live-p (marker-buffer marker)))
+                (set (car var) nil))))))))
+
+  (defun my-tabspaces-bury-window (&rest _)
+    "Bury *Messages* buffer after restoring session to keep the view clean."
+    (run-with-idle-timer 0.5 nil
+      (lambda ()
+        (ignore-errors
+          (when-let ((msg-buf (get-buffer "*Messages*")))
+            (quit-windows-on msg-buf))))))
+
+  ;; --- Session Management Wrappers ---
+
+  (defun my-tabspaces-save-wrapper (orig-fun &rest args)
+    "Advice wrapper to clean environment before saving tabspaces."
+    (my-tabspaces-delete-childframe)
+    (my-tabspaces-clean-markers)
+    (apply orig-fun args))
+
+  (defun my-tabspaces-safe-restore ()
+    "Safely restore tabspaces session with error handling."
+    (interactive)
+    ;; Don't restore if Emacs was launched with a specific file argument
+    (unless command-line-args-left
+      (condition-case err
+          (progn
+            (tabspaces-restore-session)
+            (message "Tabspaces session restored."))
+        (error
+         (message "Tabspaces restore failed: %s" (error-message-string err))
+         ;; Fallback: Create a default tab if restore fails
+         (ignore-errors
+           (tab-bar-new-tab)
+           (tab-bar-rename-tab "Default"))
+         nil))))
+
+  (defun my-tabspaces-safe-save ()
+    "Safely save tabspaces session with error handling (for timer)."
+    (interactive)
+    (condition-case err
+        (progn
+          (my-tabspaces-delete-childframe)
+          (my-tabspaces-clean-markers)
+          (tabspaces-save-session)
+          (message "Tabspaces session saved."))
+      (error
+       (message "Tabspaces save failed: %s" (error-message-string err)))))
+
+  ;; Apply Advice
+  (advice-add 'tabspaces-save-session :around #'my-tabspaces-save-wrapper)
+  (advice-add 'tabspaces-restore-session :after #'my-tabspaces-bury-window)
+
+  ;; Auto-save session every 5 minutes when idle
+  (run-with-idle-timer 300 t #'my-tabspaces-safe-save)
+
+  ;; Attempt restore 2 seconds after startup
+  (add-hook 'elpaca-after-init-hook
+            (lambda ()
+              (run-with-idle-timer 2 nil #'my-tabspaces-safe-restore))))
+#+end_src
+
+* Development Tools
+** envrc
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (elpaca-after-init . envrc-global-mode))
+#+end_src
+
+** LSP
+#+begin_src comment
+=============================================================================
+  EGLOT & ORG-BABEL INTEGRATION GUIDE
+ =============================================================================
+
+  1. THE PROBLEM:
+     Language Server Protocol (LSP) servers require a "TextDocument" to have a
+     valid URI (usually a file path) to function. They use this path to:
+     a) Identify the file type.
+     b) locate the "Project Root" (looking up the tree for .git, go.mod, etc.).
+     
+     When you edit an Org source block (`C-c '`), Org creates a temporary
+     buffer that is NOT associated with any file on disk (`buffer-file-name` is nil).
+     Consequently, Eglot refuses to start because it cannot construct a valid
+     LSP URI and cannot determine where the project root is.
+
+  2. THE SOLUTION (`ar/eglot-org-babel-enable`):
+     We define a function that runs immediately after Org sets up the 
+     temporary edit buffer. This function:
+     
+     a) Intercepts the `info` list passed by Org Babel. This list contains:
+        (language code-body header-arguments ...)
+     
+     b) Checks if you defined a `:file` header argument (e.g., used for tangling).
+        If yes, it uses that real filename.
+     
+     c) If no `:file` exists, it constructs a "Fake" Filename:
+        "org-src-babel.tmp" inside the *current directory* of the Org file.
+     
+     d) It forcibly sets `buffer-file-name` to this fake path.
+        This satisfies Eglot's requirement for a file path. Crucially, because
+        the path is in the *current directory*, Eglot's project detection logic
+        (project.el) correctly finds your actual project root (e.g., the .git folder
+        in your parent directory), allowing imports and context to work.
+
+  3. EXTENDING SUPPORT:
+     To add a new language (e.g., Haskell), simply add "haskell" to the
+     `ar/org-babel-supported-languages` list defined below.
+
+  4. DEBUGGING:
+     If Eglot fails to start in a source block:
+     
+     A. Check the Mock Filename:
+        - Inside the edit buffer, run: `M-: buffer-file-name`
+        - It MUST return a string (e.g., ".../your-project/org-src-babel.tmp").
+        - If it returns `nil`, the advice failed to attach.
+     
+     B. Check Project Detection:
+        - Run: `M-: (project-current)`
+        - It should return your actual project structure. If it returns nil,
+          Eglot assumes single-file mode and some features may fail.
+
+     C. Check Server Logs:
+        - Run: `M-x eglot-events-buffer`
+        - Look for "TextDocument" errors or server crashes.
+ =============================================================================
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package eglot
+  :ensure nil
+  :defer t
+  :hook
+  ((prog-mode . (lambda ()
+                  ;; Prevent Eglot from running in modes that don't need it
+                  ;; or have their own tools (matches init-lsp.txt logic).
+                  (unless (derived-mode-p
+                           'emacs-lisp-mode 'lisp-mode
+                           'makefile-mode 'snippet-mode
+                           'ron-mode)
+                    (eglot-ensure))))
+   ((markdown-mode yaml-mode yaml-ts-mode) . eglot-ensure))
+  
+  :init
+  ;; Optimization: disable logging events to improve performance
+  ;; (Set to 2000000 if debugging is needed)
+  (setq eglot-events-buffer-size 0)
+  
+  ;; Optimization: delay sending changes to the server slightly (0.5s)
+  (setq eglot-send-changes-idle-time 0.5)
+  
+  ;; Shutdown server when the last buffer managed by it is closed
+  (setq eglot-autoshutdown t)
+
+  :config
+  ;; -----------------------------------------------------------------------
+  ;; Org Babel Integration (Ported from Centaur Emacs init-lsp.el)
+  ;; -----------------------------------------------------------------------
+  (defun ar/eglot-org-babel-enable (lang)
+    "Enable Eglot in Org source blocks for LANG.
+    Ported from Centaur Emacs `lsp-org-babel-enable`.
+    
+    This works by advising the `org-babel-edit-prep:LANG` function
+    to initialize Eglot with a mock file context."
+    (let* ((edit-pre (intern (format "org-babel-edit-prep:%s" lang)))
+           (intern-pre (intern (format "ar/eglot--%s" (symbol-name edit-pre)))))
+      
+      ;; Define the internal function that initializes Eglot
+      (fset intern-pre
+            (lambda (info)
+              ;; Centaur Logic: Extract :file from info or use default tmp name.
+              ;; `info` structure is (language body header-args ...)
+              ;; (nth 2 info) gets the header-args list.
+              (let* ((header-args (nth 2 info))
+                     (tangled-file (alist-get :file header-args))
+                     (file-name (or tangled-file "org-src-babel.tmp")))
+                
+                ;; Set buffer-file-name so Eglot can identify the project.
+                ;; We use `expand-file-name` to ensure it resolves to a full
+                ;; path inside the current directory.
+                (setq-local buffer-file-name (expand-file-name file-name))
+                (eglot-ensure))))
+      
+      ;; Advice logic:
+      ;; If the prep function exists (e.g. defined by another package), run ours after it.
+      ;; If it doesn't exist, define it as our function.
+      (if (fboundp edit-pre)
+          (advice-add edit-pre :after intern-pre)
+        (fset edit-pre intern-pre))))
+
+  ;; List of languages to enable Eglot for in Org Mode.
+  ;; Add new languages here to enable LSP support for them.
+  (defconst ar/org-babel-supported-languages
+    '("go" "python" "ipython" "ruby" "js" "css" "sass" "c" "rust" "java" "cpp" "c++" "shell" "bash")
+    "List of languages to enable Eglot support for in Org Babel.")
+
+  ;; Apply the setup
+  (dolist (lang ar/org-babel-supported-languages)
+    (ar/eglot-org-babel-enable lang)))
+
+;; Integration with Consult for searching symbols
+(use-package consult-eglot
+  :defer t
+  :after (consult eglot)
+  :bind (:map eglot-mode-map
+         ("C-M-." . consult-eglot-symbols)))
+
+(use-package flymake :defer t)
+#+end_src
+
+** DAP
+#+begin_src emacs-lisp
+(use-package dape
+  :defer t
+  :bind (("<f5>" . dape)
+         ("M-<f5>" . dape-hydra/body))
+  :custom (dape-buffer-window-arrangment 'right)
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Debug" 'codicon "nf-cod-debug")
+    :color pink :quit-key ("q" "C-g"))
+   ("Stepping"
+    (("n" dape-next "next")
+     ("s" dape-step-in "step in")
+     ("o" dape-step-out "step out")
+     ("c" dape-continue "continue")
+     ("p" dape-pause "pause")
+     ("k" dape-kill "kill")
+     ("r" dape-restart "restart")
+     ("D" dape-disconnect-quit "disconnect"))
+    "Switch"
+    (("m" dape-read-memory "memory")
+     ("t" dape-select-thread "thread")
+     ("w" dape-watch-dwim "watch")
+     ("S" dape-select-stack "stack")
+     ("i" dape-info "info")
+     ("R" dape-repl "repl"))
+    "Breakpoints"
+    (("b" dape-breakpoint-toggle "toggle")
+     ("l" dape-breakpoint-log "log")
+     ("e" dape-breakpoint-expression "expression")
+     ("B" dape-breakpoint-remove-all "clear"))
+    "Debug"
+    (("d" dape "dape")
+     ("Q" dape-quit "quit" :exit t))))
+  :config
+  ;; Save buffers on startup, useful for interpreted languages
+  (add-hook 'dape-on-start-hooks
+            (defun dape--save-on-start ()
+              (save-some-buffers t t)))
+  ;; Display hydra on startup
+  (add-hook 'dape-on-start-hooks #'dape-hydra/body))
+#+end_src
+
+** Syntax Checking
+#+begin_src emacs-lisp
+(use-package flymake
+  :ensure nil
+  :hook ((prog-mode text-mode) . flymake-mode)
+  :custom
+  ;; Doom-inspired behavior: better navigation and visual density
+  (flymake-fringe-indicator-position 'left-fringe)
+  (flymake-wrap-around t)
+  (flymake-suppress-zero-counters t)
+  (flymake-no-changes-timeout 0.5)
+  (flymake-start-on-save-buffer t)
+  :config
+  ;; UI: Doom Emacs Double-Arrow Fringe Bitmaps
+  (define-fringe-bitmap 'ar/flymake-double-arrow
+    [#b00000000 #b00010000 #b00011000 #b00011100 #b00011110 
+     #b00011100 #b00011000 #b00010000 #b00000000])
+
+  (setq flymake-error-bitmap   '(ar/flymake-double-arrow flymake-error)
+        flymake-warning-bitmap '(ar/flymake-double-arrow flymake-warning)
+        flymake-note-bitmap    '(ar/flymake-double-arrow flymake-note))
+
+  ;; UI: Nerd Icons in Diagnostics Buffer (SPC c B)
+  (defun ar/flymake-diagnostics-buffer-icons ()
+    "Apply nerd-icons to the Flymake diagnostics buffer."
+    (when (derived-mode-p 'flymake-diagnostics-mode)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^\\s-*\\(error\\|warning\\|note\\)" nil t)
+          (let* ((type (match-string 1))
+                 (icon (pcase type
+                         ("error"   (nerd-icons-faicon "nf-fa-times_circle" :face 'flymake-error))
+                         ("warning" (nerd-icons-faicon "nf-fa-exclamation_circle" :face 'flymake-warning))
+                         ("note"    (nerd-icons-faicon "nf-fa-info_circle" :face 'flymake-note)))))
+            (add-text-properties (match-beginning 1) (match-end 1) `(display ,icon)))))))
+  (add-hook 'flymake-diagnostics-mode-hook #'ar/flymake-diagnostics-buffer-icons)
+
+  ;; Navigation Logic
+  (defun ar/flymake-next-error () (interactive) (flymake-goto-next-error 1 '(:error :warning) t))
+  (defun ar/flymake-prev-error () (interactive) (flymake-goto-prev-error 1 '(:error :warning) t)))
+
+(use-package flymake-popon
+  :hook (flymake-mode . flymake-popon-mode)
+  :custom
+  (flymake-popon-method 'posframe)
+  (flymake-popon-delay 0.2)
+  :config
+  ;; Border logic to match your custom posframe configuration
+  (set-face-attribute 'flymake-popon-posframe-border nil 
+                      :background (face-attribute 'posframe-border :background nil t)))
+#+end_src
+
+** Formatting
+#+begin_src emacs-lisp
+(use-package apheleia
+  :hook (elpaca-after-init . apheleia-global-mode)
+  :custom
+  (apheleia-log-only-errors t)
+  :config
+  ;; We define this so you can map 'eglot to specific languages later.
+  (defun ar/apheleia-format-with-eglot (orig scratch callback)
+    "Format with Eglot if available; otherwise return nil to fallback."
+    (with-current-buffer orig
+      (if (and (bound-and-true-p eglot--managed-mode)
+               (eglot-server-capable :documentFormattingProvider))
+          (progn
+            (cl-letf (((symbol-function 'message) #'ignore))
+              (eglot-format-buffer))
+            (with-current-buffer scratch
+              (erase-buffer)
+              (insert-buffer-substring orig))
+            (funcall callback scratch))
+        (funcall callback nil))))
+
+  ;; Add eglot to the formatter list (but don't set it as default yet)
+  (push '(eglot . ar/apheleia-format-with-eglot) apheleia-formatters)
+
+  ;; Best Practice: Inhibit formatting for specific filetypes
+  (setq apheleia-inhibit-functions
+        (list (lambda () (derived-mode-p 'org-mode 'markdown-mode)))))
+#+end_src
+
+** Development Hydra
+#+begin_src emacs-lisp
+(pretty-hydra-define dev-hydra
+  (:title (pretty-hydra-title "Development" 'codicon "nf-cod-code" :face 'nerd-icons-blue)
+   :color amaranth :quit-key ("q" "C-g"))
+  ("LSP (Eglot)"
+   (("a" eglot-code-actions "actions")
+    ("r" eglot-rename "rename")
+    ("d" xref-find-definitions "definition")
+    ("D" xref-find-references "references")
+    ("s" consult-eglot-symbols "symbols")
+    ("h" eldoc "hover doc"))
+   
+   "Syntax (Flymake)"
+   (("n" ar/flymake-next-error "next error")
+    ("p" ar/flymake-prev-error "prev error")
+    ("b" flymake-show-buffer-diagnostics "buffer list")
+    ("B" consult-flymake "project list")
+    ("!" flymake-running-backends "backends"))
+
+   "Formatting"
+   (("f" apheleia-format-buffer "format buffer")
+    ("F" (lambda () (interactive) (let ((apheleia-formatter 'eglot)) (apheleia-format-buffer))) "format w/ LSP"))
+
+   "Toggles"
+   (("t l" eglot-managed-p "LSP mode" :toggle t)
+    ("t s" flymake-mode "syntax mode" :toggle t)
+    ("t f" apheleia-mode "auto-format" :toggle t)
+    ("t e" eldoc-mode "eldoc" :toggle t)
+    ("t p" flymake-popon-mode "popon tooltips" :toggle t))))
+#+end_src
+
+* Utils
+** Which Key
+#+begin_src emacs-lisp
+(use-package which-key
+  :defer 0.5
+  :hook (elpaca-after-init . which-key-mode)
+  :custom
+  (which-key-idle-delay 0.1)
+  (which-key-separator " → ")
+  (which-key-popup-type 'minibuffer))
+#+end_src
+
+** Wgrep
+Writable `grep' buffer
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t
+  :init (setq wgrep-auto-save-buffer t
+              wgrep-change-readonly-file t))
+#+end_src
+
+** Echo Area Context Display
+#+begin_src emacs-lisp
+;; Cache for Git branch to avoid repeated VC calls
+(defvar ar/git-branch-cache nil
+  "Cached Git branch for current buffer.")
+(defvar ar/git-branch-cache-time nil
+  "Time when Git branch was last cached.")
+
+(defun ar/get-git-branch-cached ()
+  "Get Git branch with caching and robust fallbacks."
+  (when (and buffer-file-name
+             (vc-backend buffer-file-name))
+    (let ((current-time (float-time)))
+      ;; Refresh cache if older than 5 seconds or not set
+      (when (or (null ar/git-branch-cache-time)
+                (> (- current-time ar/git-branch-cache-time) 5.0))
+        (setq ar/git-branch-cache
+              (let ((str (vc-git-mode-line-string buffer-file-name)))
+                (if str
+                    (substring-no-properties str 4) ;; Remove " Git-" prefix
+                  ;; Fallback if mode-line string is not ready
+                  (car (vc-git-branches)))))
+        (setq ar/git-branch-cache-time current-time))
+      ar/git-branch-cache)))
+
+(defun ar/show-buffer-context ()
+  "Display useful buffer context in echo area instantly.
+Shows: file path, position, mode, and cached Git branch.
+Includes optimization for large buffers and nerd-icons integration."
+  (interactive)
+  (let* ((file (if buffer-file-name
+                   (abbreviate-file-name buffer-file-name)
+                 (buffer-name)))
+         (icon (if (and (display-graphic-p) (featurep 'nerd-icons))
+                   (nerd-icons-icon-for-mode major-mode)
+                 ""))
+         (line (line-number-at-pos))
+         ;; Optimization: Don't count lines in massive buffers (>1MB) to prevent freeze
+         (total (if (> (buffer-size) 1000000)
+                    "?"
+                  (count-lines (point-min) (point-max))))
+         ;; FIX: Use 'equal' instead of 'string=' because total can be an integer
+         (percent (if (equal total "?")
+                      "--"
+                    (/ (* 100 (- (point) (point-min)))
+                       (max 1 (- (point-max) (point-min))))))
+         (mode mode-name)
+         (branch (ar/get-git-branch-cached))
+         (branch-icon (if (and (display-graphic-p) (featurep 'nerd-icons))
+                          (nerd-icons-octicon "nf-oct-git_branch" :face 'font-lock-function-name-face)
+                        "")))
+    (message "%s %s%s │ %s │ L%d/%s (%s%%)%s"
+             icon
+             (propertize file 'face 'font-lock-string-face)
+             (if (buffer-modified-p)
+                 (propertize "*" 'face 'error)
+               "")
+             (propertize (format "%s" mode) 'face 'font-lock-keyword-face)
+             line total percent
+             (if branch
+                 (concat " │ " branch-icon " " (propertize branch 'face 'font-lock-constant-face))
+               ""))))
+#+end_src
+
+** Buffer State Information
+#+begin_src emacs-lisp
+(defun ar/show-buffer-state ()
+  "Show buffer state information in echo area.
+Displays: Narrowed, Read-only, Macro recording, Evil state."
+  (interactive)
+  (let ((states '()))
+    ;; Check narrowing
+    (when (buffer-narrowed-p)
+      (push (propertize "NARROWED" 'face 'warning) states))
+    
+    ;; Check read-only
+    (when buffer-read-only
+      (let ((icon (if (featurep 'nerd-icons) (nerd-icons-octicon "nf-oct-lock") "🔒")))
+        (push (propertize (concat icon " READ-ONLY") 'face 'error) states)))
+    
+    ;; Check macro recording
+    (when defining-kbd-macro
+      (push (propertize "● REC" 'face '(:foreground "#f7768e" :weight bold)) states))
+    
+    ;; Check evil state
+    (when (and (featurep 'evil) (bound-and-true-p evil-state))
+      (push (propertize 
+             (format "Evil: %s" (upcase (symbol-name evil-state)))
+             'face 'font-lock-constant-face)
+            states))
+    
+    ;; Check modified
+    (when (buffer-modified-p)
+      (push (propertize "MODIFIED" 'face 'success) states))
+    
+    (if states
+        (message (string-join states " │ "))
+      (message (propertize "Buffer State: Clean" 'face 'shadow)))))
+#+end_src
+
+** Macro Recording Indicator
+#+begin_src emacs-lisp
+;; Show macro recording status in echo area automatically
+(defun ar/kmacro-start-message (&rest _)
+  "Display message when macro recording starts."
+  (message (propertize "● Recording keyboard macro..." 
+                       'face '(:foreground "#f7768e" :weight bold))))
+
+(defun ar/kmacro-end-message (&rest _)
+  "Display message when macro recording ends."
+  (message (propertize "✓ Keyboard macro defined" 
+                       'face '(:foreground "#9ece6a" :weight bold))))
+
+(advice-add 'kmacro-start-macro :after #'ar/kmacro-start-message)
+(advice-add 'kmacro-end-macro :after #'ar/kmacro-end-message)
 #+end_src
 
 * General Keybindings
@@ -3624,16 +4216,16 @@ targets."
     "t p" '(show-paren-mode :wk "Show paren")
     "t T" '(toggles-hydra/body :wk "Toggles hydra"))
 
-  ;; Dired operations
+  ;; Dired/Dirvish operations (Doom-like)
   (ar/global-leader
-    "d" '(:ignore t :wk "dired/dirvish")
-    "d d" '(dired :wk "Dired")
-    "d f" '(dirvish :wk "Dirvish fullscreen")
+    "d" '(:ignore t :wk "dired")
+    "d d" '(dired-jump :wk "Open dired here")
+    "d D" '(dired :wk "Open dired...")
     "d s" '(dirvish-side :wk "Dirvish sidebar")
-    "d w" '(dirvish-dwim :wk "Dirvish dwim")
-    "d h" '(dirvish-show-history :wk "Show history")
+    "d f" '(dirvish-dwim :wk "Dirvish fullscreen")
+    "d h" '(dirvish-show-history :wk "History")
     "d a" '(dirvish-quick-access :wk "Quick access")
-    "d j" '(dirvish-fd-jump :wk "Jump with fd"))
+    "d j" '(dirvish-fd-jump :wk "Jump fd"))
   
   ;; Open operations (SPC o)
   (ar/global-leader
@@ -3664,34 +4256,22 @@ targets."
     "h r" '(:ignore t :wk "reload")
     "h r r" '(reload-init-file :wk "Reload config"))
 
-  ;; Code operations (SPC c)
+  (general-define-key
+   :states 'motion
+    "] e" 'ar/flymake-next-error
+    "[ e" 'ar/flymake-prev-error)
+
   (ar/global-leader
     "c" '(:ignore t :wk "code")
-    "c a" '(lsp-execute-code-action :wk "Code action")
-    "c d" '(lsp-find-definition :wk "Definition")
-    "c D" '(lsp-find-declaration :wk "Declaration")
-    "c r" '(lsp-find-references :wk "References")
-    "c i" '(lsp-find-implementation :wk "Implementation")
-    "c t" '(lsp-find-type-definition :wk "Type definition")
-    "c s" '(consult-lsp-symbols :wk "Symbols")
-    "c S" '(lsp-ui-doc-show :wk "Show doc")
-    "c f" '(lsp-format-buffer :wk "Format buffer")
-    "c F" '(lsp-format-region :wk "Format region")
-    "c o" '(lsp-organize-imports :wk "Organize imports")
-    "c R" '(lsp-rename :wk "Rename")
-    "c e" '(consult-flycheck :wk "Errors")
-    "c c" '(compile :wk "Compile")
-    "c C" '(recompile :wk "Recompile")
-    "c l" '(:ignore t :wk "lsp")
-    "c l r" '(lsp-workspace-restart :wk "Restart workspace")
-    "c l s" '(lsp-workspace-shutdown :wk "Shutdown workspace")
-    "c l d" '(lsp-describe-session :wk "Describe session")
-    "c l D" '(lsp-disconnect :wk "Disconnect")
-    "c l u" '(lsp-ui-hydra/body :wk "LSP UI hydra")
-    "c l i" '(lsp-ui-imenu :wk "LSP Imenu")
-    "c l t" '(lsp-treemacs-symbols :wk "Treemacs symbols")
-    "c l e" '(lsp-treemacs-errors-list :wk "Treemacs errors"))
-
+    "c ." '(dev-hydra/body :wk "Dev dashboard")
+    "c e" '(consult-flymake :wk "Search errors")
+    "c B" '(flymake-show-buffer-diagnostics :wk "Buffer diagnostics")
+    "c n" '(ar/flymake-next-error :wk "Next error")
+    "c p" '(ar/flymake-prev-error :wk "Prev error")
+    "c f" '(apheleia-format-buffer :wk "Format buffer")
+    "c r" '(eglot-rename :wk "Rename")
+    "c a" '(eglot-code-actions :wk "Code action"))
+  
   ;; Git operations (SPC g)
   (ar/global-leader
     "g" '(:ignore t :wk "git")
