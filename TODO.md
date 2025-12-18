@@ -16,50 +16,6 @@
 - [ ] Use https://github.com/MatthewZMD/.emacs.d to optimize my emacs configuration
 
 
-- [ ] **Duplicate/Overlapping Configurations**
-
-Here are the changes needed to remove duplicates and conflicts:
-
-dd-hook 'after-init-hook #'global-visual-line-mode)
-```
-
---
-
----
-
---
-
-
-
-### 3. **Dashboard `initial-buffer-choice` Conflicts with Daemon Mode**
-
-**Problem**: Setting `initial-buffer-choice` to dashboard can cause issues with
-`emacsclient`.
-
-**Current (line 611)**:
-
-```elisp
-(setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
-```
-
-**Fix**:
-
-```elisp
-:config
-  (dashboard-setup-startup-hook)
-  ;; Better daemon-mode support
-  (setq initial-buffer-choice
-        (lambda ()
-          (if (daemonp)
-              (get-buffer-create "*scratch*")
-            (get-buffer "*dashboard*")))))
-```
-
-`
-``
-
-``
-
 # Fixes in order
 - [ ] Apply **display-buffer-alist-fix.md** first
 - [ ] Then apply **treemacs-fix.md** next
@@ -94,4 +50,4 @@ dd-hook 'after-init-hook #'global-visual-line-mode)
 - [ ] **Medium** When I yank a word/phrase using the `y` key and paste it over another word/phrase using the `p` key, the latter word/phrase gets copied by evil. I am doing this in visual mode and I don't that behaviour. Instead I want the former word/phrase to be still be able to be pasted.
 - [ ] **Medium** When I yank and paste something in visual mode, I want to visual flash as feedback to confirm that yank and paste have worked using the `y` and `p` keys from evil
 
-- [ ] **Return to aahsnr@duck** 
+- [ ] **Return to aahsnr@duck**

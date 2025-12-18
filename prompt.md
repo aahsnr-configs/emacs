@@ -216,10 +216,10 @@ Then repeat the previous task by carefully following the instructions in the pre
 ***
 # Fifth Series
 
-This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. All the configurations with the changes in their separate markdown code blocks should be placed in the right side of the window. Perform each of the following tasks methodically and thoroughly:
+This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. Perform each of the following tasks methodically and thoroughly:
 
 1. Your `first task` is to thoroughly study and analyze the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`.
 
-2. Then for your `2nd task`, write a new hydra/pretty-hydra config for the lsp-mode config in Development Tools section in emacs.txt.
+2. Then for your `2nd task`, you need improve the existing python development section. You will be utilizing the lsp-mode package. For the lsp server, only basedpyright needs to be used via the lsp-pyright package. Even if the ruff binary is available lsp-mode should not activate it. However, ruff must be used exclusively with flycheck for syntax checking and alpheleia for automatic formatting. Make sure to search the web to determine what is the correct way to setup flycheck to utilize ruff for python related buffers. You need to do the same thing for ruff with alpheleia. All the configuration settings should be inside the python development section only. Make sure your approach to setting basedpyright as the only lsp server for python buffers is accurate as well. Then rewrite the whole python development section
 
 Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding
