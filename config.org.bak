@@ -1323,15 +1323,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   
   (ar/dashboard-setup-startup-hook-quiet)
   
-  ;; FIX: Use get-buffer-create instead of get-buffer to avoid nil error
-  ;; This creates the buffer if it doesn't exist
-  ;; Also handle command-line files gracefully
-  (setq initial-buffer-choice
-        (lambda ()
-          ;; If files were passed on command line, don't force dashboard
-          (if (> (length command-line-args) 2)
-              nil
-            (get-buffer-create "*dashboard*")))))
+  (setq initial-buffer-choice (lambda () (get-buffer "*dashboard*"))))
 #+end_src
 
 ** Line Numbers
@@ -1447,9 +1439,8 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 (use-package org
   :ensure nil
   :pretty-hydra
-  ;; See `org-structure-template-alist'
   ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
-           :color blue :quit-key ("q" "C-g"))
+    :color blue :quit-key ("q" "C-g"))
    ("Basic"
     (("a" (hot-expand "<a") "ascii")
      ("c" (hot-expand "<c") "center")
@@ -1484,15 +1475,35 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
             (insert "#+HEADERS: :results output :exports both :shebang \"#!/usr/bin/env perl\"\n")
             (hot-expand "<s" "perl")) "Perl tangled")
      ("<" self-insert-command "ins"))))
+
   :bind (:map org-mode-map
-              ("<" . (lambda ()
-                       "Insert org template."
-                       (interactive)
-                       (if (or (region-active-p) (looking-back "^\s*" 1))
-                           (org-hydra/body)
-                         (self-insert-command 1)))))
-  
-  :hook ((org-mode . visual-line-mode)
+         ("<" . (lambda ()
+                  "Insert org template."
+                  (interactive)
+                  (if (or (region-active-p) (looking-back "^\s*" 1))
+                      (org-hydra/body)
+                    (self-insert-command 1)))))
+
+  :hook ((org-mode . (lambda ()
+                       ;; CRITICAL: Prevent Emacs from auto-indenting on RET, 
+                       ;; which causes the cursor jump in source blocks.
+                       (setq-local electric-indent-inhibit t)
+                       
+                       ;; CRITICAL: Custom RET behavior.
+                       ;; Inside blocks: Use simple newline+indent (native behavior).
+                       ;; Outside: Use Org's smart return (tables, headings).
+                       (evil-define-key 'insert org-mode-map (kbd "RET")
+                         (lambda ()
+                           (interactive)
+                           (if (org-in-src-block-p)
+                               (newline-and-indent)
+                             (org-return nil))))
+
+                       (evil-define-key 'normal org-mode-map (kbd "TAB") #'org-cycle)
+                       (evil-define-key 'normal org-mode-map (kbd "[b") #'ar/org-nav-src-prev)
+                       (evil-define-key 'normal org-mode-map (kbd "]b") #'ar/org-nav-src-next)))
+         
+         (org-mode . visual-line-mode)
          (org-mode . ar/org-font-setup)
          (org-mode . auto-fill-mode)
          (org-mode . (lambda () (setq-local yas-parents '(latex-mode))))
@@ -1500,15 +1511,65 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
                               (visual-line-mode -1)
                               (toggle-truncate-lines 1)
                               (display-line-numbers-mode -1)
-                              (setq mode-line-format nil)
-                              (setq header-line-format nil)))
+                              (setq mode-line-format nil header-line-format nil)))
          (org-capture-mode . (lambda ()
-                               (setq mode-line-format nil)
-                               (setq header-line-format nil))))
-  
+                               (setq mode-line-format nil header-line-format nil))))
+
+  :config
+  ;; === Navigation Helpers ===
+  (defun ar/org-nav-src-prev ()
+    "Jump to the first line of the current source block content."
+    (interactive)
+    (org-babel-goto-src-block-head)
+    (forward-line 1))
+
+  (defun ar/org-nav-src-next ()
+    "Jump to the last line of the current source block content."
+    (interactive)
+    (org-babel-goto-src-block-head)
+    (search-forward "#+end_src")
+    (forward-line -1))
+
+  ;; === Template Expansion ===
+  (defun hot-expand (str &optional mod)
+    (let (text)
+      (when (region-active-p)
+        (setq text (buffer-substring (region-beginning) (region-end)))
+        (delete-region (region-beginning) (region-end)))
+      (insert str)
+      (if (fboundp 'org-try-structure-completion)
+          (org-try-structure-completion)
+        (progn (require 'org-tempo nil t) (org-tempo-complete-tag)))
+      (when mod (insert mod) (forward-line))
+      (when text (insert text))))
+
+  (setq org-confirm-babel-evaluate nil
+        org-src-fontify-natively t
+        org-src-tab-acts-natively t)
+
+  ;; === Languages ===
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t) (perl . t) (python . t) (ruby . t) 
+     (js . t) (css . t) (sass . t) (C . t) (java . t) 
+     (shell . t) (plantuml . t)))
+
+  (dolist (pair '(("sh" . "src shell") ("el" . "src emacs-lisp")
+                  ("py" . "src python") ("jpy" . "src jupyter-python")
+                  ("tex" . "src latex")))
+    (add-to-list 'org-structure-template-alist pair))
+
   :custom
   (org-modules nil)
   (org-directory my/org-directory)
+  
+  ;; CRITICAL: Must be nil. If t, Org expects manual indentation 
+  ;; and 'newline-and-indent' will behave erratically (jumping to top).
+  (org-src-preserve-indentation nil)
+  
+  ;; Keep code flush with #+begin_src
+  (org-edit-src-content-indentation 0)
+  
   (org-log-done 'time)
   (org-pretty-entities t)
   (org-log-into-drawer t)
@@ -1519,107 +1580,89 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   (org-hide-emphasis-markers t)
   (org-element-cache-persistent t)
   (org-fontify-whole-heading-line t)
-  ;; (org-fontify-quote-and-verse-blocks nil)
-  ;; (org-fontify-whole-heading-line nil)
-  ;; (org-fontify-done-headline nil)
   (org-highlight-latex-and-related nil)
-  (org-src-preserve-indentation t)
-  (org-edit-src-content-indentation 0)
   (org-startup-folded 'overview)
   (org-startup-with-inline-images nil)
   (org-startup-with-latex-preview nil)
   (org-cycle-separator-lines 2)
-  
-  (org-todo-keywords
-   '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w@/!)" "|" "DONE(d!)" "CANCEL(c@)")
-	 (sequence "PLAN(P)" "ACTIVE(A)" "PAUSED(x)" "|" "ACHIEVED(a)" "DROPPED(D)")))
-  
-  (org-todo-keyword-faces
-   '(("TODO"      . (:foreground "#f7768e" :weight bold))
-     ("NEXT"      . (:foreground "#ff9e64" :weight bold))
-     ("PROG"      . (:foreground "#7aa2f7" :weight bold))
-     ("WAIT"      . (:foreground "#e0af68" :weight bold))
-     ("DONE"      . (:foreground "#9ece6a" :weight bold))
-     ("CANCEL"    . (:foreground "#565f89" :weight bold))
-     ("PLAN"      . (:foreground "#7dcfff" :weight bold))
-     ("ACTIVE"    . (:foreground "#bb9af7" :weight bold))
-     ("PAUSED"    . (:foreground "#a9b1d6" :weight bold))
-     ("ACHIEVED"  . (:foreground "#9ece6a" :weight bold))
-     ("DROPPED"   . (:foreground "#565f89" :weight bold))))
-
-  (org-tag-alist '(("@work"      . ?w)
-		           ("@home"      . ?h)
-		           ("@computer"  . ?c)
-		           ("@errands"   . ?e)
-		           ("read"       . ?r)
-		           ("meeting"    . ?m)
-		           ("urgent"     . ?u)
-		           ("someday"    . ?s)))
-  
-  
-  (org-priority-faces '((?A . error)
-                        (?B . warning)
-                        (?C . success)))
-  
-  ;; Agenda styling
   (org-agenda-files (list my/org-directory))
   (org-agenda-block-separator ?─)
-  (org-agenda-time-grid
-   '((daily today require-timed)
-     (800 1000 1200 1400 1600 1800 2000)
-     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  (org-agenda-current-time-string
-   "⭠ now ─────────────────────────────────────────────────")
+  (org-agenda-time-grid '((daily today require-timed)
+                          (800 1000 1200 1400 1600 1800 2000)
+                          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+  (org-agenda-current-time-string "⭠ now ─────────────────────────────────────────────────")
   (org-agenda-inhibit-startup t)
   (org-agenda-dim-blocked-tasks nil)
   (org-agenda-use-tag-inheritance nil)
   (org-agenda-ignore-properties '(effort appt category))
   (org-agenda-span 'day)
   (org-tags-column -80)
+  (org-catch-invisible-edits 'smart)
+  (org-priority-faces '((?A . error) (?B . warning) (?C . success)))
+  (org-todo-keywords
+   '((sequence "TODO(t)" "NEXT(n)" "PROG(p)" "WAIT(w@/!)" "|" "DONE(d!)" "CANCEL(c@)")
+     (sequence "PLAN(P)" "ACTIVE(A)" "PAUSED(x)" "|" "ACHIEVED(a)" "DROPPED(D)")))
+  (org-todo-keyword-faces
+   '(("TODO" . (:foreground "#f7768e" :weight bold))
+     ("NEXT" . (:foreground "#ff9e64" :weight bold))
+     ("PROG" . (:foreground "#7aa2f7" :weight bold))
+     ("WAIT" . (:foreground "#e0af68" :weight bold))
+     ("DONE" . (:foreground "#9ece6a" :weight bold))
+     ("CANCEL" . (:foreground "#565f89" :weight bold))
+     ("PLAN" . (:foreground "#7dcfff" :weight bold))
+     ("ACTIVE" . (:foreground "#bb9af7" :weight bold))
+     ("PAUSED" . (:foreground "#a9b1d6" :weight bold))
+     ("ACHIEVED" . (:foreground "#9ece6a" :weight bold))
+     ("DROPPED" . (:foreground "#565f89" :weight bold))))
+  (org-tag-alist '(("@work" . ?w) ("@home" . ?h) ("@computer" . ?c)
+                   ("@errands" . ?e) ("read" . ?r) ("meeting" . ?m)
+                   ("urgent" . ?u) ("someday" . ?s))))
+#+end_src
 
-  :config
-  (defun hot-expand (str &optional mod)
-    (let (text)
-      (when (region-active-p)
-        (setq text (buffer-substring (region-beginning) (region-end)))
-        (delete-region (region-beginning) (region-end)))
-      (insert str)
-      (if (fboundp 'org-try-structure-completion)
-          (org-try-structure-completion) ; < org 9
-        (progn
-          ;; New template expansion since org 9
-          (require 'org-tempo nil t)
-          (org-tempo-complete-tag)))
-      (when mod (insert mod) (forward-line))
-      (when text (insert text))))
-  
-  ;; Babel
-  (setq org-confirm-babel-evaluate nil
-        org-src-fontify-natively t
-        org-src-tab-acts-natively t)
-  
-  (defconst load-language-alist
-    '((emacs-lisp . t)
-      (perl       . t)
-      (python     . t)
-      (ruby       . t)
-      (js         . t)
-      (css        . t)
-      (sass       . t)
-      (C          . t)
-      (java       . t)
-      (shell      . t)
-      (plantuml   . t))
-    "Alist of org ob languages.")
-  
-  (org-babel-do-load-languages 'org-babel-load-languages
-                               load-language-alist)
-  
-  (add-to-list 'org-structure-template-alist '("sh" . "src shell"))
-  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
-  (add-to-list 'org-structure-template-alist '("py" . "src python"))
-  (add-to-list 'org-structure-template-alist '("jpy" . "src jupyter-python"))
-  (add-to-list 'org-structure-template-alist '("tex" . "src latex")))
+** Org On-Demand Breadcrumbs
+Show the current Org headline hierarchy (Breadcrumbs) on demand.
+Replaces automatic display with a manual keybinding to reduce clutter.
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  (defun ar/org-show-breadcrumb ()
+    "Display a Doom-style breadcrumb path in the echo area.
+    Format: Parent › Current
+    Special states: 'Top Level' (start) and 'Bottom Level' (end).
+    Does NOT show filename (redundant with modeline)."
+    (interactive)
+    (if (not (derived-mode-p 'org-mode))
+        (message "Not in an Org buffer.")
+      
+      (let* (;; Styles
+             (face-sep '(:inherit shadow :height 0.8))
+             (face-path '(:inherit shadow))
+             (face-current '(:inherit font-lock-keyword-face :weight bold))
+             (sep-str (propertize " › " 'face face-sep))
+             
+             ;; Get path including current heading ('t')
+             ;; ignore-errors handles "Before first headline" case gracefully
+             (path (ignore-errors (org-get-outline-path t))))
+
+        (cond
+         ;; Case A: End of Buffer
+         ((eobp)
+          (message "%s" (propertize "Bottom Level" 'face face-path)))
+         
+         ;; Case B: Inside a hierarchy
+         (path
+          (message "%s"
+                   (mapconcat
+                    (lambda (heading)
+                      ;; If it's the last item, highlight it. Otherwise dim it.
+                      (if (string= heading (car (last path)))
+                          (propertize heading 'face face-current)
+                        (propertize heading 'face face-path)))
+                    path
+                    sep-str)))
+         
+         ;; Case C: Top of file (no headings and not at bottom)
+         (t 
+          (message "%s" (propertize "Top Level" 'face face-path))))))))
 #+end_src
 
 ** Org Appear
@@ -1730,7 +1773,8 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
     :preview-key "M-."))
 #+end_src
 
-** Org Capture
+** Capture: The Gateway to Org
+*Use dynamic directory*
 #+begin_src emacs-lisp
 (defun my/find-org-projects ()
   "Find all org files in the projects directory."
@@ -1946,28 +1990,28 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+end_src
 
 ** Hideshow
-Standard native folding, kept as fallback; disabling for now
+Standard native folding, kept as fallback
 #+begin_src emacs-lisp
-;; (use-package hideshow
-;;   :ensure nil
-;;   :hook (prog-mode . hs-minor-mode)
-;;   :config
-;;   (defun hs-cycle (&optional level)
-;;     (interactive "p")
-;;     (let (message-log-max (inhibit-message t))
-;;       (if (= level 1)
-;;           (pcase last-command
-;;             ('hs-cycle (hs-hide-level 1) (setq this-command 'hs-cycle-children))
-;;             ('hs-cycle-children (save-excursion (hs-show-block)) (setq this-command 'hs-cycle-subtree))
-;;             ('hs-cycle-subtree (hs-hide-block))
-;;             (_ (if (not (hs-already-hidden-p)) (hs-hide-block) (hs-hide-level 1) (setq this-command 'hs-cycle-children))))
-;;         (hs-hide-level level) (setq this-command 'hs-hide-level))))
+(use-package hideshow
+  :ensure nil
+  :hook (prog-mode . hs-minor-mode)
+  :config
+  (defun hs-cycle (&optional level)
+    (interactive "p")
+    (let (message-log-max (inhibit-message t))
+      (if (= level 1)
+          (pcase last-command
+            ('hs-cycle (hs-hide-level 1) (setq this-command 'hs-cycle-children))
+            ('hs-cycle-children (save-excursion (hs-show-block)) (setq this-command 'hs-cycle-subtree))
+            ('hs-cycle-subtree (hs-hide-block))
+            (_ (if (not (hs-already-hidden-p)) (hs-hide-block) (hs-hide-level 1) (setq this-command 'hs-cycle-children))))
+        (hs-hide-level level) (setq this-command 'hs-hide-level))))
   
-;;   (defun hs-toggle-all () 
-;;     (interactive) 
-;;     (pcase last-command 
-;;       ('hs-toggle-all (save-excursion (hs-show-all)) (setq this-command 'hs-global-show)) 
-;;       (_ (hs-hide-all)))))
+  (defun hs-toggle-all () 
+    (interactive) 
+    (pcase last-command 
+      ('hs-toggle-all (save-excursion (hs-show-all)) (setq this-command 'hs-global-show)) 
+      (_ (hs-hide-all)))))
 #+end_src
 
 ** Vimish Fold
@@ -2059,6 +2103,7 @@ Standard native folding, kept as fallback; disabling for now
   (rainbow-delimiters-depth-8-face ((t (:foreground "#9d7cd8"))))  ; Purple
   (rainbow-delimiters-depth-9-face ((t (:foreground "#73daca"))))) ; Teal
 #+end_src
+
 
 ** Parenthesis Matching & Context
 #+begin_src emacs-lisp
@@ -2655,8 +2700,8 @@ Re-enables it after save. Prevents indentation issues."
 ;; (add-hook 'before-save-hook #'ar/prettify-symbols-before-save)
 
 #+end_src
-
 * Elisp
+
 #+begin_src emacs-lisp
 (use-package elisp-mode
   :ensure nil
@@ -3043,6 +3088,8 @@ targets."
 ** Corfu
 #+begin_src emacs-lisp
 (use-package corfu
+  :autoload (corfu-quit consult-completion-in-region)
+  :functions (persistent-scratch-save corfu-move-to-minibuffer)
   :custom
   (corfu-cycle t)
   (corfu-auto t)
@@ -3068,7 +3115,22 @@ targets."
         ([backtab] . corfu-previous)
         ("M-h" . corfu-info-documentation))
   :hook ((elpaca-after-init . global-corfu-mode)
-         (global-corfu-mode . corfu-history-mode)))
+         (global-corfu-mode . corfu-history-mode))
+  :config
+  ;;Quit completion before saving
+  (add-hook 'before-save-hook #'corfu-quit)
+  (advice-add #'persistent-scratch-save :before #'corfu-quit)
+
+  ;; Move completions to minibuffer
+  (defun corfu-move-to-minibuffer ()
+    (interactive)
+    (pcase completion-in-region--data
+      (`(,beg ,end ,table ,pred ,extras)
+       (let ((completion-extra-properties extras)
+             completion-cycle-threshold completion-cycling)
+         (consult-completion-in-region beg end table pred)))))
+  (keymap-set corfu-map "M-m" #'corfu-move-to-minibuffer)
+  (add-to-list 'corfu-continue-commands #'corfu-move-to-minibuffer))
 #+end_src
 
 ** Basic Completion
@@ -3110,7 +3172,6 @@ targets."
   (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-nonexclusive))
-
 #+end_src
 
 ** Dabbrev
@@ -3171,9 +3232,12 @@ targets."
   :defer t
   :ensure nil
   :commands (dired dired-jump)
-  :custom 
+  :custom
+  ;; Use GNU ls for better sorting (install coreutils on macOS: brew install coreutils)
+  (insert-directory-program (if (executable-find "gls") "gls" "ls"))
+  
+  ;; Listing switches: human-readable sizes, almost-all files, group directories first
   (dired-listing-switches "-l --almost-all --human-readable --time-style=long-iso --group-directories-first --no-group")
-
   
   ;; Guess target directory for operations (very useful with split windows)
   (dired-dwim-target t)
@@ -3312,7 +3376,7 @@ targets."
   (dirvish-override-dired-mode)
   
   ;; Enable automatic preview in minibuffer
-  ;;(dirvish-peek-mode)
+  (dirvish-peek-mode)
   
   ;; Side window configuration (for dirvish-side)
   (setq dirvish-side-width 35)
@@ -3496,6 +3560,2229 @@ targets."
         (setq ibuffer-project-root-functions
               '((ibuffer-project-project-root . "Project")
                 (file-remote-p . "Remote")))))))
+#+end_src
+
+* Kill Ring
+#+begin_src emacs-lisp
+;; Increase kill ring size
+(setq kill-ring-max 200)
+
+;; Save clipboard contents into kill-ring before replacing them
+;; This is crucial for Evil users so that 'd', 'x', or 'c' operations
+;; don't overwrite text copied from external applications.
+(setq save-interprogram-paste-before-kill t)
+#+end_src
+
+* Tabspaces
+#+begin_src emacs-lisp
+(use-package tabspaces
+  :hook (elpaca-after-init . tabspaces-mode)
+  :custom
+  (tab-bar-show nil) ;; We use the modeline/consult to visualize tabs
+  
+  ;; Filter buffers by default so Project A only sees Project A's buffers
+  (tabspaces-use-filtered-buffers-as-default t)
+  (tabspaces-default-tab "Default")
+  (tabspaces-remove-to-default t)
+  (tabspaces-include-buffers '("*scratch*" "*Messages*"))
+  
+  ;; CRITICAL FIX: Set to nil to ensure terminals are ISOLATED to their workspace.
+  ;; If we added *vterm* here, it would be visible in ALL tabs (Global).
+  (tabspaces-exclude-buffers nil)
+
+  ;; Session management settings
+  (tabspaces-session t)
+  (tabspaces-session-auto-restore nil) ; We use a custom robust timer for this
+
+  :config
+  ;; --- Consult Integration ---
+  ;; This safety check is REQUIRED because consult might not be loaded yet.
+  (with-eval-after-load 'consult
+    ;; Hide the full buffer list by default (so we rely on the workspace source)
+    (consult-customize consult--source-buffer :hidden t :default nil)
+
+    ;; Define a source that lists ONLY buffers in the current tabspace
+    (defvar consult--source-workspace
+      (list :name     "Workspace Buffer"
+            :narrow   ?w
+            :history  'buffer-name-history
+            :category 'buffer
+            :state    #'consult--buffer-state
+            :default  t
+            :items    (lambda () (consult--buffer-query
+                               :predicate #'tabspaces--local-buffer-p
+                               :sort 'visibility
+                               :as #'buffer-name)))
+      "Set workspace buffer list for consult-buffer.")
+    
+    ;; Add the workspace source to consult
+    (add-to-list 'consult-buffer-sources 'consult--source-workspace))
+
+  ;; --- Crash Prevention & Cleanup ---
+
+  (defun my-tabspaces-delete-childframe (&rest _)
+    "Delete all child frames (posframes) before saving session to prevent read errors."
+    (when (and (fboundp 'posframe-delete-all)
+               (featurep 'posframe))
+      (ignore-errors (posframe-delete-all))))
+
+  (defun my-tabspaces-clean-markers (&rest _)
+    "Clean up dead markers in buffer-local variables to prevent invalid-read-syntax errors."
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (dolist (var (buffer-local-variables))
+          (when (and (consp var) (markerp (cdr var)))
+            (let ((marker (cdr var)))
+              (unless (and (marker-buffer marker)
+                           (buffer-live-p (marker-buffer marker)))
+                (set (car var) nil))))))))
+
+  (defun my-tabspaces-bury-window (&rest _)
+    "Bury *Messages* buffer after restoring session to keep the view clean."
+    (run-with-idle-timer 0.5 nil
+      (lambda ()
+        (ignore-errors
+          (when-let ((msg-buf (get-buffer "*Messages*")))
+            (quit-windows-on msg-buf))))))
+
+  ;; --- Session Management Wrappers ---
+
+  (defun my-tabspaces-save-wrapper (orig-fun &rest args)
+    "Advice wrapper to clean environment before saving tabspaces."
+    (my-tabspaces-delete-childframe)
+    (my-tabspaces-clean-markers)
+    (apply orig-fun args))
+
+  (defun my-tabspaces-safe-restore ()
+    "Safely restore tabspaces session with error handling."
+    (interactive)
+    ;; Don't restore if Emacs was launched with a specific file argument
+    (unless command-line-args-left
+      (condition-case err
+          (progn
+            (tabspaces-restore-session)
+            (message "Tabspaces session restored."))
+        (error
+         (message "Tabspaces restore failed: %s" (error-message-string err))
+         ;; Fallback: Create a default tab if restore fails
+         (ignore-errors
+           (tab-bar-new-tab)
+           (tab-bar-rename-tab "Default"))
+         nil))))
+
+  (defun my-tabspaces-safe-save ()
+    "Safely save tabspaces session with error handling (for timer)."
+    (interactive)
+    (condition-case err
+        (progn
+          (my-tabspaces-delete-childframe)
+          (my-tabspaces-clean-markers)
+          (tabspaces-save-session)
+          (message "Tabspaces session saved."))
+      (error
+       (message "Tabspaces save failed: %s" (error-message-string err)))))
+
+  ;; Apply Advice
+  (advice-add 'tabspaces-save-session :around #'my-tabspaces-save-wrapper)
+  (advice-add 'tabspaces-restore-session :after #'my-tabspaces-bury-window)
+
+  ;; Auto-save session every 5 minutes when idle
+  (run-with-idle-timer 300 t #'my-tabspaces-safe-save)
+
+  ;; Attempt restore 2 seconds after startup
+  (add-hook 'elpaca-after-init-hook
+            (lambda ()
+              (run-with-idle-timer 2 nil #'my-tabspaces-safe-restore))))
+#+end_src
+
+* Window
+** Winner
+#+begin_src emacs-lisp
+(use-package winner
+  :ensure nil
+  :commands (winner-undo winner-redo)
+  :hook (elpaca-after-init . winner-mode)
+  :init (setq winner-boring-buffers '("*Completions*"
+                                      "*Compile-Log*"
+                                      "*inferior-lisp*"
+                                      "*Fuzzy Completions*"
+                                      "*Apropos*"
+                                      "*Help*"
+                                      "*cvs*"
+                                      "*Buffer List*"
+                                      "*Ibuffer*"
+                                      "*esh command on file*")))
+#+end_src
+
+** Ace window
+#+begin_src emacs-lisp
+(use-package ace-window
+  :defer t
+  :commands (toggle-window-split) 
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Window Management" 'faicon "nf-fa-th")
+    :foreign-keys warn :quit-key ("q" "C-g"))
+   ("Actions"
+    (("TAB" other-window "switch")
+     ("x" ace-delete-window "delete")
+     ("X" ace-delete-other-windows "delete other" :exit t)
+     ("s" ace-swap-window "swap")
+     ("a" ace-select-window "select" :exit t)
+     ("m" toggle-frame-maximized "maximize" :exit t)
+     ("u" toggle-frame-fullscreen "fullscreen" :exit t))
+    "Resize"
+    (("h" shrink-window-horizontally "←")
+     ("j" enlarge-window "↓")
+     ("k" shrink-window "↑")
+     ("l" enlarge-window-horizontally "→")
+     ("n" balance-windows "balance"))
+    "Split"
+    (("r" split-window-right "horizontally")
+     ("R" split-window-horizontally-instead "horizontally instead")
+     ("v" split-window-below "vertically")
+     ("V" split-window-vertically-instead "vertically instead")
+     ("t" toggle-window-split "toggle"))
+    "Zoom"
+    (("+" text-scale-increase "in")
+     ("=" text-scale-increase "in")
+     ("-" text-scale-decrease "out")
+     ("0" (text-scale-increase 0) "reset"))
+    "Misc"
+    (("o" set-frame-font "frame font")
+     ("f" make-frame-command "new frame")
+     ("d" delete-frame "delete frame")
+     ("<left>" winner-undo "winner undo")
+     ("<right>" winner-redo "winner redo"))))
+  :custom-face
+  (aw-leading-char-face ((t (:inherit font-lock-keyword-face :foreground unspecified :bold t :height 3.0))))
+  (aw-minibuffer-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 1.0))))
+  (aw-mode-line-face ((t (:inherit mode-line-emphasis :bold t))))
+  :bind (([remap other-window] . ace-window)
+         ("C-c w" . ace-window-hydra/body)
+         ("C-x |" . split-window-horizontally-instead)
+         ("C-x _" . split-window-vertically-instead))
+  ;; REMOVED: :hook (emacs-startup . ace-window-display-mode)
+  ;; This prevents the "1" from appearing in the modeline.
+  :config
+  (defun toggle-window-split ()
+    (interactive)
+    (if (= (count-windows) 2)
+        (let* ((this-win-buffer (window-buffer))
+               (next-win-buffer (window-buffer (next-window)))
+               (this-win-edges (window-edges (selected-window)))
+               (next-win-edges (window-edges (next-window)))
+               (this-win-2nd (not (and (<= (car this-win-edges)
+                                           (car next-win-edges))
+                                       (<= (cadr this-win-edges)
+                                           (cadr next-win-edges)))))
+               (splitter
+                (if (= (car this-win-edges)
+                       (car (window-edges (next-window))))
+                    'split-window-horizontally
+                  'split-window-vertically)))
+          (delete-other-windows)
+          (let ((first-win (selected-window)))
+            (funcall splitter)
+            (if this-win-2nd (other-window 1))
+            (set-window-buffer (selected-window) this-win-buffer)
+            (set-window-buffer (next-window) next-win-buffer)
+            (select-window first-win)
+            (if this-win-2nd (other-window 1))))
+      (user-error "`toggle-window-split' only supports two windows")))
+
+  ;; Bind hydra to dispatch list
+  (add-to-list 'aw-dispatch-alist '(?w ace-window-hydra/body) t)
+
+  ;; Select window via `M-1'...`M-9'
+  (defun aw--select-window (number)
+    "Select the specified window."
+    (when (numberp number)
+      (let ((found nil))
+        (dolist (win (aw-window-list))
+          (when (and (window-live-p win)
+                     (eq number
+                         (string-to-number
+                          (window-parameter win 'ace-window-path))))
+            (setq found t)
+            (aw-switch-to-window win)))
+        (unless found
+          (message "No specified window: %d" number)))))
+  (dotimes (n 9)
+    (bind-key (format "M-%d" (1+ n))
+              (lambda ()
+                (interactive)
+                (aw--select-window (1+ n))))))
+#+end_src
+
+** Popper
+#+begin_src emacs-lisp
+(use-package popper
+  :custom
+  (popper-group-function #'popper-group-by-directory)
+  (popper-echo-dispatch-actions t)
+  :hook (elpaca-after-init . popper-echo-mode)
+  :init
+  (setq popper-mode-line ""
+        popper-reference-buffers
+        '("\\*Messages\\*$"
+          "\\*Warnings\\*$"
+          "Output\\*$"
+          "\\*Pp Eval Output\\*$"
+          "\\*Pp Macroexpand Output\\*$"
+          "^\\*eldoc.*\\*$"
+          "\\*Compile-Log\\*$"
+          "\\*compilation\\*$"
+          "\\*Completions\\*$"
+          "\\*Async Shell Command\\*$"
+          "\\*Shell Command Output\\*$"
+          "\\*Apropos\\*$"
+          "\\*Backtrace\\*$"
+          "\\*Calendar\\*$"
+          "\\*Calculator\\*$"
+          "\\*Calc Trail\\*$"
+          "\\*Fd\\*$"
+          "\\*Find\\*$"
+          "\\*Finder\\*$"
+          "\\*Kill Ring\\*$"
+          "\\*Occur\\*$"
+          "\\*xref\\*$"
+          "\\*Embark \\(Collect\\|Live\\|Export\\):.*\\*$"
+          "\\*Embark Actions\\*$"
+          "\\*Org Select\\*$"
+          "\\*Org Agenda.*\\*$"
+          "\\*Agenda Commands\\*$"
+          "\\*Capture\\*$"
+          "^CAPTURE-.*\\.org*"
+          "\\*Local variables\\*$"
+          "\\*Org-Babel Error Output\\*$"
+          "\\*Org Export Dispatcher\\*$"
+          "\\*Org Note\\*$"
+
+          ;; Helpful, Help, Info
+          bookmark-bmenu-mode
+          comint-mode
+          compilation-mode
+          help-mode
+          helpful-mode
+          tabulated-list-mode
+          Buffer-menu-mode
+          Info-mode
+          Custom-mode
+          special-mode
+
+          ;; Flycheck/Flymake
+          flymake-diagnostics-buffer-mode
+          flymake-project-diagnostics-mode
+          flycheck-error-list-mode
+          flycheck-verify-mode
+
+          ;; Dictionary and translation
+          gnus-article-mode
+          devdocs-mode
+          dictionary-mode
+          youdao-dictionary-mode
+          osx-dictionary-mode
+          fanyi-mode
+          "^\\*gt-result\\*$"
+          "^\\*gt-log\\*$"
+          "^\\*DeepL\\*$"
+          "^\\*Google Translate\\*$"
+
+          ;; Search results
+          grep-mode
+          occur-mode
+          rg-mode
+          deadgrep-mode
+          ag-mode
+          pt-mode
+          ivy-occur-grep-mode
+          ivy-occur-mode
+
+          ;; Process and environment
+          "^\\*Process List\\*$"
+          process-menu-mode
+          list-environment-mode
+          cargo-process-mode
+
+          ;; Terminals
+          "^\\*.*eat.*\\*.*$"
+          "^\\*.*eshell.*\\*.*$"
+          "^\\*.*shell.*\\*.*$"
+          "^\\*.*terminal.*\\*.*$"
+          "^\\*.*vterm[inal]*.*\\*.*$"
+          "^\\*.*ansi-term.*\\*.*$"
+
+          ;; Development tools
+          "\\*DAP Templates\\*$"
+          dap-server-log-mode
+          "^\\*dap-ui.*\\*$"
+          "\\*ELP Profiling Results\\*$"
+          profiler-report-mode
+          "\\*package update results\\*$"
+          "\\*Package-Lint\\*$"
+          "\\*Packages\\*$"
+          "\\*Native-compile-Log\\*$"
+          "\\*Paradox Report\\*$"
+          "^\\*straight-.*\\*$"
+          "^\\*elpaca-.*\\*$"
+
+          ;; Documentation
+          "\\*[Wo]*Man.*\\*$"
+          woman-mode
+          Man-mode
+
+          ;; Testing
+          "\\*ert\\*$"
+          overseer-buffer-mode
+          "^\\*Buttercup\\*$"
+          "\\*cider-test-report\\*$"
+
+          ;; Debugging
+          "\\*gud-debug\\*$"
+          "\\*LLDB.*\\*$"
+          "\\*breakpoints of.*\\*$"
+          "\\*gdb-.*\\*$"
+
+          ;; LSP
+          "\\*lsp-help\\*$"
+          "\\*lsp session\\*$"
+          "\\*lsp-log\\*$"
+          "\\*lsp-ui-doc\\*$"
+          "\\*lsp-ui-imenu\\*$"
+          "\\*LSP Error\\*$"
+          "\\*eglot.*\\*$"
+
+          ;; Misc development
+          "\\*quickrun\\*$"
+          "\\*tldr\\*$"
+          "\\*vc-.*\\*$"
+          "\\*vc-diff\\*$"
+          "\\*vc-change-log\\*$"
+          "\\*diff-hl\\*$"
+          "^\\*macro expansion\\*$"
+          "^\\*Macrostep\\*$"
+          "\\*ediff-.*\\*$"
+          "\\*grep\\*$"
+          "\\*nosetests\\*$"
+          "\\*pytest\\*$"
+
+          ;; Language-specific
+          "\\*Gofmt Errors\\*$"
+          "\\*Go Test\\*$"
+          godoc-mode
+          "\\*rustfmt\\*$"
+          "\\*cargo-.*\\*$"
+          rustic-compilation-mode
+          rustic-cargo-clippy-mode
+          rustic-cargo-outdated-mode
+          rustic-cargo-run-mode
+          rustic-cargo-test-mode
+          "\\*Python\\*$"
+          "\\*inferior-python.*\\*$"
+          inferior-python-mode
+          inf-ruby-mode
+          swift-repl-mode
+          "\\*prolog\\*$"
+          "\\*sly-.*\\*$"
+          "\\*slime-.*\\*$"
+
+          ;; Docker
+          "\\*docker-.+\\*"
+          "\\*docker-compose.*\\*$"
+          "\\*dockerfile.*\\*$"
+
+          ;; Miscellaneous
+          "\\*Semantic SymRef\\*$"
+          "\\*Messages\\*$"
+          "\\*Warnings\\*$"
+          "\\*Error\\*$"
+          "\\*Flycheck.*\\*$"
+          "\\*Format All Errors\\*$"
+          "\\*Pp Eval Output\\*$"))
+  :config
+  (with-no-warnings
+    (defun my-popper-fit-window-height (win)
+      "Adjust the height of popup window WIN to fit the buffer's content."
+      (let ((desired-height (floor (/ (frame-height) 3))))
+        (fit-window-to-buffer win desired-height desired-height)))
+    (setq popper-window-height #'my-popper-fit-window-height)
+
+    (defun popper-close-window-hack (&rest _args)
+      "Close popper window via `C-g'."
+      (when (and (not (region-active-p))
+                 popper-open-popup-alist)
+        (let ((window (caar popper-open-popup-alist))
+              (buffer (cdar popper-open-popup-alist)))
+          (when (and (window-live-p window)
+                     (buffer-live-p buffer)
+                     (not (with-current-buffer buffer
+                            (derived-mode-p 'eshell-mode
+                                            'shell-mode
+                                            'term-mode
+                                            'vterm-mode
+                                            'eat-mode))))
+            (delete-window window)))))
+    (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
+#+end_src
+
+* Version Control
+** Magit: The Git Porcelain
+#+begin_src emacs-lisp
+(use-package transient :defer t)
+
+(use-package magit
+  :defer t
+  :commands (magit-status magit-blame magit-log-buffer-file)
+  :custom
+  ;; Display settings
+  (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
+  (magit-bury-buffer-function #'magit-restore-window-configuration)
+  
+  ;; Performance
+  (magit-refresh-status-buffer t)
+  (magit-refresh-verbose nil)
+  (magit-git-executable "git")
+  
+  ;; Behavior
+  (magit-save-repository-buffers 'dontask)
+  (magit-commit-ask-to-stage 'stage)
+  (magit-commit-show-diff t)
+  (magit-revision-show-gravatars nil)
+  
+  ;; Diff settings
+  (magit-diff-refine-hunk 'all)
+  (magit-diff-paint-whitespace t)
+  (magit-diff-highlight-trailing t)
+  
+  :config
+  ;; Enable gravatars if desired (requires imagemagick)
+  (when (and (display-graphic-p)
+             (image-type-available-p 'imagemagick))
+    (setq magit-revision-show-gravatars '("^Author:     " . "^Commit:     "))))
+#+end_src
+
+** Forge: GitHub/GitLab Integration
+#+begin_src emacs-lisp
+(use-package forge
+  :after magit
+  :defer t
+  :config
+  ;; Configure forge to use sqlite for storage
+  (setq forge-database-connector 'sqlite-builtin))
+#+end_src
+
+** Magit Todos: Track TODOs in Commits
+#+begin_src emacs-lisp
+(use-package magit-todos
+  :after magit
+  :defer t
+  :commands (magit-todos-mode)
+  :hook (magit-status-mode . magit-todos-mode)
+  :config
+  (setq magit-todos-keywords-list '("TODO" "FIXME" "HACK" "REVIEW" "NOTE" "DEPRECATED"))
+  
+  ;; Integrate with hl-todo for consistent highlighting
+  (with-eval-after-load 'hl-todo
+    (setq magit-todos-keyword-suffix "\\(?:([^)]+)\\)?:?"))
+  
+  ;; Optional: Custom scanner for better performance
+  (when (executable-find "rg")
+    (setq magit-todos-scanner #'magit-todos--scan-with-rg)))
+#+end_src
+
+** Git-Timemachine: Step Through File History
+#+begin_src emacs-lisp
+(use-package git-timemachine
+  :defer t
+  :commands (git-timemachine git-timemachine-toggle)
+  
+  :init
+  ;; CRITICAL FIX: Only configure native-comp if it's actually available
+  (when (and (fboundp 'native-comp-available-p)
+             (native-comp-available-p))
+    (with-eval-after-load 'comp
+      (when (boundp 'native-comp-deferred-compilation-deny-list)
+        (add-to-list 'native-comp-deferred-compilation-deny-list "git-timemachine"))))
+  
+  ;; Disable interfering modes
+  (with-eval-after-load 'lsp-mode
+    (add-to-list 'lsp-diagnostics-disabled-modes 'git-timemachine-mode))
+  
+  :custom
+  (git-timemachine-abbreviation-length 7)
+  (git-timemachine-show-minibuffer-details t)
+  
+  :config
+  ;; Improve integration with other modes
+  (defun ar/git-timemachine-setup ()
+    "Disable interfering modes when entering git-timemachine."
+    ;; Disable git-gutter to avoid conflicts
+    (when (bound-and-true-p git-gutter-mode)
+      (git-gutter-mode -1)
+      (setq-local ar/git-gutter-was-active t))
+    
+    ;; Disable flycheck/flymake (we're viewing history, not editing)
+    (when (bound-and-true-p flycheck-mode)
+      (flycheck-mode -1)
+      (setq-local ar/flycheck-was-active t))
+    
+    (when (bound-and-true-p flymake-mode)
+      (flymake-mode -1)
+      (setq-local ar/flymake-was-active t))
+    
+    ;; Make buffer read-only
+    (read-only-mode 1))
+  
+  (defun ar/git-timemachine-teardown ()
+    "Re-enable modes when exiting git-timemachine."
+    ;; Restore git-gutter
+    (when (bound-and-true-p ar/git-gutter-was-active)
+      (git-gutter-mode 1)
+      (kill-local-variable 'ar/git-gutter-was-active))
+    
+    ;; Restore flycheck
+    (when (bound-and-true-p ar/flycheck-was-active)
+      (flycheck-mode 1)
+      (kill-local-variable 'ar/flycheck-was-active))
+    
+    ;; Restore flymake
+    (when (bound-and-true-p ar/flymake-was-active)
+      (flymake-mode 1)
+      (kill-local-variable 'ar/flymake-was-active))
+    
+    ;; Disable read-only
+    (read-only-mode -1))
+  
+  (add-hook 'git-timemachine-mode-hook #'ar/git-timemachine-setup)
+  (add-hook 'git-timemachine-mode-exit-hook #'ar/git-timemachine-teardown))
+#+end_src
+
+** Git-Gutter: Show Changes in Fringe
+#+begin_src emacs-lisp
+(use-package git-gutter
+  :defer t
+  :commands (git-gutter-mode 
+             git-gutter:next-hunk 
+             git-gutter:previous-hunk 
+             git-gutter:stage-hunk 
+             git-gutter:revert-hunk 
+             git-gutter:popup-hunk)
+  
+  :hook ((prog-mode . git-gutter-mode)
+         (conf-mode . git-gutter-mode)
+         (org-mode . git-gutter-mode)
+         (markdown-mode . git-gutter-mode)
+         (text-mode . git-gutter-mode))
+  
+  :init
+  (setq git-gutter:update-interval 0.5
+        git-gutter:ask-p nil
+        git-gutter:modified-sign "▎"
+        git-gutter:added-sign "▎"
+        git-gutter:deleted-sign "▁"
+        git-gutter:hide-gutter t)
+  
+  :config
+  ;; Jump to next/previous hunk with wrapping
+  (defun ar/git-gutter-next-hunk ()
+    "Jump to next hunk, wrapping around."
+    (interactive)
+    (if (git-gutter:search-here-or-after-p (point) t)
+        (git-gutter:next-hunk 1)
+      (progn
+        (goto-char (point-min))
+        (git-gutter:next-hunk 1))))
+  
+  (defun ar/git-gutter-previous-hunk ()
+    "Jump to previous hunk, wrapping around."
+    (interactive)
+    (if (git-gutter:search-here-or-before-p (point))
+        (git-gutter:previous-hunk 1)
+      (progn
+        (goto-char (point-max))
+        (git-gutter:previous-hunk 1))))
+  
+  ;; Enable globally with smart exclusions
+  (global-git-gutter-mode +1))
+#+end_src
+
+** Git-Gutter-Fringe: Better Visual Appearance
+#+begin_src emacs-lisp
+(use-package git-gutter-fringe
+  :after git-gutter
+  :demand t
+  :config
+  ;; Clean, modern vertical bars in the fringe
+  (define-fringe-bitmap 'git-gutter-fr:added 
+    [224] nil nil '(center repeated))
+  (define-fringe-bitmap 'git-gutter-fr:modified 
+    [224] nil nil '(center repeated))
+  (define-fringe-bitmap 'git-gutter-fr:deleted 
+    [128 192 224 240] nil nil 'bottom)
+  
+  ;; Tokyo Night Colors (adjust to match your theme)
+  :custom-face
+  (git-gutter-fr:added    ((t (:foreground "#9ece6a"))))
+  (git-gutter-fr:modified ((t (:foreground "#e0af68"))))
+  (git-gutter-fr:deleted  ((t (:foreground "#f7768e")))))
+#+end_src
+
+** Comprehensive VC Hydra
+#+begin_src emacs-lisp
+(with-eval-after-load 'hydra
+  (pretty-hydra-define version-control-hydra
+    (:title (pretty-hydra-title "Version Control" 'octicon "nf-oct-git_branch" :face 'nerd-icons-green)
+     :color amaranth
+     :quit-key ("q" "C-g"))
+    
+    ("Magit Core"
+     (("s" magit-status "status" :exit t)
+      ("c" magit-commit "commit" :exit t)
+      ("C" magit-commit-amend "amend" :exit t)
+      ("p" magit-push-current-to-pushremote "push")
+      ("P" magit-pull-from-upstream "pull")
+      ("f" magit-fetch "fetch")
+      ("F" magit-fetch-all "fetch all"))
+     
+     "Branch & Log"
+     (("b" magit-branch "branches" :exit t)
+      ("B" magit-checkout "checkout" :exit t)
+      ("m" magit-merge "merge" :exit t)
+      ("r" magit-rebase "rebase" :exit t)
+      ("l" ar/magit-log-buffer-file-and-follow "log file" :exit t)
+      ("L" magit-log-current "log branch" :exit t))
+     
+     "Diff & Stage"
+     (("d" magit-diff-unstaged "diff unstaged" :exit t)
+      ("D" magit-diff-staged "diff staged" :exit t)
+      ("S" magit-stage-file "stage file")
+      ("u" magit-unstage-file "unstage file")
+      ("U" magit-unstage-all "unstage all"))
+     
+     "File History"
+     (("t" git-timemachine-toggle "timemachine" :toggle git-timemachine-mode)
+      ("n" git-timemachine-show-next-revision "next revision" :exit t)
+      ("N" git-timemachine-show-previous-revision "prev revision" :exit t)
+      ("w" git-timemachine-kill-abbreviated-revision "copy hash")
+      ("W" git-timemachine-kill-revision "copy full hash")
+      ("y" git-timemachine-show-commit "show commit" :exit t))
+     
+     "Hunk Navigation"
+     (("j" ar/git-gutter-next-hunk "next hunk")
+      ("k" ar/git-gutter-previous-hunk "prev hunk")
+      ("h" git-gutter:popup-hunk "preview")
+      ("a" git-gutter:stage-hunk "stage")
+      ("v" git-gutter:revert-hunk "revert"))
+     
+     "Blame & Messages"
+     (("A" ar/magit-blame-addition "blame" :exit t)
+      ("M" git-messenger:popup-message "message" :exit t)
+      ("o" browse-at-remote "open remote" :exit t)
+      ("O" git-link "get link" :exit t))
+     
+     "Advanced"
+     (("z" magit-stash "stash" :exit t)
+      ("Z" magit-stash-pop "stash pop" :exit t)
+      ("x" magit-reset "reset" :exit t)
+      ("!" magit-run "run cmd" :exit t)
+      ("R" magit-refresh "refresh")
+      ("?" magit-dispatch "dispatch" :exit t)))))
+#+end_src
+
+* Treemacs
+#+begin_src emacs-lisp
+(use-package treemacs
+  :defer t
+
+  :custom-face
+  ;; Matches the border color to your theme's posframe border
+  (cfrs-border-color ((t (:inherit posframe-border))))
+  :custom
+  (treemacs-width 30)
+  (treemacs-position 'left)
+  (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
+  (treemacs-space-between-root-nodes t)
+  (treemacs-silent-refresh t)
+  (treemacs-silent-filewatch t)
+  (treemacs-file-follow-delay 0.2)
+  :config
+  (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
+  (treemacs-filewatch-mode t)   ;; Watch file system for changes
+  (treemacs-fringe-indicator-mode 'always)
+
+  ;; Check for python3 and git to determine how to run git integration
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null (executable-find "python3"))))
+    (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
+    (`(t . _) (treemacs-git-mode 'simple))))
+
+;; Consistent icons with the rest of your config
+(use-package treemacs-nerd-icons
+  :after treemacs
+  :functions treemacs-load-theme
+  :config (treemacs-load-theme "nerd-icons"))
+
+;; Magit integration (refresh sidebar on git changes)
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :hook ((magit-post-commit
+          git-commit-post-finish
+          magit-post-stage
+          magit-post-unstage)
+         . treemacs-magit--schedule-update))
+
+;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
+(use-package treemacs-tab-bar
+  :after treemacs
+  :functions treemacs-set-scope-type
+  :config (treemacs-set-scope-type 'Tabs))
+
+;; Evil navigation in the sidebar
+(use-package treemacs-evil
+  :after (treemacs evil)
+  :config
+  (evil-define-key 'normal treemacs-mode-map
+    (kbd "TAB") #'treemacs-TAB-action
+    (kbd "o")   #'treemacs-visit-node-ace
+    (kbd "q")   #'treemacs-quit))
+#+end_src
+
+* Markdown
+#+begin_src emacs-lisp
+(use-package markdown-mode
+  :defer t
+  :mode (("README\\.md\\'" . gfm-mode)
+         ("\\.md\\'" . markdown-mode)
+         ("\\.markdown\\'" . markdown-mode))
+  :init
+  ;; Basic settings
+  (setq markdown-italic-underscore t
+        markdown-asymmetric-header t
+        markdown-fontify-code-blocks-natively t
+        markdown-gfm-uppercase-checkbox t
+        markdown-enable-math nil
+        markdown-header-scaling t
+        markdown-header-scaling-values '(1.2 1.15 1.1 1.05 1.0 1.0)
+        markdown-display-message nil
+        markdown-hide-urls t
+        markdown-hide-markup t)
+
+  ;; List indentation
+  (setq markdown-list-indent-width 2)
+  
+  ;; PERFORMANCE OPTIMIZATIONS - Reduce fontification overhead
+  (setq markdown-fontify-whole-heading-line nil
+        markdown-fontify-quote-and-verse-blocks nil)
+  
+  ;; Defer expensive calculations
+  (setq jit-lock-defer-time 0.05  ;; Small delay before fontifying
+        jit-lock-stealth-time 1)   ;; Fontify invisible text after 1s idle
+
+  :hook ((markdown-mode . lsp)
+         (markdown-mode . visual-line-mode)
+         (markdown-mode . ar/markdown-setup-rendering)
+         (markdown-mode . ar/markdown-optimize-fontification))
+
+  :config
+  (require 'lsp-marksman)
+  
+  ;; FIX: Set imenu expression in :config after markdown-mode is loaded
+  (setq markdown-imenu-generic-expression 
+        '(("^\\(.*\\)[ \t]*\n=+$" 1)
+          ("^\\(.*\\)[ \t]*\n-+$" 1)
+          ("^\\(#+ .*\\)" 1)))
+  
+  ;; OPTIMIZATION: Reduce fontification frequency
+  (defun ar/markdown-optimize-fontification ()
+    "Optimize font-lock for markdown to reduce sluggishness."
+    ;; Reduce how often font-lock runs
+    (setq-local font-lock-multiline t)
+    (setq-local font-lock-maximum-decoration 2) ;; Reduce decoration level
+    
+    ;; Increase chunk size for jit-lock to reduce calls
+    (setq-local jit-lock-chunk-size 1000)
+    
+    ;; Don't fontify during input
+    (setq-local jit-lock-defer-time 0.1))
+  
+  ;; DYNAMIC RENDERING: Detect when cursor is in markdown element
+  (defun ar/markdown-in-element-p ()
+    "Check if point is inside a markdown element that should show raw markup.
+Uses text properties to detect code, emphasis, and links."
+    (let ((face (get-text-property (point) 'face)))
+      (or
+       ;; Check for code blocks and inline code
+       (and face 
+            (or (eq face 'markdown-code-face)
+                (eq face 'markdown-inline-code-face)
+                (eq face 'markdown-pre-face)
+                (eq face 'markdown-gfm-code-block-face)
+                (and (listp face)
+                     (or (memq 'markdown-code-face face)
+                         (memq 'markdown-inline-code-face face)
+                         (memq 'markdown-pre-face face)
+                         (memq 'markdown-gfm-code-block-face face)))))
+       ;; Check for emphasis (bold, italic)
+       (and face
+            (or (eq face 'markdown-bold-face)
+                (eq face 'markdown-italic-face)
+                (and (listp face)
+                     (or (memq 'markdown-bold-face face)
+                         (memq 'markdown-italic-face face)))))
+       ;; Check for links
+       (and face
+            (or (eq face 'markdown-link-face)
+                (eq face 'markdown-url-face)
+                (and (listp face)
+                     (or (memq 'markdown-link-face face)
+                         (memq 'markdown-url-face face)))))
+       ;; Check if we're on markup characters themselves
+       (save-excursion
+         (and (looking-at-p "[*_`\\[\\]()]")
+              (or (looking-back "[*_`]" 1)
+                  (looking-at "[*_`]")))))))
+  
+  ;; ANTI-FLICKER: Throttled markup toggling to prevent rapid refontification
+  (defvar ar/markdown-toggle-timer nil
+    "Timer to throttle markup visibility toggling.")
+  
+  (defun ar/markdown-toggle-markup-at-point ()
+    "Toggle markup hiding based on cursor position with throttling.
+Shows markup when cursor is inside markdown elements."
+    (when (derived-mode-p 'markdown-mode)
+      ;; Cancel any pending toggle
+      (when ar/markdown-toggle-timer
+        (cancel-timer ar/markdown-toggle-timer))
+      
+      ;; Schedule toggle with small delay to batch rapid cursor movements
+      (setq ar/markdown-toggle-timer
+            (run-with-idle-timer 0.05 nil
+              (lambda ()
+                (when (buffer-live-p (current-buffer))
+                  (with-current-buffer (current-buffer)
+                    (if (ar/markdown-in-element-p)
+                        ;; Inside element: show markup on current line only
+                        (remove-text-properties (line-beginning-position) (line-end-position)
+                                              '(display nil composition nil invisible nil))
+                      ;; Outside element: restore hiding if enabled globally
+                      (when markdown-hide-markup
+                        (font-lock-flush (line-beginning-position) (line-end-position)))))))))))
+  
+  (defun ar/markdown-setup-rendering ()
+    "Setup cursor-based markup visibility toggling."
+    ;; Use post-command-hook for immediate response
+    (add-hook 'post-command-hook #'ar/markdown-toggle-markup-at-point nil t))
+  
+  ;; CHECKBOX RENDERING: Make checkboxes appear filled
+  (defface ar/markdown-checkbox-face
+    '((t (:inherit markdown-list-face :box (:line-width 1 :style released-button))))
+    "Face for markdown checkboxes."
+    :group 'markdown-faces)
+  
+  (defun ar/markdown-fontify-checkboxes (last)
+    "Fontify checkboxes with custom appearance up to LAST."
+    (when (markdown-match-generic-metadata "^[ \t]*- \\[[ X]\\]" last)
+      (let ((checkbox-begin (match-beginning 0))
+            (checkbox-end (match-end 0))
+            (checkbox-state (match-string 0)))
+        (if (string-match-p "\\[X\\]" checkbox-state)
+            ;; Checked checkbox - use filled square
+            (compose-region (+ checkbox-begin 2) (+ checkbox-begin 5) "☑")
+          ;; Unchecked checkbox - use empty square  
+          (compose-region (+ checkbox-begin 2) (+ checkbox-begin 5) "☐"))
+        (add-text-properties checkbox-begin checkbox-end
+                           '(face ar/markdown-checkbox-face)))
+      t))
+  
+  ;; Add checkbox fontification to markdown
+  (font-lock-add-keywords 'markdown-mode
+                         '((ar/markdown-fontify-checkboxes)) 'append))
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package markdown-toc
+  :defer t
+  :after markdown-mode
+  :hook (markdown-mode . markdown-toc-mode)
+  :config
+  (setq markdown-toc-header-toc-title "\n## Table of Contents"
+        markdown-toc-user-toc-structure-manipulation-fn 'cdr))
+#+end_src
+
+* Reader
+** PDF Tools
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  (use-package pdf-view
+    :ensure pdf-tools
+    :defines pdf-annot-activate-created-annotations
+    :functions pdf-tools-install
+    :hook ((pdf-tools-enabled . pdf-view-auto-slice-minor-mode)
+           (pdf-tools-enabled . pdf-isearch-minor-mode))
+    :mode ("\\.[pP][dD][fF]\\'" . pdf-view-mode)
+    :magic ("%PDF" . pdf-view-mode)
+    :init
+    (setq pdf-view-use-scaling t
+          pdf-view-use-imagemagick nil
+          pdf-annot-activate-created-annotations t
+          ;; Tokyo Night theme colors
+          pdf-view-midnight-colors '("#c0caf5" . "#1a1b26"))
+    :config
+    (pdf-tools-install t nil t nil)
+
+    ;; Tokyo Night theme custom faces
+    (custom-set-faces
+     '(pdf-view-rectangle-face ((t (:background "#7aa2f7" :foreground "#1a1b26"))))
+     '(pdf-isearch-match ((t (:background "#e0af68" :foreground "#1a1b26"))))
+     '(pdf-isearch-lazy ((t (:background "#414868" :foreground "#c0caf5"))))
+     '(pdf-isearch-batch ((t (:background "#414868" :foreground "#c0caf5"))))
+     '(pdf-view-region ((t (:background "#364a82"))))
+     '(pdf-links-read-link ((t (:background "#7aa2f7" :foreground "#1a1b26"))))
+     '(pdf-occur-document-face ((t (:foreground "#7aa2f7"))))
+     '(pdf-occur-page-face ((t (:foreground "#9ece6a"))))
+     '(pdf-annot-list-annotation-face ((t (:foreground "#bb9af7"))))
+     '(pdf-annot-list-location-face ((t (:foreground "#565f89"))))
+     '(pdf-history-debug-message-face ((t (:foreground "#565f89"))))
+     '(pdf-sync-forward-matching-page-label ((t (:foreground "#e0af68"))))
+     '(pdf-sync-backward-matching-page-label ((t (:foreground "#e0af68")))))
+
+    (with-eval-after-load 'org
+      (add-to-list 'org-open-at-point-functions 'org-pdftools-open-link)
+      (setq org-pdftools-link-prefix "pdf"))))
+#+end_src
+
+** Save PDF View
+#+begin_src emacs-lisp
+(when (display-graphic-p)
+  (use-package saveplace-pdf-view
+    :when (ignore-errors (pdf-info-check-epdfinfo) t)
+    :autoload (saveplace-pdf-view-find-file-advice saveplace-pdf-view-to-alist-advice)
+    :functions pdf-info-check-epdfinfo
+    :init
+    (advice-add 'save-place-find-file-hook :around #'saveplace-pdf-view-find-file-advice)
+    (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice)))
+#+end_src
+
+* Development Tools
+** envrc
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (elpaca-after-init . envrc-global-mode))
+#+end_src
+
+** LSP Mode
+*** Prereq
+#+begin_src emacs-lisp
+(defvar my-lsp-format-on-save nil
+  "Enable format on save with LSP.")
+
+(defvar my-lsp-format-on-save-ignore-modes
+  '(c-mode c++-mode python-mode)
+  "Major modes to ignore when formatting on save.")
+
+;; Helper function for icons
+(defun icons-displayable-p ()
+  "Return non-nil if icons can be displayed."
+  (and (display-graphic-p)
+       (or (featurep 'nerd-icons)
+           (require 'nerd-icons nil t))))
+
+;; Helper function for childframe
+(defun childframe-workable-p ()
+  "Test whether childframe is workable."
+  (and (display-graphic-p)
+       (or (featurep 'posframe)
+           (require 'posframe nil t))))
+#+end_src
+
+*** Lsp Mode
+#+begin_src emacs-lisp
+(use-package lsp-mode
+  :defer t
+  :defines (lsp-diagnostics-disabled-modes lsp-clients-python-library-directories)
+  :autoload lsp-enable-which-key-integration
+  :hook ((prog-mode . (lambda ()
+                       (unless (derived-mode-p
+                                'emacs-lisp-mode 'lisp-mode
+                                'makefile-mode 'snippet-mode
+                                'ron-mode)
+                         (lsp-deferred))))
+         ((markdown-mode yaml-mode yaml-ts-mode) . lsp-deferred)
+         (lsp-mode . lsp-enable-which-key-integration))
+  :bind (:map lsp-mode-map
+         ("C-c C-d" . lsp-describe-thing-at-point)
+         ("C-c l h" . lsp-mode-hydra/body)
+         ([remap xref-find-definitions] . lsp-find-definition)
+         ([remap xref-find-references] . lsp-find-references))
+  :init (setq lsp-use-plists t
+              lsp-completion-provider :none
+              lsp-log-io nil
+              lsp-keymap-prefix "C-c l"
+              lsp-keep-workspace-alive nil
+              lsp-signature-auto-activate nil
+              
+              lsp-modeline-code-actions-enable nil
+              lsp-modeline-diagnostics-enable nil
+              lsp-modeline-workspace-status-enable nil 
+              lsp-progress-spinner-type nil
+
+              lsp-semantic-tokens-enable t
+              lsp-enable-file-watchers nil
+              lsp-enable-folding nil
+              lsp-enable-symbol-highlighting nil
+              lsp-enable-text-document-color nil
+              
+              lsp-enable-indentation nil
+              lsp-enable-on-type-formatting nil
+
+              lsp-diagnostics-disabled-modes '(markdown-mode gfm-mode))
+  
+:pretty-hydra
+((:title (pretty-hydra-title "LSP Mode" 'codicon "nf-cod-code" :face 'nerd-icons-blue)
+  :color amaranth
+  :quit-key ("q" "C-g"))
+ ("Navigation"
+  (("d" lsp-find-definition "definition")
+   ("D" lsp-find-declaration "declaration")
+   ("y" lsp-find-type-definition "type definition")
+   ("r" lsp-find-references "references")
+   ("i" lsp-find-implementation "implementation")
+   ("h" lsp-describe-thing-at-point "describe")
+   ("s" consult-lsp-symbols "symbols")
+   ("I" lsp-ui-imenu "imenu" :exit t))
+  
+  "Refactoring"
+  (("R" lsp-rename "rename")
+   ("a" lsp-execute-code-action "code action")
+   ("o" lsp-organize-imports "organize imports")
+   ("f" lsp-format-buffer "format buffer")
+   ("F" lsp-format-region "format region"))
+  
+  "Workspace"
+  (("w r" lsp-workspace-restart "restart")
+   ("w s" lsp-workspace-shutdown "shutdown")
+   ("w d" lsp-describe-session "describe")
+   ("w D" lsp-disconnect "disconnect")
+   ("w a" lsp-workspace-folders-add "add folder")
+   ("w x" lsp-workspace-folders-remove "remove folder")
+   ("w b" lsp-workspace-blacklist-remove "unblacklist"))
+  
+  "Toggles"
+  (("T h" lsp-toggle-symbol-highlight "highlight" :toggle lsp-enable-symbol-highlighting)
+   ("T l" lsp-lens-mode "lens" :toggle lsp-lens-mode)
+   ("T b" lsp-headerline-breadcrumb-mode "breadcrumb" :toggle lsp-headerline-breadcrumb-mode)
+   ("T f" lsp-toggle-on-type-formatting "on-type format" :toggle lsp-enable-on-type-formatting)
+   ("T s" lsp-toggle-signature-auto-activate "signature" :toggle lsp-signature-auto-activate))
+  
+  "Diagnostics"
+  (("e l" lsp-treemacs-errors-list "error list" :exit t)
+   ("e n" flycheck-next-error "next error")
+   ("e p" flycheck-previous-error "prev error")
+   ("e c" flycheck-clear "clear")
+   ("e b" flycheck-buffer "check buffer")
+   ("e e" consult-flycheck "consult errors" :exit t))
+  
+  "Actions"
+  (("TAB" lsp-treemacs-symbols "symbols tree" :exit t)
+   ("C" lsp-treemacs-call-hierarchy "call hierarchy" :exit t)
+   ("t" lsp-treemacs-type-hierarchy "type hierarchy" :exit t)
+   ("u" lsp-ui-hydra/body "LSP UI" :exit t)
+   ("?" lsp-describe-session "info" :exit t))))
+  
+  :config
+  (with-no-warnings
+    (defun my-lsp--init-if-visible (fn &rest args)
+      (unless (bound-and-true-p git-timemachine-mode)
+        (apply fn args)))
+    (advice-add #'lsp--init-if-visible :around #'my-lsp--init-if-visible)
+
+    (defun my-lsp-bash-check-sh-shell (&rest _)
+      (and (memq major-mode '(sh-mode bash-ts-mode))
+           (memq sh-shell '(sh bash zsh))))
+    (advice-add #'lsp-bash-check-sh-shell :override #'my-lsp-bash-check-sh-shell)
+    (add-to-list 'lsp-language-id-configuration '(bash-ts-mode . "shellscript"))
+
+    (when (icons-displayable-p)
+      (defun my-lsp-icons-get-by-file-ext (file-ext &optional feature)
+        (when (and file-ext
+                   (lsp-icons--enabled-for-feature feature))
+          (nerd-icons-icon-for-extension file-ext)))
+      (advice-add #'lsp-icons-get-by-file-ext :override #'my-lsp-icons-get-by-file-ext)
+
+      (defvar lsp-symbol-alist
+        '((misc          nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-warning-face)
+          (document      nerd-icons-codicon "nf-cod-symbol_file" :face font-lock-string-face)
+          (namespace     nerd-icons-codicon "nf-cod-symbol_namespace" :face font-lock-type-face)
+          (string        nerd-icons-codicon "nf-cod-symbol_string" :face font-lock-doc-face)
+          (boolean-data  nerd-icons-codicon "nf-cod-symbol_boolean" :face font-lock-builtin-face)
+          (numeric       nerd-icons-codicon "nf-cod-symbol_numeric" :face font-lock-builtin-face)
+          (method        nerd-icons-codicon "nf-cod-symbol_method" :face font-lock-function-name-face)
+          (field         nerd-icons-codicon "nf-cod-symbol_field" :face font-lock-variable-name-face)
+          (localvariable nerd-icons-codicon "nf-cod-symbol_variable" :face font-lock-variable-name-face)
+          (class         nerd-icons-codicon "nf-cod-symbol_class" :face font-lock-type-face)
+          (interface     nerd-icons-codicon "nf-cod-symbol_interface" :face font-lock-type-face)
+          (property      nerd-icons-codicon "nf-cod-symbol_property" :face font-lock-variable-name-face)
+          (indexer       nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
+          (enumerator    nerd-icons-codicon "nf-cod-symbol_enum" :face font-lock-builtin-face)
+          (treemacs-icon-enumitem      nerd-icons-codicon "nf-cod-symbol_enum_member" :face font-lock-builtin-face)
+          (constant      nerd-icons-codicon "nf-cod-symbol_constant" :face font-lock-constant-face)
+          (structure     nerd-icons-codicon "nf-cod-symbol_structure" :face font-lock-variable-name-face)
+          (event         nerd-icons-codicon "nf-cod-symbol_event" :face font-lock-warning-face)
+          (operator      nerd-icons-codicon "nf-cod-symbol_operator" :face font-lock-comment-delimiter-face)
+          (template      nerd-icons-codicon "nf-cod-symbol_snippet" :face font-lock-type-face)))
+
+      (defun my-lsp-icons-get-by-symbol-kind (kind &optional feature)
+        (when (and kind
+                   (lsp-icons--enabled-for-feature feature))
+          (let* ((icon (cdr (assoc (lsp-treemacs-symbol-kind->icon kind) lsp-symbol-alist)))
+                 (args (cdr icon)))
+            (apply (car icon) args))))
+      (advice-add #'lsp-icons-get-by-symbol-kind :override #'my-lsp-icons-get-by-symbol-kind)
+
+      (setq lsp-headerline-arrow (nerd-icons-octicon "nf-oct-chevron_right"
+                                                     :face 'lsp-headerline-breadcrumb-separator-face)))))
+#+end_src
+
+*** LSP UI
+#+begin_src emacs-lisp
+(use-package lsp-ui
+  :defer t
+  :custom-face
+  (lsp-ui-sideline-code-action ((t (:inherit warning))))
+:pretty-hydra
+((:title (pretty-hydra-title "LSP UI" 'codicon "nf-cod-symbol_color" :face 'nerd-icons-green)
+  :color amaranth
+  :quit-key ("q" "C-g"))
+ ("Peek"
+  (("p d" lsp-ui-peek-find-definitions "definitions")
+   ("p r" lsp-ui-peek-find-references "references")
+   ("p i" lsp-ui-peek-find-implementation "implementation")
+   ("p s" lsp-ui-peek-find-workspace-symbol "workspace symbol")
+   ("p j" lsp-ui-peek-jump-forward "jump forward")
+   ("p k" lsp-ui-peek-jump-backward "jump backward"))
+  
+  "Doc"
+  (("d s" lsp-ui-doc-show "show")
+   ("d h" lsp-ui-doc-hide "hide")
+   ("d g" lsp-ui-doc-glance "glance")
+   ("d f" lsp-ui-doc-focus-frame "focus")
+   ("d u" lsp-ui-doc-unfocus-frame "unfocus"))
+  
+  "Doc Toggle"
+  (("D e" (progn
+            (lsp-ui-doc-enable (not lsp-ui-doc-mode))
+            (setq lsp-ui-doc-enable (not lsp-ui-doc-enable)))
+    "enable" :toggle lsp-ui-doc-mode)
+   ("D i" (setq lsp-ui-doc-include-signature (not lsp-ui-doc-include-signature))
+    "signature" :toggle lsp-ui-doc-include-signature)
+   ("D h" (setq lsp-ui-doc-header (not lsp-ui-doc-header))
+    "header" :toggle lsp-ui-doc-header))
+  
+  "Doc Position"
+  (("D t" (setq lsp-ui-doc-position 'top) "top")
+   ("D b" (setq lsp-ui-doc-position 'bottom) "bottom")
+   ("D p" (setq lsp-ui-doc-position 'at-point) "at point"))
+  
+  "Sideline"
+  (("s e" (progn
+            (lsp-ui-sideline-enable (not lsp-ui-sideline-mode))
+            (setq lsp-ui-sideline-enable (not lsp-ui-sideline-enable)))
+    "enable" :toggle lsp-ui-sideline-mode)
+   ("s h" (setq lsp-ui-sideline-show-hover (not lsp-ui-sideline-show-hover))
+    "hover" :toggle lsp-ui-sideline-show-hover)
+   ("s d" (setq lsp-ui-sideline-show-diagnostics (not lsp-ui-sideline-show-diagnostics))
+    "diagnostics" :toggle lsp-ui-sideline-show-diagnostics)
+   ("s s" (setq lsp-ui-sideline-show-symbol (not lsp-ui-sideline-show-symbol))
+    "symbol" :toggle lsp-ui-sideline-show-symbol)
+   ("s a" (setq lsp-ui-sideline-show-code-actions (not lsp-ui-sideline-show-code-actions))
+   "code actions" :toggle lsp-ui-sideline-show-code-actions)
+   ("s i" (setq lsp-ui-sideline-ignore-duplicate (not lsp-ui-sideline-ignore-duplicate))
+    "ignore duplicate" :toggle lsp-ui-sideline-ignore-duplicate))
+  
+  "Actions"
+  (("I" lsp-ui-imenu "imenu" :exit t)
+   ("c" lsp-ui-sideline-apply-code-actions "apply code actions")
+   ("m" lsp-mode-hydra/body "LSP Mode" :exit t))))
+  
+  :bind (("C-c u" . lsp-ui-imenu)
+         :map lsp-ui-mode-map
+         ("M-<f6>" . lsp-ui-hydra/body)
+         ("s-<return>" . lsp-ui-sideline-apply-code-actions)
+         ([remap xref-find-definitions] . lsp-ui-peek-find-definitions)
+         ([remap xref-find-references] . lsp-ui-peek-find-references))
+  :hook (lsp-mode . lsp-ui-mode)
+  :init
+  (setq lsp-ui-sideline-show-diagnostics nil
+        lsp-ui-sideline-ignore-duplicate t
+        lsp-ui-doc-delay 0.1
+        lsp-ui-doc-show-with-cursor (not (display-graphic-p))
+        lsp-ui-imenu-auto-refresh 'after-save
+        lsp-ui-imenu-colors `(,(face-foreground 'font-lock-keyword-face)
+                              ,(face-foreground 'font-lock-string-face)
+                              ,(face-foreground 'font-lock-constant-face)
+                              ,(face-foreground 'font-lock-variable-name-face)))
+  
+  (defun my-lsp-ui-doc-set-border ()
+    "Set the border color of lsp doc."
+    (setq lsp-ui-doc-border
+          (face-background 'posframe-border nil t)))
+  (my-lsp-ui-doc-set-border)
+  
+  :config
+  (with-no-warnings
+    (defvar-local lsp-ui-peek--buffer nil)
+    (defun lsp-ui-peek--peek-display (fn src1 src2)
+      (if (childframe-workable-p)
+          (-let* ((win-width (frame-width))
+                  (lsp-ui-peek-list-width (/ (frame-width) 2))
+                  (string (-some--> (-zip-fill "" src1 src2)
+                            (--map (lsp-ui-peek--adjust win-width it) it)
+                            (-map-indexed 'lsp-ui-peek--make-line it)
+                            (-concat it (lsp-ui-peek--make-footer)))))
+            (setq lsp-ui-peek--buffer (get-buffer-create " *lsp-peek--buffer*"))
+            (posframe-show lsp-ui-peek--buffer
+                           :string (mapconcat 'identity string "")
+                           :min-width (frame-width)
+                           :internal-border-color (face-background 'posframe-border nil t)
+                           :internal-border-width 1
+                           :poshandler #'posframe-poshandler-frame-center))
+        (funcall fn src1 src2)))
+    (defun lsp-ui-peek--peek-destroy (fn)
+      (if (childframe-workable-p)
+          (progn
+            (when (bufferp lsp-ui-peek--buffer)
+              (posframe-hide lsp-ui-peek--buffer))
+            (setq lsp-ui-peek--last-xref nil))
+        (funcall fn)))
+    (advice-add #'lsp-ui-peek--peek-new :around #'lsp-ui-peek--peek-display)
+    (advice-add #'lsp-ui-peek--peek-hide :around #'lsp-ui-peek--peek-destroy)
+
+    (defun my-lsp-ui-doc--handle-hr-lines nil
+      (let (bolp next before after)
+        (goto-char 1)
+        (while (setq next (next-single-property-change (or next 1) 'markdown-hr))
+          (when (get-text-property next 'markdown-hr)
+            (goto-char next)
+            (setq bolp (bolp)
+                  before (char-before))
+            (delete-region (point) (save-excursion (forward-visible-line 1) (point)))
+            (setq after (char-after (1+ (point))))
+            (insert
+             (concat
+              (and bolp (not (equal before ?\n)) (propertize "\n" 'face '(:height 0.5)))
+              (propertize "\n" 'face '(:height 0.5))
+              (propertize " "
+                          'display '(space :height (1))
+                          'lsp-ui-doc--replace-hr t
+                          'face `(:background ,(face-foreground 'font-lock-comment-face nil t)))
+              (propertize " " 'display '(space :height (1)))
+              (and (not (equal after ?\n)) (propertize " \n" 'face '(:height 0.5)))))))))
+    (advice-add #'lsp-ui-doc--handle-hr-lines :override #'my-lsp-ui-doc--handle-hr-lines)))
+#+end_src
+
+*** Consult Integration
+#+begin_src emacs-lisp
+(use-package consult-lsp
+  :defer t
+  :bind (([remap xref-find-apropos] . consult-lsp-symbols)
+         :map lsp-mode-map
+         ("C-M-." . consult-lsp-symbols)))
+#+end_src
+
+*** LSP Treemacs
+#+begin_src emacs-lisp
+(use-package lsp-treemacs
+ :after lsp-mode
+ :functions lsp-treemacs-sync-mode
+ :bind (:map lsp-mode-map
+        ("C-<f8>" . lsp-treemacs-errors-list)
+        ("M-<f8>" . lsp-treemacs-symbols)
+        ("s-<f8>" . lsp-treemacs-java-deps-list))
+ :init (lsp-treemacs-sync-mode 1)
+ :config
+ (with-eval-after-load 'ace-window
+   (when (boundp 'aw-ignored-buffers)
+     (push 'lsp-treemacs-symbols-mode aw-ignored-buffers)
+     (push 'lsp-treemacs-java-deps-mode aw-ignored-buffers)))
+
+ (with-no-warnings
+   (when (icons-displayable-p)
+     (treemacs-create-theme "lsp-nerd-icons"
+       :config
+       (progn
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-repo" :face 'nerd-icons-blue))
+          :extensions (root))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_boolean" :face 'nerd-icons-lblue))
+          :extensions (boolean-data))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_class" :face 'nerd-icons-orange))
+          :extensions (class))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_color"))
+          :extensions (color-palette))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_constant"))
+          :extensions (constant))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_file"))
+          :extensions (document))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_misc" :face 'nerd-icons-orange))
+          :extensions (enumerator))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_enum_member" :face 'nerd-icons-lblue))
+          :extensions (enumitem))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_event" :face 'nerd-icons-orange))
+          :extensions (event))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_field" :face 'nerd-icons-lblue))
+          :extensions (field))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_misc"))
+          :extensions (indexer))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_keyword"))
+          :extensions (intellisense-keyword))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_interface" :face 'nerd-icons-lblue))
+          :extensions (interface))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_variable" :face 'nerd-icons-lblue))
+          :extensions (localvariable))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_method" :face 'nerd-icons-purple))
+          :extensions (method))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_namespace" :face 'nerd-icons-lblue))
+          :extensions (namespace))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_numeric"))
+          :extensions (numeric))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_operator"))
+          :extensions (operator))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_property"))
+          :extensions (property))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_snippet"))
+          :extensions (snippet))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_string"))
+          :extensions (string))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_structure" :face 'nerd-icons-orange))
+          :extensions (structure))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_snippet"))
+          :extensions (template))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-chevron_right" :face 'nerd-icons-dsilver))
+          :extensions (collapsed) :fallback "+")
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-chevron_down" :face 'nerd-icons-dsilver))
+          :extensions (expanded) :fallback "-")
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-file_binary" :face 'nerd-icons-dsilver))
+          :extensions (classfile))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-blue))
+          :extensions (default-folder-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-blue))
+          :extensions (default-folder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-green))
+          :extensions (default-root-folder-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-green))
+          :extensions (default-root-folder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-file_binary" :face 'nerd-icons-dsilver))
+          :extensions ("class"))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-file_zip" :face 'nerd-icons-dsilver))
+          :extensions (file-type-jar))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-dsilver))
+          :extensions (folder-open))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-dsilver))
+          :extensions (folder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-orange))
+          :extensions (folder-type-component-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-orange))
+          :extensions (folder-type-component))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-green))
+          :extensions (folder-type-library-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-green))
+          :extensions (folder-type-library))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-pink))
+          :extensions (folder-type-maven-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-pink))
+          :extensions (folder-type-maven))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-orange))
+          :extensions (folder-type-package-opened))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-orange))
+          :extensions (folder-type-package))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-add" :face 'nerd-icons-dsilver))
+          :extensions (icon-create))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-list_flat" :face 'nerd-icons-dsilver))
+          :extensions (icon-flat))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-symbol_class" :face 'nerd-icons-blue))
+          :extensions (icon-hierarchical))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-link" :face 'nerd-icons-dsilver))
+          :extensions (icon-link))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-refresh" :face 'nerd-icons-dsilver))
+          :extensions (icon-refresh))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-faicon "nf-fa-unlink" :face 'nerd-icons-dsilver))
+          :extensions (icon-unlink))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-devicon "nf-dev-java" :face 'nerd-icons-orange))
+          :extensions (jar))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-library" :face 'nerd-icons-green))
+          :extensions (library))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder_opened" :face 'nerd-icons-lblue))
+          :extensions (packagefolder-open))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-folder" :face 'nerd-icons-lblue))
+          :extensions (packagefolder))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-archive" :face 'nerd-icons-dsilver))
+          :extensions (package))
+         (treemacs-create-icon
+          :icon (format "%s " (nerd-icons-codicon "nf-cod-repo" :face 'nerd-icons-blue))
+          :extensions (java-project))))
+
+     (setq lsp-treemacs-theme "lsp-nerd-icons"))))
+#+end_src
+
+*** Enable LSP in org babel
+#+begin_src emacs-lisp
+(cl-defmacro lsp-org-babel-enable (lang)
+  "Support LANG in org source code block."
+  (cl-check-type lang string)
+  (let* ((edit-pre (intern (format "org-babel-edit-prep:%s" lang)))
+         (intern-pre (intern (format "lsp--%s" (symbol-name edit-pre)))))
+    `(progn
+       (defun ,intern-pre (info)
+         (setq buffer-file-name (or (->> info caddr (alist-get :file))
+                                    "org-src-babel.tmp"))
+         (when (fboundp 'lsp-deferred)
+           ;; Avoid headerline conflicts
+           (setq-local lsp-headerline-breadcrumb-enable nil)
+           (lsp-deferred)))
+       (put ',intern-pre 'function-documentation
+            (format "Enable lsp-mode in the buffer of org source block (%s)."
+                    (upcase ,lang)))
+
+       (if (fboundp ',edit-pre)
+           (advice-add ',edit-pre :after ',intern-pre)
+         (progn
+           (defun ,edit-pre (info)
+             (,intern-pre info))
+           (put ',edit-pre 'function-documentation
+                (format "Prepare local buffer environment for org source block (%s)."
+                        (upcase ,lang))))))))
+
+(defconst org-babel-lang-list
+  '("go" "python" "ipython" "jupyter-python" "ruby" "js" "css" "sass" "c" "rust" "java" "cpp" "c++" "shell")
+  "The supported programming languages for interactive Babel.")
+(dolist (lang org-babel-lang-list)
+  (eval `(lsp-org-babel-enable ,lang)))
+#+end_src
+
+*** Org Src Context
+#+begin_src emacs-lisp
+(use-package org-src-context
+  :ensure (:host github :repo "karthink/org-src-context")
+  :hook (org-src-mode . org-src-context-mode)
+  :init
+  (setq org-src-context-method 'inject)
+  :config
+  (defun ar/disable-apheleia-in-context-buffers ()
+    (when (bound-and-true-p org-src-context-mode)
+      (apheleia-mode -1)))
+  (add-hook 'org-src-mode-hook #'ar/disable-apheleia-in-context-buffers 100))
+#+end_src
+
+** DAP
+#+begin_src emacs-lisp
+(use-package dape
+  :defer t
+  :bind (("<f5>" . dape)
+         ("M-<f5>" . dape-hydra/body))
+  :custom (dape-buffer-window-arrangment 'right)
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Debug" 'codicon "nf-cod-debug")
+    :color pink :quit-key ("q" "C-g"))
+   ("Stepping"
+    (("n" dape-next "next")
+     ("s" dape-step-in "step in")
+     ("o" dape-step-out "step out")
+     ("c" dape-continue "continue")
+     ("p" dape-pause "pause")
+     ("k" dape-kill "kill")
+     ("r" dape-restart "restart")
+     ("D" dape-disconnect-quit "disconnect"))
+    "Switch"
+    (("m" dape-read-memory "memory")
+     ("t" dape-select-thread "thread")
+     ("w" dape-watch-dwim "watch")
+     ("S" dape-select-stack "stack")
+     ("i" dape-info "info")
+     ("R" dape-repl "repl"))
+    "Breakpoints"
+    (("b" dape-breakpoint-toggle "toggle")
+     ("l" dape-breakpoint-log "log")
+     ("e" dape-breakpoint-expression "expression")
+     ("B" dape-breakpoint-remove-all "clear"))
+    "Debug"
+    (("d" dape "dape")
+     ("Q" dape-quit "quit" :exit t))))
+  :config
+  ;; Save buffers on startup, useful for interpreted languages
+  (add-hook 'dape-on-start-hooks
+            (defun dape--save-on-start ()
+              (save-some-buffers t t)))
+  ;; Display hydra on startup
+  (add-hook 'dape-on-start-hooks #'dape-hydra/body))
+#+end_src
+
+** TODO Syntax Checking
+=Integrate with scimax=
+#+begin_src emacs-lisp
+(use-package flycheck
+  :defer t
+  :hook (prog-mode . flycheck-mode)
+  :custom
+  (flycheck-emacs-lisp-load-path 'inherit)
+  (flycheck-idle-change-delay 1.0)
+  ;; Faster error display in echo area
+  (flycheck-display-errors-delay 0.15)
+  :config
+  (delq 'new-line flycheck-check-syntax-automatically)
+  (setq flycheck-buffer-switch-check-intermediate-buffers t))
+
+(use-package flycheck-posframe
+  :defer t
+  :after flycheck
+  :hook (flycheck-mode . flycheck-posframe-mode)
+  :custom
+  (flycheck-posframe-border-width 1)
+  :config
+  (set-face-attribute 'flycheck-posframe-border-face nil
+                      :inherit 'posframe-border))
+
+(use-package flycheck-hl-todo
+  :defer 5 ; Need to be initialized after the rest of checkers
+  :config
+  (flycheck-hl-todo-setup))
+#+end_src
+
+* Utils
+** Which Key
+#+begin_src emacs-lisp
+(use-package which-key
+  :defer 0.5
+  :hook (elpaca-after-init . which-key-mode)
+  :custom
+  (which-key-idle-delay 0.1)
+  (which-key-separator " → ")
+  (which-key-popup-type 'minibuffer))
+#+end_src
+
+** Wgrep
+Writable `grep' buffer
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t
+  :init (setq wgrep-auto-save-buffer t
+              wgrep-change-readonly-file t))
+#+end_src
+
+** ztree
+text mode directory tree
+#+begin_src emacs-lisp
+(use-package ztree
+  :defer t
+  :custom-face
+  (ztreep-header-face ((t (:inherit diff-header :foreground unspecified))))
+  (ztreep-arrow-face ((t (:inherit font-lock-comment-face :foreground unspecified))))
+  (ztreep-leaf-face ((t (:inherit diff-index :foreground unspecified))))
+  (ztreep-node-face ((t (:inherit font-lock-variable-name-face :foreground unspecified))))
+  (ztreep-expand-sign-face ((t (:inherit font-lock-function-name-face))))
+  (ztreep-diff-header-face ((t (:inherit (diff-header bold :foreground unspecified)))))
+  (ztreep-diff-header-small-face ((t (:inherit diff-file-header :foreground unspecified))))
+  (ztreep-diff-model-normal-face ((t (:inherit font-lock-doc-face :foreground unspecified))))
+  (ztreep-diff-model-ignored-face ((t (:inherit font-lock-doc-face :strike-through t :foreground unspecified))))
+  (ztreep-diff-model-diff-face ((t (:inherit diff-removed :foreground unspecified))))
+  (ztreep-diff-model-add-face ((t (:inherit diff-nonexistent :foreground unspecified))))
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Ztree" 'octicon "nf-oct-diff" :face 'nerd-icons-green)
+    :color pink :quit-key ("q" "C-g"))
+   ("Diff"
+    (("C" ztree-diff-copy "copy" :exit t)
+     ("h" ztree-diff-toggle-show-equal-files "show/hide equals" :exit t)
+     ("H" ztree-diff-toggle-show-filtered-files "show/hide ignores" :exit t)
+     ("D" ztree-diff-delete-file "delete" :exit t)
+     ("v" ztree-diff-view-file "view" :exit t)
+     ("d" ztree-diff-simple-diff-files "simple diff" :exit t)
+     ("r" ztree-diff-partial-rescan "partial rescan" :exit t)
+     ("R" ztree-diff-full-rescan "full rescan" :exit t))
+    "View"
+    (("RET" ztree-perform-action "expand/collapse or view" :exit t)
+     ("SPC" ztree-perform-soft-action "expand/collapse or view in other" :exit t)
+     ("TAB" ztree-jump-side "jump side" :exit t)
+     ("g" ztree-refresh-buffer "refresh" :exit t)
+     ("x" ztree-toggle-expand-subtree "expand/collapse" :exit t)
+     ("<backspace>" ztree-move-up-in-tree "go to parent" :exit t))))
+  :bind (:map ztreediff-mode-map
+         ("C-<f5>" . ztree-hydra/body))
+  :init (setq ztree-draw-unicode-lines t
+              ztree-show-number-of-children t))
+#+end_src
+
+** Echo Area Context Display
+#+begin_src emacs-lisp
+;; Cache for Git branch to avoid repeated VC calls
+(defvar ar/git-branch-cache nil
+  "Cached Git branch for current buffer.")
+(defvar ar/git-branch-cache-time nil
+  "Time when Git branch was last cached.")
+
+(defun ar/get-git-branch-cached ()
+  "Get Git branch with caching and robust fallbacks."
+  (when (and buffer-file-name
+             (vc-backend buffer-file-name))
+    (let ((current-time (float-time)))
+      ;; Refresh cache if older than 5 seconds or not set
+      (when (or (null ar/git-branch-cache-time)
+                (> (- current-time ar/git-branch-cache-time) 5.0))
+        (setq ar/git-branch-cache
+              (let ((str (vc-git-mode-line-string buffer-file-name)))
+                (if str
+                    (substring-no-properties str 4) ;; Remove " Git-" prefix
+                  ;; Fallback if mode-line string is not ready
+                  (car (vc-git-branches)))))
+        (setq ar/git-branch-cache-time current-time))
+      ar/git-branch-cache)))
+
+(defun ar/show-buffer-context ()
+  "Display useful buffer context in echo area instantly.
+Shows: file path, position, mode, and cached Git branch.
+Includes optimization for large buffers and nerd-icons integration."
+  (interactive)
+  (let* ((file (if buffer-file-name
+                   (abbreviate-file-name buffer-file-name)
+                 (buffer-name)))
+         (icon (if (and (display-graphic-p) (featurep 'nerd-icons))
+                   (nerd-icons-icon-for-mode major-mode)
+                 ""))
+         (line (line-number-at-pos))
+         ;; Optimization: Don't count lines in massive buffers (>1MB) to prevent freeze
+         (total (if (> (buffer-size) 1000000)
+                    "?"
+                  (count-lines (point-min) (point-max))))
+         ;; FIX: Use 'equal' instead of 'string=' because total can be an integer
+         (percent (if (equal total "?")
+                      "--"
+                    (/ (* 100 (- (point) (point-min)))
+                       (max 1 (- (point-max) (point-min))))))
+         (mode mode-name)
+         (branch (ar/get-git-branch-cached))
+         (branch-icon (if (and (display-graphic-p) (featurep 'nerd-icons))
+                          (nerd-icons-octicon "nf-oct-git_branch" :face 'font-lock-function-name-face)
+                        "")))
+    (message "%s %s%s │ %s │ L%d/%s (%s%%)%s"
+             icon
+             (propertize file 'face 'font-lock-string-face)
+             (if (buffer-modified-p)
+                 (propertize "*" 'face 'error)
+               "")
+             (propertize (format "%s" mode) 'face 'font-lock-keyword-face)
+             line total percent
+             (if branch
+                 (concat " │ " branch-icon " " (propertize branch 'face 'font-lock-constant-face))
+               ""))))
+#+end_src
+
+** Character Information at Point
+#+begin_src emacs-lisp
+(defun ar/show-char-info ()
+  "Show detailed character information at point in echo area.
+Wrapper around `what-cursor-position' with prefix arg implied."
+  (interactive)
+  (what-cursor-position t))
+#+end_src
+
+** Buffer State Information
+#+begin_src emacs-lisp
+(defun ar/show-buffer-state ()
+  "Show buffer state information in echo area.
+Displays: Narrowed, Read-only, Macro recording, Evil state."
+  (interactive)
+  (let ((states '()))
+    ;; Check narrowing
+    (when (buffer-narrowed-p)
+      (push (propertize "NARROWED" 'face 'warning) states))
+    
+    ;; Check read-only
+    (when buffer-read-only
+      (let ((icon (if (featurep 'nerd-icons) (nerd-icons-octicon "nf-oct-lock") "🔒")))
+        (push (propertize (concat icon " READ-ONLY") 'face 'error) states)))
+    
+    ;; Check macro recording
+    (when defining-kbd-macro
+      (push (propertize "● REC" 'face '(:foreground "#f7768e" :weight bold)) states))
+    
+    ;; Check evil state
+    (when (and (featurep 'evil) (bound-and-true-p evil-state))
+      (push (propertize 
+             (format "Evil: %s" (upcase (symbol-name evil-state)))
+             'face 'font-lock-constant-face)
+            states))
+    
+    ;; Check modified
+    (when (buffer-modified-p)
+      (push (propertize "MODIFIED" 'face 'success) states))
+    
+    (if states
+        (message (string-join states " │ "))
+      (message (propertize "Buffer State: Clean" 'face 'shadow)))))
+#+end_src
+
+** Macro Recording Indicator
+#+begin_src emacs-lisp
+;; Show macro recording status in echo area automatically
+(defun ar/kmacro-start-message (&rest _)
+  "Display message when macro recording starts."
+  (message (propertize "● Recording keyboard macro..." 
+                       'face '(:foreground "#f7768e" :weight bold))))
+
+(defun ar/kmacro-end-message (&rest _)
+  "Display message when macro recording ends."
+  (message (propertize "✓ Keyboard macro defined" 
+                       'face '(:foreground "#9ece6a" :weight bold))))
+
+(advice-add 'kmacro-start-macro :after #'ar/kmacro-start-message)
+(advice-add 'kmacro-end-macro :after #'ar/kmacro-end-message)
+#+end_src
+
+* Python Development
+#+begin_src emacs-lisp
+(use-package lsp-pyright
+  :defer t
+  :custom
+  (lsp-pyright-langserver-command "basedpyright")
+  (lsp-disabled-clients '(ruff ruff-lsp)) ;; Built-in LSP way to disable clients
+  :hook ((python-mode python-ts-mode) . lsp-deferred))
+
+;; Configure Ruff for Flycheck & Apheleia (Non-redundant)
+(with-eval-after-load 'python
+  ;; 1. Flycheck: Define & Chain
+  (with-eval-after-load 'flycheck
+    (flycheck-define-checker python-ruff
+      "Ruff syntax checker."
+      :command ("ruff" "check" "--output-format=text" "--stdin-filename" source-original "-")
+      :standard-input t
+      :error-patterns
+      ((warning line-start (file-name) ":" line ":" (optional column ":") " " (id (one-or-more (any alpha)) (one-or-more digit)) " " (message) line-end)
+       (error line-start (file-name) ":" line ":" (optional column ":") " " (id (one-or-more (any alpha)) (one-or-more digit)) " " (message) line-end))
+      :modes (python-mode python-ts-mode))
+    (add-to-list 'flycheck-checkers 'python-ruff)
+    (with-eval-after-load 'lsp-diagnostics
+      (flycheck-add-next-checker 'lsp 'python-ruff)))
+
+  ;; 2. Apheleia: Define & Configure
+  (with-eval-after-load 'apheleia
+    (setf (alist-get 'ruff-isort apheleia-formatters)
+          '("ruff" "check" "--select" "I" "--fix" "--stdin-filename" filepath "-"))
+    (setf (alist-get 'ruff apheleia-formatters)
+          '("ruff" "format" "--stdin-filename" filepath "-"))
+    ;; Chain: Isort -> Format
+    (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
+    (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
+
+  ;; 3. Disable LSP formatting (Local Hook)
+  (add-hook 'lsp-configure-hook
+            (lambda ()
+              (when (derived-mode-p 'python-mode 'python-ts-mode)
+                (setq-local lsp-enable-on-type-formatting nil)
+                (setq-local lsp-format-buffer-on-save nil)))))
+#+end_src
+
+* Nix Development
+#+begin_src emacs-lisp
+(use-package nix-mode
+  :mode "\\.nix\\'")
+
+(use-package nix-ts-mode
+ :mode "\\.nix\\'")
+#+end_src
+
+* LaTeX Writing Environment
+** Project Awareness
+#+begin_src emacs-lisp
+(defun ar/get-project-bibliographies ()
+  "Find .bib files in the current project root recursively.
+Returns a list of absolute paths to bibliography files, or nil if none found."
+  (when-let* ((project (project-current nil))
+              (root (project-root project)))
+    (directory-files-recursively root "\\.bib$")))
+
+(defun ar/setup-project-bibliography ()
+  "Create a references.bib file in the project root if it doesn't exist."
+  (interactive)
+  (if-let* ((project (project-current t))
+            (root (project-root project))
+            (bib-file (expand-file-name "references.bib" root)))
+      (if (file-exists-p bib-file)
+          (message "Bibliography already exists: %s" bib-file)
+        (with-temp-file bib-file
+          (insert "% Bibliography for " (file-name-nondirectory (directory-file-name root)) "\n")
+          (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n"))
+        (message "Created project bibliography: %s" bib-file))
+    (message "Not currently visiting a project.")))
+#+end_src
+
+** Core AUCTeX Backend
+#+begin_src emacs-lisp
+(use-package tex
+  :ensure (auctex :repo "https://git.savannah.gnu.org/git/auctex.git"
+                  :branch "main"
+                  :pre-build (("make" "elpa"))
+                  :build (:not elpaca--compile-info)
+                  :files ("*.el" "doc/*.info*" "etc" "images" "latex" "style")
+                  :version (lambda (_) (require 'auctex) AUCTeX-version))
+  :defer t
+  :hook ((LaTeX-mode . visual-line-mode)
+         (LaTeX-mode . prettify-symbols-mode)
+         (LaTeX-mode . TeX-source-correlate-mode)
+         (LaTeX-mode . TeX-fold-mode))
+  :custom
+  (TeX-engine 'luatex)
+  (TeX-process-asynchronous t)
+  (TeX-check-TeX nil)
+  (TeX-clean-confirm nil)
+  (TeX-electric-math nil)
+  (TeX-display-help nil)
+  
+  ;; Master File Handling
+  (TeX-master t) ;; Do not prompt for master file
+
+  ;; Folding & Prettification
+  (TeX-fold-auto t)
+  (font-latex-fontify-script 'multi-level)
+  (font-latex-fontify-sectioning 1.2)
+
+  ;; Viewer Configuration (PDF Tools)
+  (TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (TeX-source-correlate-mode t)
+  (TeX-source-correlate-method 'synctex)
+  (TeX-source-correlate-start-server nil)
+  (TeX-PDF-mode t)
+
+  ;; Parsing and Auto-save
+  (TeX-auto-save t)
+  (TeX-parse-self t)
+  (TeX-save-query nil)
+
+  ;; Indentation
+  (LaTeX-indent-level 2)
+  (LaTeX-item-indent 0)
+  (TeX-brace-indent-level 2)
+
+  ;; Use hidden directories for AUCTeX files
+  (TeX-auto-local ".auctex-auto")
+  (TeX-style-local ".auctex-style")
+
+  :config
+  ;; ChkTeX Setup
+  (let ((check-cmd (assoc "Check" TeX-command-list)))
+    (when check-cmd
+      (setcar (cdr check-cmd) "chktex -v6 -H %s")))
+
+  ;; Hooks
+  (add-hook 'TeX-mode-hook
+            (lambda ()
+              (setq-local ispell-parser 'tex)
+              (visual-line-mode 1)
+              (when (fboundp 'texmathp)
+                (setq-local fill-nobreak-predicate
+                            (cons #'texmathp fill-nobreak-predicate)))))
+
+  ;; Latexmk Configurations
+  (add-to-list 'TeX-command-list
+               '("LuaLaTeXmk" "latexmk -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk with LuaLaTeX") t)
+
+  (add-to-list 'TeX-command-list
+               '("LaTeXmk-Watch" "latexmk -pvc -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk in continuous preview mode") t)
+
+  (setq-default TeX-command-default
+                (cond ((eq TeX-engine 'luatex) "LuaLaTeXmk")
+                      ((eq TeX-engine 'xetex) "XeLaTeXmk")
+                      (t "LaTeXmk")))
+
+  ;; Clean intermediate files
+  (setq LaTeX-clean-intermediate-suffixes
+        '("\\.aux" "\\.bbl" "\\.blg" "\\.brf" "\\.fot"
+          "\\.glo" "\\.gls" "\\.idx" "\\.ilg" "\\.ind"
+          "\\.lof" "\\.log" "\\.lot" "\\.nav" "\\.out"
+          "\\.snm" "\\.toc" "\\.url" "\\.synctex\\.gz"
+          "\\.fdb_latexmk" "\\.fls" "\\.xdv"
+          "-blx\\.bib" "\\.run\\.xml"))
+
+  (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
+  (add-to-list 'auto-mode-alist '("\\.map\\'" . TeX-mode))
+  (setq LaTeX-command-style '(("" "%(latex)"))))
+#+end_src
+
+** Evil Integration for LaTeX
+#+begin_src emacs-lisp
+(use-package evil-tex
+  :after (tex evil)
+  :hook (LaTeX-mode . evil-tex-mode))
+#+end_src
+
+** Bibliography Management
+*** Citar
+#+begin_src emacs-lisp
+(use-package citar
+  :defer t
+  :custom
+  (citar-bibliography '("~/references.bib")) ;; Fallback
+  (citar-library-paths '("~/Zotero/storage"))
+  (citar-notes-paths (list my/org-roam-directory))
+  (citar-symbols
+   `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
+     (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
+     (link ,(nerd-icons-mdicon "nf-md-link") . " ")))
+  :config
+  ;; === Project.el Integration ===
+  (defun ar/citar-set-local-bibliography ()
+    "Set buffer-local bibliography variables if in a project."
+    (when-let ((bibs (ar/get-project-bibliographies)))
+      (setq-local citar-bibliography bibs)
+      (setq-local org-cite-global-bibliography bibs)))
+
+  (add-hook 'LaTeX-mode-hook #'ar/citar-set-local-bibliography)
+  (add-hook 'org-mode-hook #'ar/citar-set-local-bibliography)
+
+  (with-eval-after-load 'latex
+    (define-key LaTeX-mode-map (kbd "C-c b") #'citar-insert-citation)
+    (define-key LaTeX-mode-map (kbd "C-c o") #'citar-open)))
+#+end_src
+
+*** Citar Extensions
+#+begin_src emacs-lisp
+(use-package citar-embark
+  :after (citar embark)
+  :config
+  (citar-embark-mode)
+  (with-eval-after-load 'embark
+    (add-to-list 'embark-keymap-alist '(citar-reference . citar-embark-map))))
+
+(use-package citar-org-roam
+  :after (citar org-roam)
+  :config
+  (citar-org-roam-mode 1)
+  (setq citar-org-roam-subdir "literature"))
+#+end_src
+
+*** TODO Org-Cite Integration
+#+begin_src emacs-lisp
+(use-package oc
+  :ensure nil
+  :after org
+  :config
+  (require 'citar)
+  (setq org-cite-insert-processor 'citar
+        org-cite-follow-processor 'citar
+        org-cite-activate-processor 'citar)
+
+  ;; REVIEW: Is this needed?
+  (defun ar/org-insert-citation ()
+    "Insert citation using citar in org-mode."
+    (interactive)
+    (if (fboundp 'citar-insert-citation)
+        (citar-insert-citation)
+      (message "Citar not available")))
+
+  (define-key org-mode-map (kbd "C-c b") #'ar/org-insert-citation)
+  (define-key org-mode-map (kbd "C-c o") #'citar-open))
+#+end_src
+
+*** RefTeX
+#+begin_src emacs-lisp
+(use-package reftex
+  :ensure nil
+  :after tex
+  :hook (LaTeX-mode . reftex-mode)
+  :custom
+  (reftex-plug-into-AUCTeX t)
+  (reftex-default-bibliography nil)
+  (reftex-toc-split-windows-horizontally t)
+  (reftex-toc-split-windows-fraction 0.2))
+#+end_src
+
+** Fast LaTeX Input
+#+begin_src emacs-lisp
+(use-package cdlatex
+  :defer t
+  :hook ((LaTeX-mode . cdlatex-mode)
+         (org-mode . org-cdlatex-mode))
+  :custom
+  (cdlatex-math-modify-alist
+   '((?B "\\mathbb" nil t nil nil)
+     (?C "\\mathcal" nil t nil nil)
+     (?F "\\mathfrak" nil t nil nil)
+     (?S "\\mathscr" nil t nil nil)))
+  (cdlatex-env-alist
+   '(("equation*" "\\begin{equation*}\n?\n\\end{equation*}" nil)
+     ("align*" "\\begin{align*}\n?\n\\end{align*}" nil)))
+  :config
+  (define-key cdlatex-mode-map (kbd "TAB") #'cdlatex-tab))
+#+end_src
+
+** Visual Enhancements
+#+begin_src emacs-lisp
+(defun my/latex-prettify-symbols-setup ()
+  "Enable prettify-symbols-mode with LaTeX ligatures."
+  (prettify-symbols-mode 1)
+  (setq prettify-symbols-alist
+        '(("\\alpha" . "α") ("\\beta" . "β") ("\\gamma" . "γ")
+          ("\\delta" . "δ") ("\\epsilon" . "ε") ("\\lambda" . "λ")
+          ("\\mu" . "μ") ("\\pi" . "π") ("\\sigma" . "σ")
+          ("\\phi" . "φ") ("\\theta" . "θ") ("\\omega" . "ω")
+          ("\\sum" . "∑") ("\\int" . "∫") ("\\prod" . "∏")
+          ("\\infty" . "∞") ("\\partial" . "∂")
+          ("\\in" . "∈") ("\\subset" . "⊂") ("\\subseteq" . "⊆")
+          ("\\cup" . "∪") ("\\cap" . "∩") ("\\emptyset" . "∅")
+          ("\\leq" . "≤") ("\\geq" . "≥") ("\\neq" . "≠")
+          ("\\approx" . "≈") ("\\equiv" . "≡")
+          ("\\rightarrow" . "→") ("\\Rightarrow" . "⇒")
+          ("\\leftarrow" . "←") ("\\Leftarrow" . "⇐")
+          ("\\leftrightarrow" . "↔")
+          ("\\times" . "×") ("\\cdot" . "·") ("\\forall" . "∀")
+          ("\\exists" . "∃") ("\\neg" . "¬"))))
+
+(add-hook 'LaTeX-mode-hook #'my/latex-prettify-symbols-setup)
+#+end_src
+
+** Org Mode LaTeX Integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  (require 'ox-latex)
+  (setq org-latex-compiler "lualatex")
+  (setq org-pretty-entities-include-sub-superscripts nil)
+
+  ;; 1. Force images to respect the scale attribute, not their pixel width
+  (setq org-image-actual-width nil)
+
+  ;; 2. Scale previews
+  (defun my/org-latex-preview-scale ()
+    "Force the scale of latex previews."
+    (setq org-format-latex-options
+          (plist-put org-format-latex-options :scale 2.5)))
+
+  (add-hook 'org-mode-hook #'my/org-latex-preview-scale)
+
+  ;; 3. Visual Settings (Transparent background)
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :background "Transparent"))
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :foreground "Auto"))
+
+  ;; 4. Define lualatex-png process
+  (add-to-list 'org-preview-latex-process-alist
+               '(lualatex-png
+                 :programs ("lualatex" "magick")
+                 :description "pdf > png (LuaLaTeX with proper transparency)"
+                 :image-input-type "pdf"
+                 :image-output-type "png"
+                 :image-size-adjust (1.0 . 1.0)
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("magick %f -density %D -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
+
+  ;; Set default process
+  (setq org-preview-latex-default-process 'lualatex-png))
+
+(use-package org-fragtog
+  :defer t
+  :hook (org-mode . org-fragtog-mode))
+#+end_src
+
+** LSP Integration
+#+begin_src emacs-lisp
+(use-package lsp-latex
+  :defer t
+  :after (tex bibtex)
+  :hook
+  ((tex-mode . lsp-deferred)
+   (LaTeX-mode . lsp-deferred)
+   (bibtex-mode . lsp-deferred))
+  :custom
+  (lsp-latex-forward-search-executable "zathura")
+  (lsp-latex-forward-search-args '("--synctex-forward" "%l:1:%f" "%p"))
+  (lsp-latex-build-on-save nil))
+#+end_src
+
+** Preview LaTeX (AUCTeX)
+#+begin_src emacs-lisp
+(use-package preview
+  :ensure nil
+  :after tex
+  :hook (LaTeX-mode . LaTeX-preview-setup)
+  :custom
+  (preview-auto-cache-preamble t)
+  (preview-fast-conversion t)
+  :config
+  (setq-default preview-scale 1.4
+                preview-scale-function
+                (lambda () (* (/ 10.0 (face-attribute 'default :height))
+                              (face-attribute 'default :height)))))
+#+end_src
+
+** Completions: LSP + AUCTeX + Cape
+#+begin_src emacs-lisp
+(defun ar/latex-setup-completion ()
+  "Configure super-powered completion for LaTeX: LSP + AUCTeX + Dabbrev."
+  (when (bound-and-true-p lsp-mode)
+    (require 'cape)
+    (setq-local completion-at-point-functions
+                (list (cape-capf-super
+                       #'lsp-completion-at-point      ; LSP intelligence (citations, refs)
+                       #'LaTeX-completion-at-point    ; AUCTeX specific macros
+                       #'TeX--completion-at-point)    ; TeX primitives
+                      #'cape-dabbrev                  ; Words in buffer
+                      #'cape-file))))                 ; File paths
+
+;; Hook into LaTeX mode to activate this setup
+(add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
 #+end_src
 
 * General Keybindings
