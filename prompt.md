@@ -223,3 +223,26 @@ This is a series of very important and long tasks.Therefore, search the web and 
 2. Then for your `2nd task`, you need improve the existing python development section. You will be utilizing the lsp-mode package. For the lsp server, only basedpyright needs to be used via the lsp-pyright package. Even if the ruff binary is available lsp-mode should not activate it. However, ruff must be used exclusively with flycheck for syntax checking and alpheleia for automatic formatting. Make sure to search the web to determine what is the correct way to setup flycheck to utilize ruff for python related buffers. You need to do the same thing for ruff with alpheleia. All the configuration settings should be inside the python development section only. Make sure your approach to setting basedpyright as the only lsp server for python buffers is accurate as well. Then rewrite the whole python development section
 
 Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding
+
+
+***
+# Sixth Series
+
+This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. Perform each of the following tasks methodically and thoroughly:
+
+1. Your `first task` is to thoroughly study and analyze the lsp configuration (eglot) for the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`. Also make sure to thoroughly read the description right above this config tilted Eglot and Org Babel Integration Guide to properly understand what and how the language server protocol is configured. This is the end of your `first task.`
+
+2. Then for your `2nd task`, you need to incorporate the `org-src-context.el` from https://github.com/karthink/org-src-context into the lsp configuration making sure it integrates properly org-babel-enable integration. But keep in mind that there is an issue with `org-src-context`. When I integrate org-src-context into my emacs configuration using the following config
+
+```el
+(use-package org-src-context
+  :ensure (:host github :repo "karthink/org-src-context")
+  :hook (org-src-mode . org-src-context-mode)
+  :init
+  (setq org-src-context-method 'inject))
+```dfasf
+source code blocks in an org buffer/file start acting weirdly for large org-mode files. These weird behaviour only exist when the org-src-context package is installed or setup and are not present otherwise. When I press enter in insert mode, I cannot go to the next line. Instead the cursor jumps upward to random locations depending on the location of the source code block and the position the cursor is on any source code block. There is also the issue that when writing code/contents inside a new source code block, pressing enter does not go to the next line. Instead the height of the source code block is increased, while the cursor position remains the same. There is also the issue, that trying to comment code inside any source code blocks using `g c` takes too long to actually comment the code. These are a handful of issues I have encountered so far. However these weird behaviour don't exist at all when I edit the same source code blocks using special buffers opened by org-edit-special command.
+
+For this `2nd task` you may need to directly analyze the code of org-src-context.el in https://raw.githubusercontent.com/karthink/org-src-context/refs/heads/master/org-src-context.el and modify the existing code in it so that it follows all the best practices of elisp and modern emacs settings and options shipped with the latest emacs package (currently v30.2), making sure that the random issues that I mentioned don't happen when directly editing and/or manipulating the source code blocks directly in the org mode buffer. Also make sure there are no issues/errors in the code you have rewritten.
+
+Then repeat the previous task by carefully following the instructions in the previous prompt while making sure there are no errors and/or issues in your generated configuration. Also make sure you don't have redundant configuration options. Present the updated configurations on the right side of the window. Make sure to search the web and think longer for this task before proceeding

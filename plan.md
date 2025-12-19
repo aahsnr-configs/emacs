@@ -44,7 +44,7 @@
 - [x] combine treesit configs from both files
 - [x] for the folding behaviour use https://github.com/doomemacs/doomemacs/blob/master/modules/editor/fold/config.el as a guide and use hide-show, evil-vimish-fold and treesit fold
 - [x] list-environment is not necessary
-- [ ] Remap C-g to escape
+- [x] Remap C-g to escape
 - [x] Write a git-gutter config and make it work in org files as well as other files. And instead of using the use git markers like + and - to indicate changes, use a more aesthetic approach to indicate changes that match the tokyonight colors. Write a sample guide to using git-gutter in a wide variety of files.
 - [x] Using general.el setup C-- for text-scale-decrease and C-= for text-scale-increase
 - [x] In my updated emacs config, does the posframe window (childframe) for opening hydra keys change in dimensions based on the contents of the hydra body?
@@ -86,6 +86,9 @@
 - [ ] in an org-mode file, when cursor moves to the end of the file, the buffer itself does not show the end of the file. Instead I have to invoke the scrollbar to go to the end. Right now this issue is only limited to org files as far as I have experienced. Also keep in mind that, at the end of the org file, many of the headlines are folded, but I am not sure if that factor has anything to do with this particular behavior.
 
 - [ ] elpaca-manager should always open as a full window instead of a minibuffer
+
+- [ ] check the hydra config to make sure the commands are working
+
 ***
 ## Integrating scimax modules
 *Determine the order in which these files should be added*
