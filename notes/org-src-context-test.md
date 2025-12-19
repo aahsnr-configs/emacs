@@ -1,26 +1,74 @@
-Here is the updated testing guide. Since Phase 1 and Phase 2 are now verified successes, you can move on to verifying the actual features (LSP and Context).
+# Org-Src-Context: Comprehensive Testing Protocol
 
-### **Phase 1: Basic Sanity Checks**
-**Status: ✅ COMPLETE SUCCESS**
-*Verified via previous screenshots.*
-*   `org-src-context-mode` is active (`t`).
-*   `org-edit-src-code` is correctly advised.
-*   `org-edit-special` is correctly advised.
+**Objective:** Verify that the patched `org-src-context.el` eliminates performance regressions (lag, cursor jumping) while successfully providing context to LSP servers (Eglot) in Org Mode.
 
 ---
 
-### **Phase 2: Regression Testing (The "Weird" Bugs)**
-**Status: ✅ COMPLETE SUCCESS**
-*Verified by user.*
-*   **Test 2.1 (Ghost Newline):** Pressing `RET` inside a block in the main buffer creates a newline correctly without cursor jumps.
-*   **Test 2.2 (Evil Open):** Pressing `o` inside a block in the main buffer opens a new line immediately, enters Insert mode, and places the cursor correctly with zero lag.
+### **Phase 1: Installation & Sanity Checks**
+*Goal: Confirm that the local, patched version is loaded and the advice framework is active.*
+
+#### **Test 1.1: Verify Package Activation**
+1.  Restart Emacs.
+2.  Open any `.org` file.
+3.  Run `M-x describe-variable RET org-src-context-mode RET`.
+4.  **Pass Criteria:**
+    *   Value is `t` (true).
+    *   Documentation string matches the local file (e.g., mentions "Performance Optimized").
+
+#### **Test 1.2: Verify Advice Injection**
+1.  Run `M-x describe-function RET org-edit-src-code RET`.
+2.  **Pass Criteria:**
+    *   The help buffer must state: `"This function has :around advice: org-src-context--advice"`.
+3.  Run `M-x describe-function RET org-edit-src-exit RET`.
+4.  **Pass Criteria:**
+    *   The help buffer must state: `"This function has :before advice: org-src-context--cleanup"`.
+
+---
+
+### **Phase 2: Regression Testing (Stability & Input)**
+*Goal: Verify that the "Weird Bugs" (cursor jumping, ghost newlines, lag) caused by the upstream package are fixed.*
+
+> **CRITICAL:** Perform these tests in the **Main Org Buffer**, NOT the special edit buffer.
+
+#### **Test 2.1: The "Rapid Newline" Test (Cursor Jumping)**
+1.  Create a dummy source block:
+    ```org
+    #+begin_src python
+    def test():
+        return True
+    #+end_src
+    ```
+2.  Place your cursor at the end of `def test():`.
+3.  Press `RET` (Enter) rapidly 3-5 times.
+4.  **Pass Criteria:**
+    *   The cursor moves down 1 line per keystroke.
+    *   The cursor **does not** jump to the top of the file or random locations.
+    *   There is zero perceptible lag.
+
+#### **Test 2.2: The "Ghost Newline" Test (Boundary Stickiness)**
+1.  Place your cursor at the very end of the last line of code (right before `#+end_src`).
+2.  Press `RET`.
+3.  Type `print("end")`.
+4.  **Pass Criteria:**
+    *   A new line is visually created.
+    *   The text `print("end")` appears on the new line.
+    *   The text **does not** disappear or get "swallowed" into the `#+end_src` line.
+
+#### **Test 2.3: The "Evil Open" Test (Lag Check)**
+1.  Ensure you are in Evil Normal state.
+2.  Place cursor inside a source block.
+3.  Press `o` (Open new line below).
+4.  **Pass Criteria:**
+    *   A new line opens immediately.
+    *   Editor enters Insert state immediately.
+    *   There is no "hiccup" or freeze.
 
 ---
 
 ### **Phase 3: LSP & Eglot Integration**
 *Goal: Ensure Eglot connects and finds the project root despite the buffer being temporary.*
 
-#### **Test Case 3.1: The "Mock File" Strategy (No Tangle)**
+#### **Test 3.1: The "Mock File" Strategy (No Tangle)**
 1.  Create a block **without** a `:tangle` header:
     ```org
     #+begin_src python
@@ -32,11 +80,11 @@ Here is the updated testing guide. Since Phase 1 and Phase 2 are now verified su
 3.  Press `C-c '` to open the edit buffer.
 4.  **Run Check:** `M-: buffer-file-name RET`.
 5.  **Pass Criteria:**
-    *   The output matches: `".../your-project-dir/org-src-babel-python.tmp"`.
-    *   **Eglot Status:** The modeline should show the LSP server name (e.g., `Pyright` or `Jedi`).
-    *   **Verify:** Run `M-x eglot-events-buffer` to see the handshake log.
+    *   The output path ends in `.tmp` (e.g., `.../project/org-src-babel-python.tmp`).
+    *   The directory path matches your actual project root.
+    *   **Eglot Status:** The modeline shows the LSP server name (e.g., `Pyright` or `Jedi`).
 
-#### **Test Case 3.2: Real Tangle File**
+#### **Test 3.2: Real Tangle File**
 1.  Create a block **with** a tangle header:
     ```org
     #+begin_src python :tangle ./script.py
@@ -50,8 +98,9 @@ Here is the updated testing guide. Since Phase 1 and Phase 2 are now verified su
 ---
 
 ### **Phase 4: Context Awareness**
-*Goal: Verify that Block B can "see" code in Block A.*
+*Goal: Verify that Block B can "see" code in Block A via LSP.*
 
+#### **Test 4.1: Definition Jumping**
 1.  **Block A (Definition):**
     ```org
     #+begin_src python
@@ -70,7 +119,9 @@ Here is the updated testing guide. Since Phase 1 and Phase 2 are now verified su
 3.  Place cursor on `my_global_var` in **Block B**.
 4.  Press `C-c '` to open the edit buffer.
 5.  **Action:** Invoke `xref-find-definitions` (usually `M-.` or `gd`).
-6.  **Pass Criteria:** The cursor jumps to the definition in Block A. (Note: Block A will appear as read-only text at the top of this temporary edit buffer).
+6.  **Pass Criteria:**
+    *   The cursor jumps to the definition of `my_global_var`.
+    *   *Note:* Since context injection is read-only, you cannot edit Block A from here, but you should be able to see it and jump to it.
 
 ---
 
@@ -81,19 +132,24 @@ Paste this code into your `*scratch*` buffer and run it with `M-x eval-buffer`:
 
 ```elisp
 (defun my/benchmark-org-indent ()
-  "Measure the time taken to indent a line in a source block."
+  "Measure the time taken to indent a line in a source block.
+  This replicates the specific call that caused lag in the upstream package."
   (interactive)
   (with-temp-buffer
     (org-mode)
     (insert "* Header\n")
+    ;; Create a large enough buffer to force parsing lag if bug exists
     (dotimes (_ 5000) (insert "Some content filler line.\n"))
     (insert "#+begin_src python\ndef test():\n    pass\n#+end_src")
     (search-backward "pass")
     (garbage-collect)
     (let ((start (float-time)))
-      (org-indent-line) ;; This triggers the advice
+      ;; This function calls org-edit-src-code internally with a 'code' argument.
+      ;; Our patch should detect that argument and SKIP the heavy lifting.
+      (org-indent-line)
       (message "Indentation took: %.4f seconds" (- (float-time) start)))))
 ```
 
-*   **Pass Criteria:** The output should be **< 0.01 seconds** (indicating the expensive logic was skipped).
-*   **Fail Criteria:** If it takes > 0.1 seconds.
+1.  Check the `*Messages*` buffer for the result.
+2.  **Pass Criteria:** The output should be **< 0.01 seconds**.
+3.  **Fail Criteria:** If it takes > 0.1 seconds, the patch is not ignoring transient calls correctly.
