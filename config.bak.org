@@ -5786,6 +5786,14 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 #+end_src
 
 
+#+begin_src python :results output
+def foo():
+
+    return 10
+#+end_src
+
+
+
 * General Keybindings
 #+begin_src emacs-lisp
 (use-package general

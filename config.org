@@ -52,6 +52,12 @@ Lower this if you experience freezing, raise if stuttering.")
             (add-hook 'minibuffer-exit-hook #'gc-minibuffer-exit-hook)))
 #+end_src
 
+** Load Path
+#+begin_src emacs-lisp
+;; Prioritize local lisp directory in load-path
+(add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+#+end_src
+
 ** Package Management
 #+begin_src emacs-lisp
 (defvar elpaca-installer-version 0.11)
@@ -703,43 +709,37 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :type 'boolean
   :group 'evil)
 
-(defun ar/evil-insert-newline-below (count)
-  "Insert COUNT newlines below, respecting comments."
-  (interactive "p")
-  (save-excursion
-    (if (and ar/evil-want-o/O-to-continue-comments
-             (face-at-point-irrelevant-p)
-             (save-excursion (comment-beginning)))
-        (let ((comment-start (or comment-start ""))
-              (comment-padding (or comment-padding " ")))
-          (end-of-line)
-          (newline-and-indent)
-          (when (not (string-empty-p comment-start))
-            (insert comment-start comment-padding)))
-      (evil-open-below count)))
-  (evil-insert-state))
+(defun ar/evil-open-below-smart ()
+  "Open line below. If in a comment, continue it using Emacs native logic."
+  (interactive)
+  (if (and ar/evil-want-o/O-to-continue-comments
+           (save-excursion (comment-beginning)))
+      (progn
+        (end-of-line)
+        ;; Delegates to Emacs' native 'M-j' behavior, which handles
+        ;; every language's comment syntax (;;, //, #, *) perfectly.
+        (comment-indent-new-line)
+        (evil-insert-state))
+    (evil-open-below 1)))
 
-(defun ar/evil-insert-newline-above (count)
-  "Insert COUNT newlines above, respecting comments."
-  (interactive "p")
-  (save-excursion
-    (if (and ar/evil-want-o/O-to-continue-comments
-             (face-at-point-irrelevant-p)
-             (save-excursion (comment-beginning)))
-        (let ((comment-start (or comment-start ""))
-              (comment-padding (or comment-padding " ")))
-          (beginning-of-line)
-          (newline)
-          (forward-line -1)
-          (indent-according-to-mode)
-          (when (not (string-empty-p comment-start))
-            (insert comment-start comment-padding)))
-      (evil-open-above count)))
-  (evil-insert-state))
+(defun ar/evil-open-above-smart ()
+  "Open line above. If in a comment, continue it using Emacs native logic."
+  (interactive)
+  (if (and ar/evil-want-o/O-to-continue-comments
+           (save-excursion (comment-beginning)))
+      (progn
+        (beginning-of-line)
+        ;; Split the current comment line from above
+        (comment-indent-new-line)
+        ;; Move to the upper line (the new one)
+        (forward-line -1)
+        (indent-according-to-mode)
+        (evil-insert-state))
+    (evil-open-above 1)))
 
 (with-eval-after-load 'evil
-  (define-key evil-normal-state-map "o" #'ar/evil-insert-newline-below)
-  (define-key evil-normal-state-map "O" #'ar/evil-insert-newline-above))
+  (define-key evil-normal-state-map "o" #'ar/evil-open-below-smart)
+  (define-key evil-normal-state-map "O" #'ar/evil-open-above-smart))
 #+end_src
 
 * Child Frame
@@ -3655,57 +3655,35 @@ If completion fails in the future, check these:
 #+end_src
 
 ** LSP
-*EGLOT & ORG-BABEL INTEGRATION GUIDE:*
-  1. THE PROBLEM:
-     Language Server Protocol (LSP) servers require a "TextDocument" to have a
-     valid URI (usually a file path) to function. They use this path to:
-     a) Identify the file type.
-     b) locate the "Project Root" (looking up the tree for .git, go.mod, etc.).
-     
-     When you edit an Org source block (`C-c '`), Org creates a temporary
-     buffer that is NOT associated with any file on disk (`buffer-file-name` is nil).
-     Consequently, Eglot refuses to start because it cannot construct a valid
-     LSP URI and cannot determine where the project root is.
+*EGLOT & ORG-BABEL INTEGRATION GUIDE*
+1. THE CHALLENGE:
+   LSP servers need two things to function:
+   a) A valid file path (URI) to identify the language and file type.
+   b) A "Project Root" to resolve imports and find configuration files.
 
-  2. THE SOLUTION (`ar/eglot-org-babel-enable`):
-     We define a function that runs immediately after Org sets up the 
-     temporary edit buffer. This function:
-     
-     a) Intercepts the `info` list passed by Org Babel. This list contains:
-        (language code-body header-arguments ...)
-     
-     b) Checks if you defined a `:file` header argument (e.g., used for tangling).
-        If yes, it uses that real filename.
-     
-     c) If no `:file` exists, it constructs a "Fake" Filename:
-        "org-src-babel.tmp" inside the *current directory* of the Org file.
-     
-     d) It forcibly sets `buffer-file-name` to this fake path.
-        This satisfies Eglot's requirement for a file path. Crucially, because
-        the path is in the *current directory*, Eglot's project detection logic
-        (project.el) correctly finds your actual project root (e.g., the .git folder
-        in your parent directory), allowing imports and context to work.
+   Org source blocks are temporary buffers with NO file path and NO project
+   association. Standard Eglot refuses to run in them. Additionally, simple
+   hacks to enable it often cause cursor jumping and severe lag in large files because they interfere with Org's native indentation checks.
 
-  3. EXTENDING SUPPORT:
-     To add a new language (e.g., Haskell), simply add "haskell" to the
-     `ar/org-babel-supported-languages` list defined below.
+2. THE SOLUTION (Patched org-src-context):
+   We use a locally patched version of `org-src-context` that solves these
+   problems via three specific mechanisms:
 
-  4. DEBUGGING:
-     If Eglot fails to start in a source block:
-     
-     A. Check the Mock Filename:
-        - Inside the edit buffer, run: `M-: buffer-file-name`
-        - It MUST return a string (e.g., ".../your-project/org-src-babel.tmp").
-        - If it returns `nil`, the advice failed to attach.
-     
-     B. Check Project Detection:
-        - Run: `M-: (project-current)`
-        - It should return your actual project structure. If it returns nil,
-          Eglot assumes single-file mode and some features may fail.
+   a) MOCK FILE PATHS: It assigns a fake filename (e.g., "org-src-babel.tmp")
+      to the temporary edit buffer. This file is logically placed in your
+      actual project directory, allowing Eglot to find the root (.git/).
 
-     C. Check Server Logs:
-        - Run: `M-x eglot-events-buffer`
-        - Look for "TextDocument" errors or server crashes.
+   b) CONTEXT INJECTION: It stitches together code from other blocks in the
+      same file, allowing the LSP to see variables/functions defined elsewhere.
+
+   c) PERFORMANCE GUARD (The Patch): The upstream package runs on *every*
+      keystroke, causing cursor jumps during indentation checks. Our patch
+      strictly inhibits this logic unless you explicitly open the edit
+      window (C-c '), ensuring zero lag when typing in the main buffer.
+
+3. USAGE:
+   - Normal typing in Org: Fast, no LSP (prevents lag).
+   - Press `C-c '`: Opens edit buffer, initializes LSP, loads context.
 
 #+begin_src emacs-lisp
 (use-package eglot-booster
@@ -3725,60 +3703,34 @@ If completion fails in the future, check these:
                            'ron-mode)
                     (eglot-ensure))))
    ((markdown-mode yaml-mode yaml-ts-mode) . eglot-ensure))
-  
+
   :init
   ;; Optimization: disable logging events to improve performance
-  ;; (Set to 2000000 if debugging is needed)
   (setq eglot-events-buffer-size 0)
-  
+
   ;; Optimization: delay sending changes to the server slightly (0.5s)
   (setq eglot-send-changes-idle-time 0.5)
-  
+
   ;; Shutdown server when the last buffer managed by it is closed
-  (setq eglot-autoshutdown t)
+  (setq eglot-autoshutdown t))
+
+(use-package org-src-context
+  :ensure nil
+  ;; Enable the mode globally after Emacs has fully initialized
+  :hook (elpaca-after-init . org-src-context-mode)
+
+  :custom
+  ;; Set to 't' if you want the edit buffer to show ONLY the current block. Set to 'nil' to see context blocks (read-only) above/below (recommended).
+  (org-src-context-narrow-p nil)
 
   :config
-  (defun ar/eglot-org-babel-enable (lang)
-    "Enable Eglot in Org source blocks for LANG.
-    Ported from Centaur Emacs `lsp-org-babel-enable`.
-    
-    This works by advising the `org-babel-edit-prep:LANG` function
-    to initialize Eglot with a mock file context."
-    (let* ((edit-pre (intern (format "org-babel-edit-prep:%s" lang)))
-           (intern-pre (intern (format "ar/eglot--%s" (symbol-name edit-pre)))))
-      
-      ;; Define the internal function that initializes Eglot
-      (fset intern-pre
-            (lambda (info)
-              ;; Centaur Logic: Extract :file from info or use default tmp name.
-              ;; `info` structure is (language body header-args ...)
-              ;; (nth 2 info) gets the header-args list.
-              (let* ((header-args (nth 2 info))
-                     (tangled-file (alist-get :file header-args))
-                     (file-name (or tangled-file "org-src-babel.tmp")))
-                
-                ;; Set buffer-file-name so Eglot can identify the project.
-                ;; We use `expand-file-name` to ensure it resolves to a full
-                ;; path inside the current directory.
-                (setq-local buffer-file-name (expand-file-name file-name))
-                (eglot-ensure))))
-      
-      ;; Advice logic:
-      ;; If the prep function exists (e.g. defined by another package), run ours after it.
-      ;; If it doesn't exist, define it as our function.
-      (if (fboundp edit-pre)
-          (advice-add edit-pre :after intern-pre)
-        (fset edit-pre intern-pre))))
-
-  ;; List of languages to enable Eglot for in Org Mode.
-  ;; Add new languages here to enable LSP support for them.
-  (defconst ar/org-babel-supported-languages
-    '("go" "python" "ipython" "ruby" "js" "css" "sass" "c" "rust" "java" "cpp" "c++" "shell" "bash")
-    "List of languages to enable Eglot support for in Org Babel.")
-
-  ;; Apply the setup
-  (dolist (lang ar/org-babel-supported-languages)
-    (ar/eglot-org-babel-enable lang)))
+  ;; Enable Apheleia (auto-formatting) inside the edit buffer (C-c ').
+  ;; Because org-src-context provides a valid mock file path, Apheleia
+  ;; can successfully run external formatters (or Eglot) on this buffer.
+  (with-eval-after-load 'apheleia
+    (add-hook 'org-src-mode-hook
+              (lambda ()
+                (apheleia-mode 1)))))
 
 ;; Integration with Consult for searching symbols
 (use-package consult-eglot
