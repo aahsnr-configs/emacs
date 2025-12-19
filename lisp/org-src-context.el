@@ -4,7 +4,7 @@
 ;; Author: Ahsanur Rahman
 ;; Keywords: tools, languages, extensions, lsp
 ;; Package-Requires: ((emacs "30.1") (org "9.6"))
-;; Version: 2.2.0
+;; Version: 2.3.0
 
 ;;; Commentary:
 ;; This package injects surrounding source blocks into the `org-edit-special'
@@ -222,7 +222,9 @@ This is CRITICAL: We must remove injected text before Org saves the buffer."
 
 ;;;###autoload
 (define-minor-mode org-src-context-mode
-  "Global mode to inject context into Org Src buffers for LSP."
+  "Global mode to inject context into Org Src buffers for LSP.
+
+**Performance Optimized** version by Ahsanur Rahman."
   :global t
   :group 'org-src-context
   (if org-src-context-mode
