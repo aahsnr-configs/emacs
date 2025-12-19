@@ -1359,9 +1359,9 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :init
   (setq dashboard-banner-logo-title "Welcome to Emacs!")
   (setq dashboard-startup-banner 'logo)
-  (setq dashboard-items '((recents   . 5)
-                         (bookmarks . 5)
-                         (projects  . 5)
+  (setq dashboard-items '((recents   . 10)
+                         (bookmarks . 3)
+                         (projects  . 6)
                          (agenda    . 5)))
   
   ;; CRITICAL: Close org files after reading them for agenda
@@ -1533,8 +1533,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
     "Source"
     (("s" (hot-expand "<s") "src")
      ("e" (hot-expand "<s" "emacs-lisp") "emacs-lisp")
-     ("y" (hot-expand "<s" "python :results output") "python")
-     ("p" (hot-expand "<s" "perl") "perl")
+     ("y" (hot-expand "<s" "python") "python")
      ("w" (hot-expand "<s" "powershell") "powershell")
      ("r" (hot-expand "<s" "ruby") "ruby")
      ("S" (hot-expand "<s" "sh") "sh")
@@ -3698,7 +3697,7 @@ If completion fails in the future, check these:
   (setq eglot-send-changes-idle-time 0.5)
 
   ;; Shutdown server when the last buffer managed by it is closed
-  (setq eglot-autoshutdown t))
+  (setq eglot-autoshutdown t)) ;consider setting this to nil
 
 (use-package org-src-context
   :ensure nil ; Relies on lisp/org-src-context.el

@@ -54,7 +54,9 @@
 
 - [ ] How and where does cape-tex and cape-dict get its sources. For cape-dict can I use en-UK spellings instead of en-US
 
-- [ ] **Fix dired/dirvish before proceeding** Doom emacs uses projectile for it project related functionalities. One of its functionalities is to open project directory using SPC p p. But I am using project.el that is built-in to emacs. In my emacs config I want similar behaviour using project.el instead of using projectile, but having the same keybinding. The other functionality doom emacs utilizes is using the SPC f p keybinding to open the doom emacs config directory using projectile. I want the same functionality using the same keybinding but using project.el instead as well, and also since I am using vanilla emacs and I don't have a doom emacs config directory, I want SPC f p to open my emacs config directory which is typically in either `~/.emacs.d` or
+- [x] Fix dired/dirvish before proceeding
+
+- [ ]  Doom emacs uses projectile for it project related functionalities. One of its functionalities is to open project directory using SPC p p. But I am using project.el that is built-in to emacs. In my emacs config I want similar behaviour using project.el instead of using projectile, but having the same keybinding. The other functionality doom emacs utilizes is using the SPC f p keybinding to open the doom emacs config directory using projectile. I want the same functionality using the same keybinding but using project.el instead as well, and also since I am using vanilla emacs and I don't have a doom emacs config directory, I want SPC f p to open my emacs config directory which is typically in either `~/.emacs.d` or
 `~/.config/emacs` directory.
 
 - [X] There is another buffer I like about the workspaces behaviour from the doom emacs project. The doom emacs project uses persp-mode to manage workspaces, but it has an interesting behaviour when allocating buffers and projects using projectile. It only shows the projects and buffer specific to the current emacsclient frame. Say you initiate an emacsclient A and in A, you open project 1 and buffer 1 from project 1. Then you initiate emacsclient B, and in B, you open project 2 and buffer 2 from project 2. Assuming at all these projects and buffers are distinct from one another, you won't see project 2 and buffer 2 in emacsclient A when executing consult-buffer. Similarly you won't see project 1 and buffer 1 in emacsclient B. As well, you will never see all these projects and buffers at the same time in a different emacsclient. Using the existing emacs packages I use, specifically using the built-in project.el package to manage projects and tabspaces to manage workspaces, I want a similar workflow in my own vanilla emacs configuration.
@@ -85,15 +87,19 @@
 
 - [ ] in an org-mode file, when cursor moves to the end of the file, the buffer itself does not show the end of the file. Instead I have to invoke the scrollbar to go to the end. Right now this issue is only limited to org files as far as I have experienced. Also keep in mind that, at the end of the org file, many of the headlines are folded, but I am not sure if that factor has anything to do with this particular behavior.
 
-- [ ] elpaca-manager should always open as a full window instead of a minibuffer
+- [ ] Using the evil `g g` binding in normal mode does not go to the top of the buffer. Need to press `0` again to go to the start of the line. Similar behaviour with `G` such that this keybinding does not entirely go to the end of the file, it just goes to the first word of the last line. Need `$` to go the very end. [Note]: Need to investigate further. 
 
-- [ ] check the hydra config to make sure the commands are working
+- [x] elpaca-manager should always open as a full window instead of a minibuffer
 
-***
+- [ ] *Replace all hydra configs with transient configs in its own main heading* 
+
+- [ ] Can recentf update recent files list when an existing file in its list changes name and/or directory
+
+- [ ] **Important** After adding jupyter config, make sure it does not conflict with org-src-context.el 
+
 ## Integrating scimax modules
-*Determine the order in which these files should be added*
 - [ ] scimax-ob.el
 - [ ] scimax-jupyter.el [Remove hydra stuff for now]
 - [ ] scimax-latex.el
 
-- [ ] `I have updated the language check to use org-element-at-point which is technically more robust than context for retrieving block properties in complex documents.` in cape config. Will this interfere with org-src-context file
+

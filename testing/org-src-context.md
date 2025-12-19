@@ -153,3 +153,131 @@ Paste this code into your `*scratch*` buffer and run it with `M-x eval-buffer`:
 1.  Check the `*Messages*` buffer for the result.
 2.  **Pass Criteria:** The output should be **< 0.01 seconds**.
 3.  **Fail Criteria:** If it takes > 0.1 seconds, the patch is not ignoring transient calls correctly.
+
+******
+***
+***
+# Phase 4: Advanced Context Awareness Testing
+
+**Objective:** Verify that `org-src-context.el` correctly stitches together split source blocks into a single logical unit for the LSP, regardless of whether you are using "Literate" mode (no tangle) or "Project" mode (tangle).
+
+---
+
+#### **Test 4.1: The "Literate Notebook" (No Tangle Headers)**
+*Goal: Verify context works for quick scripts without file generation.*
+
+1.  Create a new Org file (e.g., `test_context.org`).
+2.  **Setup:** Create three Python blocks.
+   ```org
+
+* Setup
+#+begin_src python
+class DataProcessor:
+    def __init__(self, value):
+        self.value = value
+
+    def process(self):
+        return self.value * 2
+#+end_src
+
+* Analysis
+#+begin_src python
+# This block initiates the data
+my_data = DataProcessor(10)
+#+end_src
+
+* Result
+#+begin_src python
+# We want to use 'my_data' from the block above
+final_result = my_data.process()
+print(final_result)
+#+end_src
+    ```
+3.  **Action:** Place cursor inside the **3rd block** (Result) and press `C-c '` to open the edit buffer.
+4.  **Check A (Completion):**
+    *   Type `my_d`.
+    *   **Pass Criteria:** `completion-at-point` (Corfu/Company) should suggest `my_data` (variable defined in Block 2).
+5.  **Check B (Type Inference):**
+    *   Place cursor on `my_data` or `process`.
+    *   **Action:** Trigger `eldoc` (or wait for hover).
+    *   **Pass Criteria:** The echo area or popup should identify `my_data` as type `DataProcessor` (or `(variable) my_data: DataProcessor`).
+6.  **Check C (Definition Jump):**
+    *   Place cursor on `process`.
+    *   **Action:** Press `M-.` (xref-find-definitions).
+    *   **Pass Criteria:** Cursor jumps to `def process(self):` in the **read-only header** of the current edit buffer.
+
+---
+
+#### **Test 4.2: The "Inherited Property" (Project Workflow)**
+*Goal: Verify your specific requirement regarding `#+PROPERTY` headers works.*
+
+1.  **Reset Environment:**
+    *   You must clear the previous test content to ensure no interference.
+    *   **Action:** Press `C-x h` (select all) then `DEL` (backspace/delete) to wipe the buffer clean. Alternatively, kill the current buffer and create a new file named `test_tangle.org`.
+2.  **Setup:** Paste the following. Note the Property header at the top.
+    ```org
+    #+TITLE: Property Test
+    #+PROPERTY: header-args :tangle my_script.py
+
+    * Global Config
+    #+begin_src python
+    GLOBAL_TIMEOUT = 5000
+    #+end_src
+
+    * Subroutine
+    #+begin_src python
+    def connect():
+        print(f"Connecting with timeout {GLOBAL_TIMEOUT}")
+    #+end_src
+    ```
+3.  **Action:** Place cursor inside the **Subroutine** block (the second one) and press `C-c '`.
+4.  **Check A (Filename mocking):**
+    *   Run `M-: (file-name-nondirectory buffer-file-name)`.
+    *   **Pass Criteria:** Output is `"my_script.py"` (inherited from the property).
+5.  **Check B (Context Injection):**
+    *   Scroll to the top of the edit buffer.
+    *   **Pass Criteria:** You should see `GLOBAL_TIMEOUT = 5000` grayed out (read-only).
+6.  **Check C (LSP Error Check):**
+    *   **Action:** Change `GLOBAL_TIMEOUT` to `MISSING_VAR` inside the `print` statement.
+    *   **Pass Criteria:** Flymake/Flycheck should underline `MISSING_VAR` as undefined.
+
+---
+
+#### **Test 4.3: The "Broken Chain" (Diagnostics)**
+*Goal: Verify that deleting a definition in the Org file immediately breaks the code in the Edit buffer (after refresh).*
+
+1.  Use the setup from **Test 4.1**. (If you are still in Test 4.2 state, wipe the buffer and paste the content from Test 4.1 again).
+2.  Open the **3rd block** (Result) with `C-c '`. Verify no errors.
+3.  **Action:**
+    *   Exit the edit buffer (`C-c '`).
+    *   **Delete** the entire 1st block (The `DataProcessor` class definition) in the Org file.
+    *   Go back to the 3rd block and press `C-c '` again.
+4.  **Pass Criteria:**
+    *   The Edit buffer opens.
+    *   The `DataProcessor` definition is gone from the top context.
+    *   LSP (Eglot) should now flag `my_data.process()` as an error (e.g., "reportUndefinedVariable" or similar), because the class no longer exists in the context.
+
+---
+
+#### **Test 4.4: Polyglot Safety (Language Isolation)**
+*Goal: Ensure Python blocks don't try to include Emacs Lisp blocks as context.*
+
+1.  **Reset Environment:** `C-x h` -> `DEL`.
+2.  **Setup:** Mix languages.
+    ```org
+    * Elisp Config
+    #+begin_src emacs-lisp
+    (defvar my-elisp-var 123)
+    #+end_src
+
+    * Python Script
+    #+begin_src python
+    x = 10
+    #+end_src
+    ```
+3.  **Action:** Open the **Python** block with `C-c '`.
+4.  **Pass Criteria:**
+    *   Scroll to the top.
+    *   You should **NOT** see `(defvar my-elisp-var 123)`.
+    *   The context should be empty (or only contain other Python blocks if you added them).
+    *   If you see Lisp code inside the Python edit buffer, the language filtering logic is broken.
