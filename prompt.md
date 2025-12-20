@@ -228,9 +228,9 @@ Then repeat the previous task by carefully following the instructions in the pre
 ***
 # Sixth Series
 
-This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer so as to prevent any errors and issues in your generated configurations. Perform each of the following tasks methodically and thoroughly:
+This is a series of very important and long tasks.Therefore, search the web and the necessary documentations very extensibly before proceed. For these series of tasks, make sure to think longer before proceeding as well. Perform each of the following tasks methodically and thoroughly:
 
-1. Your `first task` is to thoroughly study and analyze the lsp configuration (eglot) for the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`. Also make sure to thoroughly read the description right above this config tilted Eglot and Org Babel Integration Guide to properly understand what and how the language server protocol is configured. This is the end of your `first task.`
+1. Your `first task` is to thoroughly study and analyze the lsp configuration (eglot) for the vanilla emacs config (written in the form of an org-mode file) in the attached `emacs.txt`. This is the end of your `first task.`
 
 2. Then for your `2nd task`, you need to incorporate the `org-src-context.el` from https://github.com/karthink/org-src-context into the lsp configuration making sure it integrates properly org-babel-enable integration. But keep in mind that there is an issue with `org-src-context`. When I integrate org-src-context into my emacs configuration using the following config
 
