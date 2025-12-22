@@ -686,20 +686,27 @@ Profile startup time with detailed breakdown
     (windmove-down)))
 #+end_src
 
+** Evil Commentary
+#+begin_src emacs-lisp
+(use-package evil-commentary
+  :after evil
+  :config (evil-commentary-mode))
+#+end_src
+
 ** Native Commenting Operator
 Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This restores the "smart" toggling you prefer.
 #+begin_src emacs-lisp
-(with-eval-after-load 'evil
-  (evil-define-operator ar/evil-comment-operator (beg end type)
-    "Toggle comment for the region defined by BEG and END."
-    :move-point nil
-    (interactive "<R>")
-    (comment-or-uncomment-region beg end))
+;; (with-eval-after-load 'evil
+;;  (evil-define-operator ar/evil-comment-operator (beg end type)
+;;    "Toggle comment for the region defined by BEG and END."
+;;    :move-point nil
+;;    (interactive "<R>")
+;;    (comment-or-uncomment-region beg end))
 
   ;; Bind 'gc' to this operator
-  (define-key evil-normal-state-map (kbd "gc") #'ar/evil-comment-operator)
-  ;; Bind 'gc' in visual mode to ensure it works on selections
-  (define-key evil-visual-state-map (kbd "gc") #'ar/evil-comment-operator))
+;;  (define-key evil-normal-state-map (kbd "gc") #'ar/evil-comment-operator)
+;;  ;; Bind 'gc' in visual mode to ensure it works on selections
+;;  (define-key evil-visual-state-map (kbd "gc") #'ar/evil-comment-operator))
 #+end_src
 
 ** Smart Comment Continuation
@@ -3932,7 +3939,6 @@ If completion fails in the future, check these:
     (add-to-list 'eglot-server-programs '(markdown-mode . ("marksman"))))
   
   ;; FORMATTING INTEGRATION
-  ;; Leverages the 'eglot' bridge defined in Development Tools -> Formatting
   (with-eval-after-load 'apheleia
     (setf (alist-get 'markdown-mode apheleia-mode-alist) '(eglot)))
 

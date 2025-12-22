@@ -5785,6 +5785,13 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 (add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
 #+end_src
 
+#+begin_src python
+def test():
+    return True
+print("end")
+
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (use-package general

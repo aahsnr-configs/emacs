@@ -4,7 +4,7 @@
 ;; Author: Ahsanur Rahman
 ;; Keywords: tools, languages, extensions, lsp
 ;; Package-Requires: ((emacs "30.1") (org "9.6"))
-;; Version: 0.9
+;; Version: 0.9.1
 
 ;;; Commentary:
 ;; This package injects surrounding source blocks into the `org-edit-special'
@@ -260,7 +260,7 @@ or Language extension."
          ;; 2. Construct a mock name "original_src.ext" for literate notebooks.
          ;;    The file doesn't need to exist on disk, but the path must be inside the project.
          (mock-name (if (and tangle-file
-                           (not (member tangle-file '("yes" "no"))))
+                             (not (member tangle-file '("yes" "no"))))
                         tangle-file
                       (concat (file-name-base original-file) "_src." file-ext))))
 
@@ -272,7 +272,14 @@ or Language extension."
     (setq-local buffer-file-name (expand-file-name mock-name original-dir))
 
     ;; Trigger Eglot initialization now that the "file" appears valid.
-    (when (fboundp 'eglot-ensure)
+    ;; FIX: Respect the user's config by not forcing Eglot on Elisp/Lisp buffers.
+    ;; This prevents "Wrong type argument: processp, nil" crashes on eglot-ensure.
+    (when (and (fboundp 'eglot-ensure)
+               (not (derived-mode-p 'emacs-lisp-mode
+                                    'lisp-mode
+                                    'makefile-mode
+                                    'snippet-mode
+                                    'ron-mode)))
       (eglot-ensure))))
 
 ;;; --- Advice & Hooks ---

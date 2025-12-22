@@ -130,7 +130,7 @@ Run the following benchmark in `*scratch*`:
     (insert "#+begin_src python\ndef test():\n    pass\n#+end_src")
     (search-backward "pass")
     (let ((start (float-time)))
-      (org-indent-line) 
+      (org-indent-line)
       (message "Time: %.4f" (- (float-time) start)))))
 ```
 *   **Pass Criteria:** Time < 0.01 seconds.
