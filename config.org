@@ -5,6 +5,12 @@
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
+#+begin_quote
+*Author:* Ahsanur Rahman
+*Version:* 0.2
+*Description:* Personal Minimal Emacs Configuration
+#+end_quote
+
 * Core Emacs Configuration
 ** Lexical Binding
 #+begin_src emacs-lisp
