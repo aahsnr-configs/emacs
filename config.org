@@ -11,9 +11,9 @@
 *Description:* Personal Minimal Emacs Configuration
 #+end_quote
 
- *Author:* Ahsanur Rahman
- *Version:* 0.2
- *Description:* Personal Minimal Emacs Configuration
+- *Author:* Ahsanur Rahman
+- *Version:* 0.2
+- *Description:* Personal Minimal Emacs Configuration
 
 * Core Emacs Configuration
 ** Lexical Binding
