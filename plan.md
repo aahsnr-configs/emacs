@@ -1,5 +1,5 @@
 # PLAN
-[NOTE]: Return to ahsan_05.rahman@gmail.com in gemini to enhance the documentation in org-src-context.el file and apply the notes given by flymake. Also fix some stuttering for python completions in org-edit-special buffers. 
+[NOTE]: Return to ahsan_05.rahman@gmail.com in gemini to enhance the documentation in org-src-context.el file and apply the notes given by flymake. Also fix some stuttering for python completions in org-edit-special buffers.
 
 - [x] add treesit-auto from minimal-emacs.d
 - [ ] add evil alternative drag-stuff
@@ -20,8 +20,7 @@
 
 - [x] Fix dired/dirvish before proceeding
 
-- [ ]  Doom emacs uses projectile for it project related functionalities. One of its functionalities is to open project directory using SPC p p. But I am using project.el that is built-in to emacs. In my emacs config I want similar behaviour using project.el instead of using projectile, but having the same keybinding. The other functionality doom emacs utilizes is using the SPC f p keybinding to open the doom emacs config directory using projectile. I want the same functionality using the same keybinding but using project.el instead as well, and also since I am using vanilla emacs and I don't have a doom emacs config directory, I want SPC f p to open my emacs config directory which is typically in either `~/.emacs.d` or
-`~/.config/emacs` directory.
+- [ ]  Doom emacs uses projectile for it project related functionalities. One of its functionalities is to open project directory using SPC p p. But I am using project.el that is built-in to emacs. In my emacs config I want similar behaviour using project.el instead of using projectile, but having the same keybinding. The other functionality doom emacs utilizes is using the SPC f p keybinding to open the doom emacs config directory using projectile. I want the same functionality using the same keybinding but using project.el instead as well, and also since I am using vanilla emacs and I don't have a doom emacs config directory, I want SPC f p to open my emacs config directory which is typically in either ~/.config/emacs` directory.
 
 - [X] There is another buffer I like about the workspaces behaviour from the doom emacs project. The doom emacs project uses persp-mode to manage workspaces, but it has an interesting behaviour when allocating buffers and projects using projectile. It only shows the projects and buffer specific to the current emacsclient frame. Say you initiate an emacsclient A and in A, you open project 1 and buffer 1 from project 1. Then you initiate emacsclient B, and in B, you open project 2 and buffer 2 from project 2. Assuming at all these projects and buffers are distinct from one another, you won't see project 2 and buffer 2 in emacsclient A when executing consult-buffer. Similarly you won't see project 1 and buffer 1 in emacsclient B. As well, you will never see all these projects and buffers at the same time in a different emacsclient. Using the existing emacs packages I use, specifically using the built-in project.el package to manage projects and tabspaces to manage workspaces, I want a similar workflow in my own vanilla emacs configuration.
 
@@ -60,6 +59,18 @@
 - [ ] Can recentf update recent files list when an existing file in its list changes name and/or directory
 
 - [ ] **Important** After adding jupyter config, make sure it does not conflict with org-src-context.el
+
+- [ ] Bind corfu-documentation to a more practical keybind so that it does not disturb my flow of typing but still allows me to see documentation with the keybind
+
+- [ ] Currently corfu-documentaiton only opens when corfu completion candidate is open. Determine if this works for eglot. Also determine if it is able to be launched without corfu candidates being displayed.
+
+- [ ] [Claude] Further study emacs configuration in the attached config.org file. Search the web and think longer to answer these 2 questions: Is 128MB gc-cons-threshold size needed for eglot? Determine if lsp-mode will be generally faster than elgot for my emacs configuration. Make sure the information you gather is up-to-date when you search the web
+
+- [ ] Setup python and nix under programming languages.
+
+- [-] In pdf-tools, use `(elpaca (pdf-tools :host github :repo "vedang/pdf-tools"))`
+
+- [ ] Fix vertical and horizontal split keybindings and the window management settings
 
 ## Integrating scimax modules
 - [ ] scimax-ob.el

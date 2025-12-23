@@ -4289,7 +4289,7 @@ targets."
       ("?" magit-dispatch "dispatch" :exit t)))))
 #+end_src
 
-* TODO Treemacs
+* Treemacs
 #+begin_src emacs-lisp
 (use-package treemacs
   :defer t
@@ -4347,7 +4347,7 @@ targets."
     (kbd "q")   #'treemacs-quit))
 #+end_src
 
-* TODO Markdown
+* Markdown
 #+begin_src emacs-lisp
 (use-package markdown-mode
   :defer t
@@ -4509,7 +4509,7 @@ Shows markup when cursor is inside markdown elements."
         markdown-toc-user-toc-structure-manipulation-fn 'cdr))
 #+end_src
 
-* TODO Reader
+* Reader
 ** PDF Tools
 #+begin_src emacs-lisp
 (when (display-graphic-p)

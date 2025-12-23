@@ -1,13 +1,9 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+DESCRIPTION: Personal Minimal Emacs Configuration
-#+VERSION: 0.2
+#+VERSION: 0.3
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
-
-*Author:* Ahsanur Rahman \\
-*Version:* 0.2 \\
-*Description:* Personal Minimal Emacs Configuration
 
 * Core Emacs Configuration
 ** Lexical Binding
@@ -1911,40 +1907,80 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+begin_src emacs-lisp
 (use-package treesit
   :ensure nil
-  :preface
-  (defun ar/setup-install-grammars ()
-    "Install Tree-sitter grammars if they are missing."
-    (interactive)
-    (dolist (grammar treesit-language-source-alist)
-      (unless (treesit-language-available-p (car grammar))
-        (treesit-install-language-grammar (car grammar)))))
+  :mode (("\\.tsx\\'" . tsx-ts-mode))
+  :init
+  ;; 1. Define the target directory.
+  ;; Use 'file-truename' to resolve /var/home symlinks on Silverblue.
+  (defvar ar/treesit-grammar-dir
+    (file-truename (expand-file-name "tree-sitter/" user-emacs-directory))
+    "Target directory for installing tree-sitter grammars.")
+
+  ;; 2. Ensure the directory exists.
+  (unless (file-exists-p ar/treesit-grammar-dir)
+    (make-directory ar/treesit-grammar-dir t))
+
+  ;; 3. Register in load-path immediately so Emacs finds existing grammars.
+  ;; Setting this as the FIRST item ensures 'treesit-install-language-grammar'
+  ;; uses it as the default output directory if no argument is provided.
+  (defvar treesit-extra-load-path nil)
+  (add-to-list 'treesit-extra-load-path ar/treesit-grammar-dir)
 
   :config
   (setq treesit-font-lock-level 4)
 
+  ;; 4. Define Sources
   (setq treesit-language-source-alist
         '((python "https://github.com/tree-sitter/tree-sitter-python")
-          ;; (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
-          ;; (c "https://github.com/tree-sitter/tree-sitter-c")
+          (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+          (c "https://github.com/tree-sitter/tree-sitter-c")
           (json "https://github.com/tree-sitter/tree-sitter-json")
           (nix "https://github.com/nix-community/tree-sitter-nix")
+          (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+          (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")))
 
-          (latex "https://github.com/latex-lsp/tree-sitter-latex")
-          (markdown "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser" "tree-sitter-markdown/src")
-          (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown" "split_parser" "tree-sitter-markdown-inline/src")))
+  ;; 5. Auto-Install Helper (Runs on hook)
+  ;; Checks for MISSING grammars and installs them silently.
+  (defun ar/setup-install-grammars ()
+    "Install Tree-sitter grammars if they are missing."
+    (interactive)
+    (dolist (grammar treesit-language-source-alist)
+      (let ((lang (car grammar)))
+        (unless (treesit-language-available-p lang)
+          (treesit-install-language-grammar lang ar/treesit-grammar-dir)))))
+
+  ;; 6. Update Helper (Interactive)
+  ;; Forces re-installation/compilation from source to get updates.
+  (defun ar/treesit-update-grammars (languages)
+    "Update Tree-sitter grammars for LANGUAGES.
+    If called interactively, prompt for languages to update.
+    Press RET without selection to update ALL grammars."
+    (interactive (list
+                  (let ((choices (mapcar #'car treesit-language-source-alist)))
+                    (let ((selected (completing-read-multiple "Update grammars (empty for all): " choices)))
+                      (if (or (null selected) (string= (car selected) ""))
+                          choices ;; Default to all if empty
+                        (mapcar #'intern selected))))))
+    (dolist (lang languages)
+      (message "Updating tree-sitter grammar for %s..." lang)
+      (condition-case err
+          (progn
+            (treesit-install-language-grammar lang ar/treesit-grammar-dir)
+            (message "Successfully updated %s" lang))
+        (error (message "Failed to update %s: %s" lang (error-message-string err))))))
+
+  ;; 7. Hooks & Remaps
+  ;; Ensure we try to install missing grammars when entering a prog-mode
+  (add-hook 'prog-mode-hook #'ar/setup-install-grammars)
 
   (setq major-mode-remap-alist
         '((python-mode . python-ts-mode)
-          ;; (c-mode . c-ts-mode)
-          ;; (c++-mode . c++-ts-mode)
-          ;; (c-or-c++-mode . c-or-c++-ts-mode)
+          (c-mode . c-ts-mode)
+          (c++-mode . c++-ts-mode)
+          (c-or-c++-mode . c-or-c++-ts-mode)
           (json-mode . json-ts-mode)
           (js-mode . js-ts-mode)
           (typescript-mode . typescript-ts-mode)
-          (conf-toml-mode . toml-ts-mode)
-          ;; (markdown-mode . markdown-ts-mode)
-
-          )))
+          (conf-toml-mode . toml-ts-mode))))
 #+end_src
 
 ** Treesit-Fold
@@ -2351,50 +2387,50 @@ Use this if you want maximum prettification."
 
 ** Python
 #+begin_src emacs-lisp
-(defun ar/prettify-symbols-python-setup ()
-  "Configure prettify-symbols for Python modes."
-  (setq prettify-symbols-alist
-        (append
-         ar/prettify-symbols-base-alist
-         '(;; Python keywords - selective to maintain readability
-           ("def" . ?ƒ)            ; U+0192 LATIN SMALL LETTER F WITH HOOK
-           ("class" . ?𝒞)          ; U+1D49E MATHEMATICAL SCRIPT CAPITAL C
-           ("return" . ?⟼)         ; U+27FC LONG RIGHTWARDS ARROW FROM BAR
-           ("yield" . ?⟻)          ; U+27FB LONG LEFTWARDS ARROW FROM BAR
+;; (defun ar/prettify-symbols-python-setup ()
+;;   "Configure prettify-symbols for Python modes."
+;;   (setq prettify-symbols-alist
+;;         (append
+;;          ar/prettify-symbols-base-alist
+;;          '(;; Python keywords - selective to maintain readability
+;;            ("def" . ?ƒ)            ; U+0192 LATIN SMALL LETTER F WITH HOOK
+;;            ("class" . ?𝒞)          ; U+1D49E MATHEMATICAL SCRIPT CAPITAL C
+;;            ("return" . ?⟼)         ; U+27FC LONG RIGHTWARDS ARROW FROM BAR
+;;            ("yield" . ?⟻)          ; U+27FB LONG LEFTWARDS ARROW FROM BAR
            
-           ;; Python operators
-           ("not" . ?¬)            ; U+00AC NOT SIGN
-           ("in" . ?∈)             ; U+2208 ELEMENT OF
-           ("not in" . ?∉)         ; U+2209 NOT AN ELEMENT OF
-           ("and" . ?∧)            ; U+2227 LOGICAL AND
-           ("or" . ?∨)             ; U+2228 LOGICAL OR
+;;            ;; Python operators
+;;            ("not" . ?¬)            ; U+00AC NOT SIGN
+;;            ("in" . ?∈)             ; U+2208 ELEMENT OF
+;;            ("not in" . ?∉)         ; U+2209 NOT AN ELEMENT OF
+;;            ("and" . ?∧)            ; U+2227 LOGICAL AND
+;;            ("or" . ?∨)             ; U+2228 LOGICAL OR
            
-           ;; Python constants
-           ("None" . ?∅)           ; U+2205 EMPTY SET
-           ("True" . ?⊤)           ; U+22A4 DOWN TACK
-           ("False" . ?⊥)          ; U+22A5 UP TACK
+;;            ;; Python constants
+;;            ("None" . ?∅)           ; U+2205 EMPTY SET
+;;            ("True" . ?⊤)           ; U+22A4 DOWN TACK
+;;            ("False" . ?⊥)          ; U+22A5 UP TACK
            
-           ;; Type hints (Python 3.5+)
-           ("int" . ?ℤ)            ; U+2124 DOUBLE-STRUCK CAPITAL Z
-           ("float" . ?ℝ)          ; U+211D DOUBLE-STRUCK CAPITAL R
-           ("str" . ?𝕊)            ; U+1D54A MATHEMATICAL DOUBLE-STRUCK CAPITAL S
-           ("bool" . ?𝔹)           ; U+1D539 MATHEMATICAL DOUBLE-STRUCK CAPITAL B
+;;            ;; Type hints (Python 3.5+)
+;;            ("int" . ?ℤ)            ; U+2124 DOUBLE-STRUCK CAPITAL Z
+;;            ("float" . ?ℝ)          ; U+211D DOUBLE-STRUCK CAPITAL R
+;;            ("str" . ?𝕊)            ; U+1D54A MATHEMATICAL DOUBLE-STRUCK CAPITAL S
+;;            ("bool" . ?𝔹)           ; U+1D539 MATHEMATICAL DOUBLE-STRUCK CAPITAL B
            
-           ;; Common type hints (commented - can be too aggressive)
-           ;; ("List" . ?𝐋)        ; U+1D40B MATHEMATICAL BOLD CAPITAL L
-           ;; ("Dict" . ?𝐃)        ; U+1D403 MATHEMATICAL BOLD CAPITAL D
-           ;; ("Set" . ?𝐒)         ; U+1D412 MATHEMATICAL BOLD CAPITAL S
-           ;; ("Tuple" . ?𝐓)       ; U+1D413 MATHEMATICAL BOLD CAPITAL T
-           ;; ("Optional" . ??)    ; U+2370 APL FUNCTIONAL SYMBOL QUAD QUESTION
-           )))
+;;            ;; Common type hints (commented - can be too aggressive)
+;;            ;; ("List" . ?𝐋)        ; U+1D40B MATHEMATICAL BOLD CAPITAL L
+;;            ;; ("Dict" . ?𝐃)        ; U+1D403 MATHEMATICAL BOLD CAPITAL D
+;;            ;; ("Set" . ?𝐒)         ; U+1D412 MATHEMATICAL BOLD CAPITAL S
+;;            ;; ("Tuple" . ?𝐓)       ; U+1D413 MATHEMATICAL BOLD CAPITAL T
+;;            ;; ("Optional" . ??)    ; U+2370 APL FUNCTIONAL SYMBOL QUAD QUESTION
+;;            )))
   
-  ;; Custom predicate for Python to avoid conflicts with docstrings
-  (setq prettify-symbols-compose-predicate
-        #'ar/prettify-symbols-compose-p-default))
+;;   ;; Custom predicate for Python to avoid conflicts with docstrings
+;;   (setq prettify-symbols-compose-predicate
+;;         #'ar/prettify-symbols-compose-p-default))
 
-;; Apply to Python modes
-(add-hook 'python-mode-hook #'ar/prettify-symbols-python-setup)
-(add-hook 'python-ts-mode-hook #'ar/prettify-symbols-python-setup)
+;; ;; Apply to Python modes
+;; (add-hook 'python-mode-hook #'ar/prettify-symbols-python-setup)
+;; (add-hook 'python-ts-mode-hook #'ar/prettify-symbols-python-setup)
 #+end_src
 
 ** JavaScript/TypeScript
@@ -3273,13 +3309,16 @@ If completion fails in the future, check these:
 (unless (file-directory-p my/snippets-directory)
   (make-directory my/snippets-directory t))
 
+;; The engine itself
 (use-package yasnippet
+  :defer t
   :hook ((prog-mode text-mode org-mode) . yas-minor-mode)
   :custom
   (yas-prompt-functions '(yas-completing-prompt))
   :config
+  ;; Add personal snippets to the list
   (add-to-list 'yas-snippet-dirs my/snippets-directory)
-
+  
   ;; --- Robust, Save-Based Automatic Snippet Reloading ---
   (defun ar/yas-reload-snippets-on-save ()
     "Reload all snippets if a snippet file is being saved."
@@ -3289,12 +3328,21 @@ If completion fails in the future, check these:
 
   (add-hook 'after-save-hook #'ar/yas-reload-snippets-on-save))
 
+;; The official snippet collection
+(use-package yasnippet-snippets
+  :defer t
+  :after yasnippet
+  :config
+  (yas-reload-all))
+
+;; Search snippets with Consult
 (use-package consult-yasnippet
   :defer t
   :after (consult yasnippet)
   :config
   (consult-customize consult-yasnippet :preview-key 'any))
 
+;; Add snippets to completion-at-point (Corfu)
 (use-package yasnippet-capf
   :defer t
   :after cape
@@ -3303,8 +3351,8 @@ If completion fails in the future, check these:
   (add-hook 'completion-at-point-functions #'yasnippet-capf 70))
 #+end_src
 
-* Dired/Dirvish
-** Core Dired Configuration
+* Workflow Management
+** Dired
 #+begin_src emacs-lisp
 (use-package dired
   :ensure nil
@@ -3352,7 +3400,7 @@ If completion fails in the future, check these:
   (wdired-create-parent-directories t))
 #+end_src
 
-** Dirvish (Doom Style)
+** Dirvish
 #+begin_src emacs-lisp
 (use-package dirvish
   :after dired
@@ -3453,7 +3501,7 @@ If completion fails in the future, check these:
       (kbd "M-s") 'dirvish-setup-menu)))
 #+end_src
 
-* iBuffer
+** iBuffer
 #+begin_src emacs-lisp
 (use-package ibuffer
   :defer t
@@ -3501,7 +3549,7 @@ If completion fails in the future, check these:
                 (file-remote-p . "Remote")))))))
 #+end_src
 
-* Tabspaces
+** Tabspaces
 #+begin_src emacs-lisp
 (use-package tabspaces
   :hook (elpaca-after-init . tabspaces-mode)
@@ -3994,6 +4042,18 @@ If completion fails in the future, check these:
         markdown-toc-user-toc-structure-manipulation-fn 'cdr))
 #+end_src
 
+* Languages
+** Nix
+#+begin_src emacs-lisp
+(use-package nix-mode
+  :defer t
+  :mode "\\.nix\\'")
+
+(use-package nix-ts-mode
+  :defer t
+  :mode "\\.nix\\'")
+#+end_src
+
 * Utils
 ** Which Key
 #+begin_src emacs-lisp
@@ -4130,6 +4190,54 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
 
 (advice-add 'kmacro-start-macro :after #'ar/kmacro-start-message)
 (advice-add 'kmacro-end-macro :after #'ar/kmacro-end-message)
+#+end_src
+
+* Reader
+** PDF Tools
+#+begin_src emacs-lisp
+(use-package pdf-view
+  :ensure pdf-tools
+  :defines pdf-annot-activate-created-annotations
+  :functions pdf-tools-install
+  :hook ((pdf-tools-enabled . pdf-view-auto-slice-minor-mode)
+         (pdf-tools-enabled . pdf-isearch-minor-mode))
+  :mode ("\\.[pP][dD][fF]\\'" . pdf-view-mode)
+  :magic ("%PDF" . pdf-view-mode)
+  :init
+  (setq pdf-view-use-scaling t
+        pdf-view-use-imagemagick nil
+        pdf-annot-activate-created-annotations t
+        ;; Tokyo Night theme colors
+        pdf-view-midnight-colors '("#c0caf5" . "#1a1b26"))
+  :config
+  (pdf-tools-install t nil t nil)
+
+  ;; Tokyo Night theme custom faces
+  (custom-set-faces
+   '(pdf-view-rectangle-face ((t (:background "#7aa2f7" :foreground "#1a1b26"))))
+   '(pdf-isearch-match ((t (:background "#e0af68" :foreground "#1a1b26"))))
+   '(pdf-isearch-lazy ((t (:background "#414868" :foreground "#c0caf5"))))
+   '(pdf-isearch-batch ((t (:background "#414868" :foreground "#c0caf5"))))
+   '(pdf-view-region ((t (:background "#364a82"))))
+   '(pdf-links-read-link ((t (:background "#7aa2f7" :foreground "#1a1b26"))))
+   '(pdf-occur-document-face ((t (:foreground "#7aa2f7"))))
+   '(pdf-occur-page-face ((t (:foreground "#9ece6a"))))
+   '(pdf-annot-list-annotation-face ((t (:foreground "#bb9af7"))))
+   '(pdf-annot-list-location-face ((t (:foreground "#565f89"))))
+   '(pdf-history-debug-message-face ((t (:foreground "#565f89"))))
+   '(pdf-sync-forward-matching-page-label ((t (:foreground "#e0af68"))))
+   '(pdf-sync-backward-matching-page-label ((t (:foreground "#e0af68"))))))
+#+end_src
+
+** Save PDF View
+#+begin_src emacs-lisp
+(use-package saveplace-pdf-view
+  :when (ignore-errors (pdf-info-check-epdfinfo) t)
+  :autoload (saveplace-pdf-view-find-file-advice saveplace-pdf-view-to-alist-advice)
+  :functions pdf-info-check-epdfinfo
+  :init
+  (advice-add 'save-place-find-file-hook :around #'saveplace-pdf-view-find-file-advice)
+  (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice))
 #+end_src
 
 * General Keybindings
