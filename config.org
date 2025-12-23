@@ -1,5 +1,7 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
+#+DESCRIPTION: Personal Minimal Emacs Configuration
+#+VERSION: 0.2
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
@@ -347,20 +349,6 @@ Profile startup time with detailed breakdown
   (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
 #+end_src
 
-** Environment
-#+begin_src emacs-lisp
-(use-package exec-path-from-shell
-  :custom
-  (exec-path-from-shell-variables
-   '("PATH" "MANPATH"
-     "OPENAI_API_KEY" "ANTHROPIC_API_KEY"
-     "XAI_API_KEY" "DEEPSEEK_API_KEY"
-     "OPENROUTER_API_KEY" "GEMINI_API_KEY"))
-  :config
-  (when (daemonp)
-    (exec-path-from-shell-initialize)))
-#+end_src
-
 ** Session Management
 #+begin_src emacs-lisp
 ;; Save place
@@ -686,27 +674,20 @@ Profile startup time with detailed breakdown
     (windmove-down)))
 #+end_src
 
-** Evil Commentary
-#+begin_src emacs-lisp
-(use-package evil-commentary
-  :after evil
-  :config (evil-commentary-mode))
-#+end_src
-
 ** Native Commenting Operator
 Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This restores the "smart" toggling you prefer.
 #+begin_src emacs-lisp
-;; (with-eval-after-load 'evil
-;;  (evil-define-operator ar/evil-comment-operator (beg end type)
-;;    "Toggle comment for the region defined by BEG and END."
-;;    :move-point nil
-;;    (interactive "<R>")
-;;    (comment-or-uncomment-region beg end))
+(with-eval-after-load 'evil
+  (evil-define-operator ar/evil-comment-operator (beg end type)
+    "Toggle comment for the region defined by BEG and END."
+    :move-point nil
+    (interactive "<R>")
+    (comment-or-uncomment-region beg end))
 
   ;; Bind 'gc' to this operator
-;;  (define-key evil-normal-state-map (kbd "gc") #'ar/evil-comment-operator)
-;;  ;; Bind 'gc' in visual mode to ensure it works on selections
-;;  (define-key evil-visual-state-map (kbd "gc") #'ar/evil-comment-operator))
+  (define-key evil-normal-state-map (kbd "gc") #'ar/evil-comment-operator)
+  ;; Bind 'gc' in visual mode to ensure it works on selections
+  (define-key evil-visual-state-map (kbd "gc") #'ar/evil-comment-operator))
 #+end_src
 
 ** Smart Comment Continuation
@@ -3103,13 +3084,12 @@ targets."
   :custom
   (corfu-cycle t)
   (corfu-auto t)
-  (corfu-auto-prefix 2)
+  (corfu-auto-prefix 3)
   (corfu-count 12)
   (corfu-preselect 'prompt)
   (corfu-preview-current nil)
   (corfu-on-exact-match nil)
-  (corfu-auto-delay 0.2)
-  (corfu-popupinfo-delay '(0.1 . 0.1))
+  (corfu-auto-delay 0.5)
   (global-corfu-modes '((not erc-mode
                              circe-mode
                              help-mode
@@ -3647,36 +3627,6 @@ If completion fails in the future, check these:
 #+end_src
 
 ** LSP
-*EGLOT & ORG-BABEL INTEGRATION GUIDE*
-1. THE CHALLENGE:
-   LSP servers need two things to function:
-   a) A valid file path (URI) to identify the language and file type.
-   b) A "Project Root" to resolve imports and find configuration files.
-
-   Org source blocks are temporary buffers with NO file path and NO project
-   association. Standard Eglot refuses to run in them. Additionally, simple
-   hacks to enable it often cause cursor jumping and severe lag in large files because they interfere with Org's native indentation checks.
-
-2. THE SOLUTION (Patched org-src-context):
-   We use a locally patched version of `org-src-context` that solves these
-   problems via three specific mechanisms:
-
-   a) MOCK FILE PATHS: It assigns a fake filename (e.g., "org-src-babel.tmp")
-      to the temporary edit buffer. This file is logically placed in your
-      actual project directory, allowing Eglot to find the root (.git/).
-
-   b) CONTEXT INJECTION: It stitches together code from other blocks in the
-      same file, allowing the LSP to see variables/functions defined elsewhere.
-
-   c) PERFORMANCE GUARD (The Patch): The upstream package runs on *every*
-      keystroke, causing cursor jumps during indentation checks. Our patch
-      strictly inhibits this logic unless you explicitly open the edit
-      window (C-c '), ensuring zero lag when typing in the main buffer.
-
-3. USAGE:
-   - Normal typing in Org: Fast, no LSP (prevents lag).
-   - Press `C-c '`: Opens edit buffer, initializes LSP, loads context.
-
 #+begin_src emacs-lisp
 (use-package eglot-booster
   :ensure (:host github :repo "jdtsmith/eglot-booster")
@@ -3707,23 +3657,23 @@ If completion fails in the future, check these:
   (setq eglot-autoshutdown t)) ;consider setting this to nil
 
 (use-package org-src-context
-  :ensure nil ; Relies on lisp/org-src-context.el
-  :hook (elpaca-after-init . org-src-context-mode)
-  :custom
-  ;; Visual: Set to 'nil' to see the grayed-out context surrounding your block.
-  ;; Set to 't' if you prefer a focused view (narrowed to just your code).
-  (org-src-context-narrow-p nil)
+ :ensure nil ; Relies on lisp/org-src-context.el
+ :hook (elpaca-after-init . org-src-context-mode)
+ :custom
+ ;; Visual: Set to 'nil' to see the grayed-out context surrounding your block.
+ ;; Set to 't' if you prefer a focused view (narrowed to just your code).
+ (org-src-context-narrow-p nil)
 
-  ;; Safety: Disable context injection for files larger than 500KB to prevent lag.
-  (org-src-context-max-filesize 500000)
+ ;; Safety: Disable context injection for files larger than 500KB to prevent lag.
+ (org-src-context-max-filesize 500000)
 
-  :config
-  ;; Enable Apheleia (auto-formatting) inside the edit buffer.
-  ;; The patched org-src-context ensures a valid file path exists for this to work.
-  (with-eval-after-load 'apheleia
-    (add-hook 'org-src-mode-hook
-              (lambda ()
-                (apheleia-mode 1)))))
+ :config
+ ;; Enable Apheleia (auto-formatting) inside the edit buffer.
+ ;; The patched org-src-context ensures a valid file path exists for this to work.
+ (with-eval-after-load 'apheleia
+   (add-hook 'org-src-mode-hook
+             (lambda ()
+               (apheleia-mode 1)))))
 
 ;; Integration with Consult for searching symbols
 (use-package consult-eglot
@@ -4487,8 +4437,7 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
    "g D" 'xref-find-references
    "g i" 'lsp-find-implementation
    "g t" 'lsp-find-type-definition
-   "g ," 'xref-go-back
-   "g ." 'xref-find-definitions)
+   "g ," 'xref-go-back)
 
   (general-define-key
    :states '(normal visual)

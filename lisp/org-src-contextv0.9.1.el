@@ -4,7 +4,7 @@
 ;; Author: Ahsanur Rahman
 ;; Keywords: tools, languages, extensions, lsp
 ;; Package-Requires: ((emacs "30.1") (org "9.6"))
-;; Version: 0.9.3
+;; Version: 0.9.1
 
 ;;; Commentary:
 ;; This package injects surrounding source blocks into the `org-edit-special'
@@ -22,15 +22,12 @@
 ;;       ":tangle script.py" from a property drawer, it is correctly grouped
 ;;       with other blocks targeting "script.py".
 ;;
-;; 2. Lazy Execution & Command Whitelisting (Robustness):
+;; 2. Lazy Execution (Performance Safety):
 ;;    The package advises `org-edit-src-code`. This function is frequently called
-;;    internally by Org Mode (for indentation/evaluation) and by external
-;;    packages (like `evil-commentary`).
-;;    To prevent breaking these operations or hanging the editor:
-;;    a) Arg Check: If the `code` argument is present, SKIP (Transient op).
-;;    b) Command Check: We strictly whitelist `org-edit-special` and its aliases.
-;;       If the user did not explicitly ask to open the Edit Buffer, we do NOT
-;;       run the context injection logic.
+;;    internally by Org Mode for indentation, export, or evaluation.
+;;    To prevent hanging the editor on every keystroke, we inspect the arguments:
+;;    If the `code` argument is present, it's a transient operation -> SKIP.
+;;    If `code` is nil, it's an interactive user edit -> INJECT.
 ;;
 ;; 3. Marker-Based Tracking (Stability):
 ;;    We use Emacs Markers instead of integer positions to track the boundaries
@@ -43,10 +40,10 @@
 ;;    This ensures the injected "ghost text" is deleted before Org writes the
 ;;    buffer content back to the main Org file, preventing code duplication.
 ;;
-;; 5. Extension Mapping & Elisp Exclusion:
+;; 5. Extension Mapping:
 ;;    LSP servers (like Pyright) require valid file extensions to activate.
-;;    We map the Org language (e.g., "python") to its extension (".py").
-;;    Crucially, we EXCLUDE Emacs Lisp from Eglot activation to prevent conflicts.
+;;    We map the Org language (e.g., "python") to its extension (".py") using
+;;    `org-babel-tangle-lang-exts`.
 
 ;;; Code:
 
@@ -275,10 +272,14 @@ or Language extension."
     (setq-local buffer-file-name (expand-file-name mock-name original-dir))
 
     ;; Trigger Eglot initialization now that the "file" appears valid.
-    ;; FIX: We EXCLUDE Emacs Lisp buffers. Elisp has native support and
-    ;; forcing Eglot often causes errors or unnecessary server prompts.
+    ;; FIX: Respect the user's config by not forcing Eglot on Elisp/Lisp buffers.
+    ;; This prevents "Wrong type argument: processp, nil" crashes on eglot-ensure.
     (when (and (fboundp 'eglot-ensure)
-               (not (member lang '("emacs-lisp" "elisp"))))
+               (not (derived-mode-p 'emacs-lisp-mode
+                                    'lisp-mode
+                                    'makefile-mode
+                                    'snippet-mode
+                                    'ron-mode)))
       (eglot-ensure))))
 
 ;;; --- Advice & Hooks ---
@@ -290,26 +291,17 @@ This is the entry point for the package.
 1. PERF CHECK: Checks `(car args)` (the CODE argument).
    If CODE is non-nil, it means Org is performing an automated task
    (like indentation or export). We MUST return immediately.
+   If we don't, this package will run on every keystroke, causing severe lag.
 
-2. COMMAND CHECK: We strictly whitelist the interactive commands `org-edit-special`
-   and `org-edit-src-code` (and their aliases).
-   If `this-command` is anything else (e.g., `org-return`, `comment-region`,
-   `evil-commentary`), we SKIP context injection.
-   This prevents the package from interfering with internal Org operations,
-   specifically solving the 'Read-Only' bug when editing Elisp blocks in place.
+2. COLLECT: If it is an interactive edit, we collect context blocks from
+   the Org buffer.
 
-3. COLLECT: If it is an interactive edit, we collect context blocks.
+3. EXECUTE: We let `org-edit-src-code` create the buffer.
 
-4. EXECUTE: We let `org-edit-src-code` create the buffer.
+4. INJECT: We switch to the new buffer and inject the collected context."
 
-5. INJECT: We switch to the new buffer and inject the collected context."
-
-  ;; ROBUSTNESS CHECK 1: Ignore transient calls (CODE arg present)
-  ;; ROBUSTNESS CHECK 2: Command Whitelist (Only allow user-initiated edits)
-  (if (or (car args)
-          (not (memq this-command '(org-edit-special 
-                                    org-edit-src-code 
-                                    evil-org-edit-src-code))))
+  ;; ROBUSTNESS CHECK: Ignore transient calls!
+  (if (car args)
       (apply orig-fn args)
 
     ;; REAL EDIT SESSION
