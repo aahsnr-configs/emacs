@@ -10,7 +10,6 @@
 #+begin_src emacs-lisp
 ;;; init.el --- Main Configuration File -*- no-byte-compile: t; lexical-binding: t; -*-
 ;;; Commentary:
-;; v0.3
 ;; The contents of my whole emacs configuration
 #+end_src
 
@@ -102,24 +101,23 @@ Lower this if you experience freezing, raise if stuttering.")
 (add-hook 'after-init-hook #'elpaca-process-queues)
 (elpaca `(,@elpaca-order))
 
+(elpaca-wait)
 
 ;; Install use-package support
 (elpaca elpaca-use-package
   ;; Enable use-package :ensure support for Elpaca.
   (elpaca-use-package-mode))
 
-(elpaca-wait)
-
 (eval-and-compile
   (setq use-package-verbose nil
         use-package-expand-minimally t
         use-package-compute-statistics nil
-        use-package-always-ensure t
+                use-package-always-ensure t
         use-package-enable-imenu-support t))
 
 (eval-when-compile
-  (require 'use-package))
-(require 'bind-key)
+  (require 'use-package)
+  (require 'bind-key))
 #+end_src
 
 ** Custom File
@@ -239,11 +237,11 @@ Profile startup time with detailed breakdown
 
 ** Performance Tuning
 #+begin_src emacs-lisp
-;; (when (fboundp 'pgtk-use-im-context)
-;;   (add-hook 'after-make-frame-functions
-;;             (lambda (frame)
-;;               (with-selected-frame frame
-;;                 (pgtk-use-im-context nil)))))
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
 
 
 (setq-default bidi-display-reordering nil
@@ -351,20 +349,6 @@ Profile startup time with detailed breakdown
 ;; Treat clipboard input as UTF-8 string first; compound text next, etc.
 (when (display-graphic-p)
   (setq x-select-request-type '(UTF8_STRING COMPOUND_TEXT TEXT STRING)))
-#+end_src
-
-** Environment
-#+begin_src emacs-lisp
-(use-package exec-path-from-shell
-  :custom
-  (exec-path-from-shell-variables
-   '("PATH" "MANPATH"
-     "OPENAI_API_KEY" "ANTHROPIC_API_KEY"
-     "XAI_API_KEY" "DEEPSEEK_API_KEY"
-     "OPENROUTER_API_KEY" "GEMINI_API_KEY"))
-  :config
-  (when (daemonp)
-    (exec-path-from-shell-initialize)))
 #+end_src
 
 ** Session Management
@@ -1305,9 +1289,6 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 ** Solaire Mode
 #+begin_src emacs-lisp
 (use-package solaire-mode
-  :ensure (:host github 
-           :repo "hlissner/emacs-solaire-mode"
-           :ref "c9334666bd208f3322e6118d30eba1b2438e2bb9") 
   :hook (elpaca-after-init . solaire-global-mode))
 #+end_src
 
@@ -3061,7 +3042,7 @@ Consulting completing-read
   (define-key consult-narrow-map (vconcat consult-narrow-key "?") #'consult-narrow-help))
 
 (use-package consult-dir :defer t)
-(use-package consult-todo :defer t)
+(use-package consult-todo :demand t)
 #+end_src
 
 ** Embark
@@ -3369,514 +3350,6 @@ If completion fails in the future, check these:
   :init
   ;; Add with high depth (low priority) so it doesn't block other capfs
   (add-hook 'completion-at-point-functions #'yasnippet-capf 70))
-#+end_src
-
-* Development Tools
-** envrc
-#+begin_src emacs-lisp
-(use-package envrc
-  :hook (elpaca-after-init . envrc-global-mode))
-#+end_src
-
-** LSP
-#+begin_src emacs-lisp
-(use-package eglot-booster
-  :ensure (:host github :repo "jdtsmith/eglot-booster")
-  :after eglot
-  :config
-  (eglot-booster-mode))
-
-(use-package eglot
-  :ensure nil
-  :defer t
-  :config
-  (add-to-list 'eglot-stay-out-of 'flymake)
-
-  :hook
-  ((prog-mode . (lambda ()
-                  (unless (derived-mode-p
-                           'emacs-lisp-mode 'lisp-mode
-                           'makefile-mode 'snippet-mode
-                           'ron-mode)
-                    (eglot-ensure))))
-   ((markdown-mode yaml-mode yaml-ts-mode) . eglot-ensure))
-
-  :init
-  ;; Optimization: disable logging events to improve performance
-  (setq eglot-events-buffer-size 0)
-
-  ;; Optimization: delay sending changes to the server slightly (0.5s)
-  (setq eglot-send-changes-idle-time 0.5)
-
-  ;; Shutdown server when the last buffer managed by it is closed
-  (setq eglot-autoshutdown t)) ;consider setting this to nil
-
-(use-package org-src-context
- :ensure nil ; Relies on lisp/org-src-context.el
- :hook (elpaca-after-init . org-src-context-mode)
- :custom
- ;; Visual: Set to 'nil' to see the grayed-out context surrounding your block.
- ;; Set to 't' if you prefer a focused view (narrowed to just your code).
- (org-src-context-narrow-p nil)
-
- ;; Safety: Disable context injection for files larger than 500KB to prevent lag.
- (org-src-context-max-filesize 500000)
-
- :config
- ;; Enable Apheleia (auto-formatting) inside the edit buffer.
- ;; The patched org-src-context ensures a valid file path exists for this to work.
- (with-eval-after-load 'apheleia
-   (add-hook 'org-src-mode-hook
-             (lambda ()
-               (apheleia-mode 1)))))
-
-;; Integration with Consult for searching symbols
-(use-package consult-eglot
-  :defer t
-  :after (consult eglot)
-  :bind (:map eglot-mode-map
-         ("C-M-." . consult-eglot-symbols)))
-#+end_src
-
-** DAP
-#+begin_src emacs-lisp
-(use-package dape
-  :defer t
-  :bind (("<f5>" . dape)
-         ("M-<f5>" . dape-hydra/body))
-  :custom (dape-buffer-window-arrangment 'right)
-  :pretty-hydra
-  ((:title (pretty-hydra-title "Debug" 'codicon "nf-cod-debug")
-    :color pink :quit-key ("q" "C-g"))
-   ("Stepping"
-    (("n" dape-next "next")
-     ("s" dape-step-in "step in")
-     ("o" dape-step-out "step out")
-     ("c" dape-continue "continue")
-     ("p" dape-pause "pause")
-     ("k" dape-kill "kill")
-     ("r" dape-restart "restart")
-     ("D" dape-disconnect-quit "disconnect"))
-    "Switch"
-    (("m" dape-read-memory "memory")
-     ("t" dape-select-thread "thread")
-     ("w" dape-watch-dwim "watch")
-     ("S" dape-select-stack "stack")
-     ("i" dape-info "info")
-     ("R" dape-repl "repl"))
-    "Breakpoints"
-    (("b" dape-breakpoint-toggle "toggle")
-     ("l" dape-breakpoint-log "log")
-     ("e" dape-breakpoint-expression "expression")
-     ("B" dape-breakpoint-remove-all "clear"))
-    "Debug"
-    (("d" dape "dape")
-     ("Q" dape-quit "quit" :exit t))))
-  :config
-  ;; Save buffers on startup, useful for interpreted languages
-  (add-hook 'dape-on-start-hooks
-            (defun dape--save-on-start ()
-              (save-some-buffers t t)))
-  ;; Display hydra on startup
-  (add-hook 'dape-on-start-hooks #'dape-hydra/body))
-#+end_src
-
-** Syntax Checking
-#+begin_src emacs-lisp
-(use-package flymake
-  :ensure nil
-  :hook ((prog-mode text-mode) . flymake-mode)
-  :custom
-  ;; Doom-inspired behavior: better navigation and visual density
-  (flymake-fringe-indicator-position 'right-fringe)
-  (flymake-wrap-around t)
-  (flymake-suppress-zero-counters t)
-  (flymake-no-changes-timeout 0.5)
-  (flymake-start-on-save-buffer t)
-  :config
-  ;; Integration with hl-todo
-  ;; Adds TODO/FIXME/NOTE items to the Flymake diagnostics list
-  (with-eval-after-load 'hl-todo
-    (add-hook 'flymake-mode-hook
-              (lambda ()
-                (add-hook 'flymake-diagnostic-functions #'hl-todo-flymake nil t))))
-
-  ;; UI: Doom Emacs Double-Arrow Fringe Bitmaps
-  (define-fringe-bitmap 'ar/flymake-double-arrow
-    [#b00000000 #b00010000 #b00011000 #b00011100 #b00011110 
-     #b00011100 #b00011000 #b00010000 #b00000000])
-
-  (setq flymake-error-bitmap   '(ar/flymake-double-arrow flymake-error)
-        flymake-warning-bitmap '(ar/flymake-double-arrow flymake-warning)
-        flymake-note-bitmap    '(ar/flymake-double-arrow flymake-note))
-
-  ;; UI: Nerd Icons in Diagnostics Buffer (SPC c B)
-  (defun ar/flymake-diagnostics-buffer-icons ()
-    "Apply nerd-icons to the Flymake diagnostics buffer."
-    (when (derived-mode-p 'flymake-diagnostics-mode)
-      (save-excursion
-        (goto-char (point-min))
-        (while (re-search-forward "^\\s-*\\(error\\|warning\\|note\\)" nil t)
-          (let* ((type (match-string 1))
-                 (icon (pcase type
-                         ("error"   (nerd-icons-faicon "nf-fa-times_circle" :face 'flymake-error))
-                         ("warning" (nerd-icons-faicon "nf-fa-exclamation_circle" :face 'flymake-warning))
-                         ("note"    (nerd-icons-faicon "nf-fa-info_circle" :face 'flymake-note)))))
-            (add-text-properties (match-beginning 1) (match-end 1) `(display ,icon)))))))
-  (add-hook 'flymake-diagnostics-mode-hook #'ar/flymake-diagnostics-buffer-icons)
-
-  ;; Navigation Logic
-  (defun ar/flymake-next-error () (interactive) (flymake-goto-next-error 1 '(:error :warning) t))
-  (defun ar/flymake-prev-error () (interactive) (flymake-goto-prev-error 1 '(:error :warning) t)))
-
-(use-package flymake-popon
-  :hook (flymake-mode . flymake-popon-mode)
-  :custom
-  (flymake-popon-method 'posframe)
-  (flymake-popon-delay 0.2)
-  :config
-  ;; Border logic to match your custom posframe configuration
-  (set-face-attribute 'flymake-popon-posframe-border nil 
-                      :background (face-attribute 'posframe-border :background nil t)))
-#+end_src
-
-** Formatting
-#+begin_src emacs-lisp
-(use-package apheleia
-  :hook (elpaca-after-init . apheleia-global-mode)
-  :custom
-  (apheleia-log-only-errors t)
-  :config
-  ;; === THE CORRECTED LSP BRIDGE ===
-  ;; We use cl-defun because Apheleia v3+ passes arguments as keywords.
-  ;; Note: 'buffer' is the original buffer, 'scratch' is where formatting should happen.
-  (cl-defun ar/apheleia-format-with-eglot (&key buffer scratch callback &allow-other-keys)
-    "Format with Eglot if available; otherwise return nil to fallback."
-    (with-current-buffer buffer
-      (if (and (bound-and-true-p eglot--managed-mode)
-               (eglot-server-capable :documentFormattingProvider))
-          (progn
-            ;; Silence eglot messages during the background format
-            (cl-letf (((symbol-function 'message) #'ignore))
-              (eglot-format-buffer))
-            ;; After eglot-format-buffer runs on the original, 
-            ;; we copy the result to scratch so Apheleia can diff it.
-            (with-current-buffer scratch
-              (erase-buffer)
-              (insert-buffer-substring buffer))
-            ;; Tell Apheleia we are done and provide the formatted scratch buffer
-            (funcall callback scratch))
-        ;; Return nil to tell Apheleia to move to the next CLI tool in the list
-        (funcall callback nil))))
-
-  ;; Add the corrected eglot bridge to formatters
-  (push '(eglot . ar/apheleia-format-with-eglot) apheleia-formatters)
-
-  ;; Inhibit for prose where whitespace is sensitive
-  (setq apheleia-inhibit-functions
-        (list (lambda () (derived-mode-p 'org-mode)))))
-#+end_src
-
-** Development Hydra
-#+begin_src emacs-lisp
-(pretty-hydra-define dev-hydra
-  (:title (pretty-hydra-title "Development" 'codicon "nf-cod-code" :face 'nerd-icons-blue)
-   :color amaranth :quit-key ("q" "C-g"))
-  ("LSP (Eglot)"
-   (("a" eglot-code-actions "actions")
-    ("r" eglot-rename "rename")
-    ("d" xref-find-definitions "definition")
-    ("D" xref-find-references "references")
-    ("s" consult-eglot-symbols "symbols")
-    ("h" eldoc "hover doc"))
-   
-   "Syntax (Flymake)"
-   (("n" ar/flymake-next-error "next error")
-    ("p" ar/flymake-prev-error "prev error")
-    ("b" flymake-show-buffer-diagnostics "buffer list")
-    ("B" consult-flymake "project list")
-    ("!" flymake-running-backends "backends"))
-
-   "Formatting"
-   (("f" apheleia-format-buffer "format buffer")
-    ("F" (lambda () (interactive) (let ((apheleia-formatter 'eglot)) (apheleia-format-buffer))) "format w/ LSP"))
-
-   "Toggles"
-   (("t l" eglot-managed-p "LSP mode" :toggle t)
-    ("t s" flymake-mode "syntax mode" :toggle t)
-    ("t f" apheleia-mode "auto-format" :toggle t)
-    ("t e" eldoc-mode "eldoc" :toggle t)
-    ("t p" flymake-popon-mode "popon tooltips" :toggle t))))
-#+end_src
-
-* Version Control
-** Magit: The Git Porcelain
-#+begin_src emacs-lisp
-(use-package transient :defer t)
-
-(use-package magit
-  :defer t
-  :commands (magit-status magit-blame magit-log-buffer-file)
-  :custom
-  ;; Display settings
-  (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
-  (magit-bury-buffer-function #'magit-restore-window-configuration)
-  
-  ;; Performance
-  (magit-refresh-status-buffer t)
-  (magit-refresh-verbose nil)
-  (magit-git-executable "git")
-  
-  ;; Behavior
-  (magit-save-repository-buffers 'dontask)
-  (magit-commit-ask-to-stage 'stage)
-  (magit-commit-show-diff t)
-  (magit-revision-show-gravatars nil)
-  
-  ;; Diff settings
-  (magit-diff-refine-hunk 'all)
-  (magit-diff-paint-whitespace t)
-  (magit-diff-highlight-trailing t)
-  
-  :config
-  ;; Enable gravatars if desired (requires imagemagick)
-  (when (and (display-graphic-p)
-             (image-type-available-p 'imagemagick))
-    (setq magit-revision-show-gravatars '("^Author:     " . "^Commit:     "))))
-#+end_src
-
-** Forge: GitHub/GitLab Integration
-#+begin_src emacs-lisp
-(use-package forge
-  :after magit
-  :defer t
-  :config
-  ;; Configure forge to use sqlite for storage
-  (setq forge-database-connector 'sqlite-builtin))
-#+end_src
-
-** Magit Todos: Track TODOs in Commits
-#+begin_src emacs-lisp
-(use-package magit-todos
-  :after magit
-  :defer t
-  :commands (magit-todos-mode)
-  :hook (magit-status-mode . magit-todos-mode)
-  :config
-  (setq magit-todos-keywords-list '("TODO" "FIXME" "HACK" "REVIEW" "NOTE" "DEPRECATED"))
-  
-  ;; Integrate with hl-todo for consistent highlighting
-  (with-eval-after-load 'hl-todo
-    (setq magit-todos-keyword-suffix "\\(?:([^)]+)\\)?:?"))
-  
-  ;; Optional: Custom scanner for better performance
-  (when (executable-find "rg")
-    (setq magit-todos-scanner #'magit-todos--scan-with-rg)))
-
-(with-eval-after-load 'magit
-  (add-hook 'magit-log-wash-summary-hook
-            #'hl-todo-search-and-highlight t)
-  (add-hook 'magit-revision-wash-message-hook
-            #'hl-todo-search-and-highlight t))
-#+end_src
-
-** Git-Timemachine: Step Through File History
-#+begin_src emacs-lisp
-(use-package git-timemachine
-  :defer t
-  :commands (git-timemachine git-timemachine-toggle)
-  
-  :init
-  ;; CRITICAL FIX: Only configure native-comp if it's actually available
-  (when (and (fboundp 'native-comp-available-p)
-             (native-comp-available-p))
-    (with-eval-after-load 'comp
-      (when (boundp 'native-comp-deferred-compilation-deny-list)
-        (add-to-list 'native-comp-deferred-compilation-deny-list "git-timemachine"))))
-  
-  ;; Disable interfering modes
-  (with-eval-after-load 'lsp-mode
-    (add-to-list 'lsp-diagnostics-disabled-modes 'git-timemachine-mode))
-  
-  :custom
-  (git-timemachine-abbreviation-length 7)
-  (git-timemachine-show-minibuffer-details t)
-  
-  :config
-  ;; Improve integration with other modes
-  (defun ar/git-timemachine-setup ()
-    "Disable interfering modes when entering git-timemachine."
-    ;; Disable git-gutter to avoid conflicts
-    (when (bound-and-true-p git-gutter-mode)
-      (git-gutter-mode -1)
-      (setq-local ar/git-gutter-was-active t))
-    
-    ;; Disable flycheck/flymake (we're viewing history, not editing)
-    (when (bound-and-true-p flycheck-mode)
-      (flycheck-mode -1)
-      (setq-local ar/flycheck-was-active t))
-    
-    (when (bound-and-true-p flymake-mode)
-      (flymake-mode -1)
-      (setq-local ar/flymake-was-active t))
-    
-    ;; Make buffer read-only
-    (read-only-mode 1))
-  
-  (defun ar/git-timemachine-teardown ()
-    "Re-enable modes when exiting git-timemachine."
-    ;; Restore git-gutter
-    (when (bound-and-true-p ar/git-gutter-was-active)
-      (git-gutter-mode 1)
-      (kill-local-variable 'ar/git-gutter-was-active))
-    
-    ;; Restore flycheck
-    (when (bound-and-true-p ar/flycheck-was-active)
-      (flycheck-mode 1)
-      (kill-local-variable 'ar/flycheck-was-active))
-    
-    ;; Restore flymake
-    (when (bound-and-true-p ar/flymake-was-active)
-      (flymake-mode 1)
-      (kill-local-variable 'ar/flymake-was-active))
-    
-    ;; Disable read-only
-    (read-only-mode -1))
-  
-  (add-hook 'git-timemachine-mode-hook #'ar/git-timemachine-setup)
-  (add-hook 'git-timemachine-mode-exit-hook #'ar/git-timemachine-teardown))
-#+end_src
-
-** Git-Gutter: Show Changes in Fringe
-#+begin_src emacs-lisp
-(use-package git-gutter
-  :defer t
-  :commands (git-gutter-mode 
-             git-gutter:next-hunk 
-             git-gutter:previous-hunk 
-             git-gutter:stage-hunk 
-             git-gutter:revert-hunk 
-             git-gutter:popup-hunk)
-  
-  :hook ((prog-mode . git-gutter-mode)
-         (conf-mode . git-gutter-mode)
-         (org-mode . git-gutter-mode)
-         (markdown-mode . git-gutter-mode)
-         (text-mode . git-gutter-mode))
-  
-  :init
-  (setq git-gutter:update-interval 0.5
-        git-gutter:ask-p nil
-        git-gutter:modified-sign "▎"
-        git-gutter:added-sign "▎"
-        git-gutter:deleted-sign "▁"
-        git-gutter:hide-gutter t)
-  
-  :config
-  ;; Jump to next/previous hunk with wrapping
-  (defun ar/git-gutter-next-hunk ()
-    "Jump to next hunk, wrapping around."
-    (interactive)
-    (if (git-gutter:search-here-or-after-p (point) t)
-        (git-gutter:next-hunk 1)
-      (progn
-        (goto-char (point-min))
-        (git-gutter:next-hunk 1))))
-  
-  (defun ar/git-gutter-previous-hunk ()
-    "Jump to previous hunk, wrapping around."
-    (interactive)
-    (if (git-gutter:search-here-or-before-p (point))
-        (git-gutter:previous-hunk 1)
-      (progn
-        (goto-char (point-max))
-        (git-gutter:previous-hunk 1))))
-  
-  ;; Enable globally with smart exclusions
-  (global-git-gutter-mode +1))
-#+end_src
-
-** Git-Gutter-Fringe: Better Visual Appearance
-#+begin_src emacs-lisp
-(use-package git-gutter-fringe
-  :after git-gutter
-  :demand t
-  :config
-  ;; Clean, modern vertical bars in the fringe
-  (define-fringe-bitmap 'git-gutter-fr:added 
-    [224] nil nil '(center repeated))
-  (define-fringe-bitmap 'git-gutter-fr:modified 
-    [224] nil nil '(center repeated))
-  (define-fringe-bitmap 'git-gutter-fr:deleted 
-    [128 192 224 240] nil nil 'bottom)
-  
-  ;; Tokyo Night Colors (adjust to match your theme)
-  :custom-face
-  (git-gutter-fr:added    ((t (:foreground "#9ece6a"))))
-  (git-gutter-fr:modified ((t (:foreground "#e0af68"))))
-  (git-gutter-fr:deleted  ((t (:foreground "#f7768e")))))
-#+end_src
-
-** Comprehensive VC Hydra
-#+begin_src emacs-lisp
-(with-eval-after-load 'hydra
-  (pretty-hydra-define version-control-hydra
-    (:title (pretty-hydra-title "Version Control" 'octicon "nf-oct-git_branch" :face 'nerd-icons-green)
-     :color amaranth
-     :quit-key ("q" "C-g"))
-    
-    ("Magit Core"
-     (("s" magit-status "status" :exit t)
-      ("c" magit-commit "commit" :exit t)
-      ("C" magit-commit-amend "amend" :exit t)
-      ("p" magit-push-current-to-pushremote "push")
-      ("P" magit-pull-from-upstream "pull")
-      ("f" magit-fetch "fetch")
-      ("F" magit-fetch-all "fetch all"))
-     
-     "Branch & Log"
-     (("b" magit-branch "branches" :exit t)
-      ("B" magit-checkout "checkout" :exit t)
-      ("m" magit-merge "merge" :exit t)
-      ("r" magit-rebase "rebase" :exit t)
-      ("l" ar/magit-log-buffer-file-and-follow "log file" :exit t)
-      ("L" magit-log-current "log branch" :exit t))
-     
-     "Diff & Stage"
-     (("d" magit-diff-unstaged "diff unstaged" :exit t)
-      ("D" magit-diff-staged "diff staged" :exit t)
-      ("S" magit-stage-file "stage file")
-      ("u" magit-unstage-file "unstage file")
-      ("U" magit-unstage-all "unstage all"))
-     
-     "File History"
-     (("t" git-timemachine-toggle "timemachine" :toggle git-timemachine-mode)
-      ("n" git-timemachine-show-next-revision "next revision" :exit t)
-      ("N" git-timemachine-show-previous-revision "prev revision" :exit t)
-      ("w" git-timemachine-kill-abbreviated-revision "copy hash")
-      ("W" git-timemachine-kill-revision "copy full hash")
-      ("y" git-timemachine-show-commit "show commit" :exit t))
-     
-     "Hunk Navigation"
-     (("j" ar/git-gutter-next-hunk "next hunk")
-      ("k" ar/git-gutter-previous-hunk "prev hunk")
-      ("h" git-gutter:popup-hunk "preview")
-      ("a" git-gutter:stage-hunk "stage")
-      ("v" git-gutter:revert-hunk "revert"))
-     
-     "Blame & Messages"
-     (("A" ar/magit-blame-addition "blame" :exit t)
-      ("M" git-messenger:popup-message "message" :exit t)
-      ("o" browse-at-remote "open remote" :exit t)
-      ("O" git-link "get link" :exit t))
-     
-     "Advanced"
-     (("z" magit-stash "stash" :exit t)
-      ("Z" magit-stash-pop "stash pop" :exit t)
-      ("x" magit-reset "reset" :exit t)
-      ("!" magit-run "run cmd" :exit t)
-      ("R" magit-refresh "refresh")
-      ("?" magit-dispatch "dispatch" :exit t)))))
 #+end_src
 
 * Workflow Management
@@ -4199,62 +3672,232 @@ If completion fails in the future, check these:
               (run-with-idle-timer 2 nil #'my-tabspaces-safe-restore))))
 #+end_src
 
-** Treemacs
+* Development Tools
+** envrc
 #+begin_src emacs-lisp
-(use-package treemacs
+(use-package envrc
+  :hook (elpaca-after-init . envrc-global-mode))
+#+end_src
+
+** LSP
+#+begin_src emacs-lisp
+(use-package eglot-booster
+  :ensure (:host github :repo "jdtsmith/eglot-booster")
+  :after eglot
+  :config
+  (eglot-booster-mode))
+
+(use-package eglot
+  :ensure nil
   :defer t
+  :hook
+  ((prog-mode . (lambda ()
+                  (unless (derived-mode-p
+                           'emacs-lisp-mode 'lisp-mode
+                           'makefile-mode 'snippet-mode
+                           'ron-mode)
+                    (eglot-ensure))))
+   ((markdown-mode yaml-mode yaml-ts-mode) . eglot-ensure))
 
-  :custom-face
-  ;; Matches the border color to your theme's posframe border
-  (cfrs-border-color ((t (:inherit posframe-border))))
+  :init
+  ;; Optimization: disable logging events to improve performance
+  (setq eglot-events-buffer-size 0)
+
+  ;; Optimization: delay sending changes to the server slightly (0.5s)
+  (setq eglot-send-changes-idle-time 0.5)
+
+  ;; Shutdown server when the last buffer managed by it is closed
+  (setq eglot-autoshutdown t)) ;consider setting this to nil
+
+(use-package org-src-context
+ :ensure nil ; Relies on lisp/org-src-context.el
+ :hook (elpaca-after-init . org-src-context-mode)
+ :custom
+ ;; Visual: Set to 'nil' to see the grayed-out context surrounding your block.
+ ;; Set to 't' if you prefer a focused view (narrowed to just your code).
+ (org-src-context-narrow-p nil)
+
+ ;; Safety: Disable context injection for files larger than 500KB to prevent lag.
+ (org-src-context-max-filesize 500000)
+
+ :config
+ ;; Enable Apheleia (auto-formatting) inside the edit buffer.
+ ;; The patched org-src-context ensures a valid file path exists for this to work.
+ (with-eval-after-load 'apheleia
+   (add-hook 'org-src-mode-hook
+             (lambda ()
+               (apheleia-mode 1)))))
+
+;; Integration with Consult for searching symbols
+(use-package consult-eglot
+  :defer t
+  :after (consult eglot)
+  :bind (:map eglot-mode-map
+         ("C-M-." . consult-eglot-symbols)))
+#+end_src
+
+** DAP
+#+begin_src emacs-lisp
+(use-package dape
+  :defer t
+  :bind (("<f5>" . dape)
+         ("M-<f5>" . dape-hydra/body))
+  :custom (dape-buffer-window-arrangment 'right)
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Debug" 'codicon "nf-cod-debug")
+    :color pink :quit-key ("q" "C-g"))
+   ("Stepping"
+    (("n" dape-next "next")
+     ("s" dape-step-in "step in")
+     ("o" dape-step-out "step out")
+     ("c" dape-continue "continue")
+     ("p" dape-pause "pause")
+     ("k" dape-kill "kill")
+     ("r" dape-restart "restart")
+     ("D" dape-disconnect-quit "disconnect"))
+    "Switch"
+    (("m" dape-read-memory "memory")
+     ("t" dape-select-thread "thread")
+     ("w" dape-watch-dwim "watch")
+     ("S" dape-select-stack "stack")
+     ("i" dape-info "info")
+     ("R" dape-repl "repl"))
+    "Breakpoints"
+    (("b" dape-breakpoint-toggle "toggle")
+     ("l" dape-breakpoint-log "log")
+     ("e" dape-breakpoint-expression "expression")
+     ("B" dape-breakpoint-remove-all "clear"))
+    "Debug"
+    (("d" dape "dape")
+     ("Q" dape-quit "quit" :exit t))))
+  :config
+  ;; Save buffers on startup, useful for interpreted languages
+  (add-hook 'dape-on-start-hooks
+            (defun dape--save-on-start ()
+              (save-some-buffers t t)))
+  ;; Display hydra on startup
+  (add-hook 'dape-on-start-hooks #'dape-hydra/body))
+#+end_src
+
+** Syntax Checking
+#+begin_src emacs-lisp
+(use-package flymake
+  :ensure nil
+  :hook ((prog-mode text-mode) . flymake-mode)
   :custom
-  (treemacs-width 30)
-  (treemacs-position 'left)
-  (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
-  (treemacs-space-between-root-nodes t)
-  (treemacs-silent-refresh t)
-  (treemacs-silent-filewatch t)
-  (treemacs-file-follow-delay 0.2)
+  ;; Doom-inspired behavior: better navigation and visual density
+  (flymake-fringe-indicator-position 'left-fringe)
+  (flymake-wrap-around t)
+  (flymake-suppress-zero-counters t)
+  (flymake-no-changes-timeout 0.5)
+  (flymake-start-on-save-buffer t)
   :config
-  (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
-  (treemacs-filewatch-mode t)   ;; Watch file system for changes
-  (treemacs-fringe-indicator-mode 'always)
+  ;; UI: Doom Emacs Double-Arrow Fringe Bitmaps
+  (define-fringe-bitmap 'ar/flymake-double-arrow
+    [#b00000000 #b00010000 #b00011000 #b00011100 #b00011110 
+     #b00011100 #b00011000 #b00010000 #b00000000])
 
-  ;; Check for python3 and git to determine how to run git integration
-  (pcase (cons (not (null (executable-find "git")))
-               (not (null (executable-find "python3"))))
-    (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
-    (`(t . _) (treemacs-git-mode 'simple))))
+  (setq flymake-error-bitmap   '(ar/flymake-double-arrow flymake-error)
+        flymake-warning-bitmap '(ar/flymake-double-arrow flymake-warning)
+        flymake-note-bitmap    '(ar/flymake-double-arrow flymake-note))
 
-;; Consistent icons with the rest of your config
-(use-package treemacs-nerd-icons
-  :after treemacs
-  :functions treemacs-load-theme
-  :config (treemacs-load-theme "nerd-icons"))
+  ;; UI: Nerd Icons in Diagnostics Buffer (SPC c B)
+  (defun ar/flymake-diagnostics-buffer-icons ()
+    "Apply nerd-icons to the Flymake diagnostics buffer."
+    (when (derived-mode-p 'flymake-diagnostics-mode)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^\\s-*\\(error\\|warning\\|note\\)" nil t)
+          (let* ((type (match-string 1))
+                 (icon (pcase type
+                         ("error"   (nerd-icons-faicon "nf-fa-times_circle" :face 'flymake-error))
+                         ("warning" (nerd-icons-faicon "nf-fa-exclamation_circle" :face 'flymake-warning))
+                         ("note"    (nerd-icons-faicon "nf-fa-info_circle" :face 'flymake-note)))))
+            (add-text-properties (match-beginning 1) (match-end 1) `(display ,icon)))))))
+  (add-hook 'flymake-diagnostics-mode-hook #'ar/flymake-diagnostics-buffer-icons)
 
-;; Magit integration (refresh sidebar on git changes)
-(use-package treemacs-magit
-  :after (treemacs magit)
-  :hook ((magit-post-commit
-          git-commit-post-finish
-          magit-post-stage
-          magit-post-unstage)
-         . treemacs-magit--schedule-update))
+  ;; Navigation Logic
+  (defun ar/flymake-next-error () (interactive) (flymake-goto-next-error 1 '(:error :warning) t))
+  (defun ar/flymake-prev-error () (interactive) (flymake-goto-prev-error 1 '(:error :warning) t)))
 
-;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
-(use-package treemacs-tab-bar
-  :after treemacs
-  :functions treemacs-set-scope-type
-  :config (treemacs-set-scope-type 'Tabs))
-
-;; Evil navigation in the sidebar
-(use-package treemacs-evil
-  :after (treemacs evil)
+(use-package flymake-popon
+  :hook (flymake-mode . flymake-popon-mode)
+  :custom
+  (flymake-popon-method 'posframe)
+  (flymake-popon-delay 0.2)
   :config
-  (evil-define-key 'normal treemacs-mode-map
-    (kbd "TAB") #'treemacs-TAB-action
-    (kbd "o")   #'treemacs-visit-node-ace
-    (kbd "q")   #'treemacs-quit))
+  ;; Border logic to match your custom posframe configuration
+  (set-face-attribute 'flymake-popon-posframe-border nil 
+                      :background (face-attribute 'posframe-border :background nil t)))
+#+end_src
+
+** Formatting
+#+begin_src emacs-lisp
+(use-package apheleia
+  :hook (elpaca-after-init . apheleia-global-mode)
+  :custom
+  (apheleia-log-only-errors t)
+  :config
+  ;; === THE CORRECTED LSP BRIDGE ===
+  ;; We use cl-defun because Apheleia v3+ passes arguments as keywords.
+  ;; Note: 'buffer' is the original buffer, 'scratch' is where formatting should happen.
+  (cl-defun ar/apheleia-format-with-eglot (&key buffer scratch callback &allow-other-keys)
+    "Format with Eglot if available; otherwise return nil to fallback."
+    (with-current-buffer buffer
+      (if (and (bound-and-true-p eglot--managed-mode)
+               (eglot-server-capable :documentFormattingProvider))
+          (progn
+            ;; Silence eglot messages during the background format
+            (cl-letf (((symbol-function 'message) #'ignore))
+              (eglot-format-buffer))
+            ;; After eglot-format-buffer runs on the original, 
+            ;; we copy the result to scratch so Apheleia can diff it.
+            (with-current-buffer scratch
+              (erase-buffer)
+              (insert-buffer-substring buffer))
+            ;; Tell Apheleia we are done and provide the formatted scratch buffer
+            (funcall callback scratch))
+        ;; Return nil to tell Apheleia to move to the next CLI tool in the list
+        (funcall callback nil))))
+
+  ;; Add the corrected eglot bridge to formatters
+  (push '(eglot . ar/apheleia-format-with-eglot) apheleia-formatters)
+
+  ;; Inhibit for prose where whitespace is sensitive
+  (setq apheleia-inhibit-functions
+        (list (lambda () (derived-mode-p 'org-mode)))))
+#+end_src
+
+** Development Hydra
+#+begin_src emacs-lisp
+(pretty-hydra-define dev-hydra
+  (:title (pretty-hydra-title "Development" 'codicon "nf-cod-code" :face 'nerd-icons-blue)
+   :color amaranth :quit-key ("q" "C-g"))
+  ("LSP (Eglot)"
+   (("a" eglot-code-actions "actions")
+    ("r" eglot-rename "rename")
+    ("d" xref-find-definitions "definition")
+    ("D" xref-find-references "references")
+    ("s" consult-eglot-symbols "symbols")
+    ("h" eldoc "hover doc"))
+   
+   "Syntax (Flymake)"
+   (("n" ar/flymake-next-error "next error")
+    ("p" ar/flymake-prev-error "prev error")
+    ("b" flymake-show-buffer-diagnostics "buffer list")
+    ("B" consult-flymake "project list")
+    ("!" flymake-running-backends "backends"))
+
+   "Formatting"
+   (("f" apheleia-format-buffer "format buffer")
+    ("F" (lambda () (interactive) (let ((apheleia-formatter 'eglot)) (apheleia-format-buffer))) "format w/ LSP"))
+
+   "Toggles"
+   (("t l" eglot-managed-p "LSP mode" :toggle t)
+    ("t s" flymake-mode "syntax mode" :toggle t)
+    ("t f" apheleia-mode "auto-format" :toggle t)
+    ("t e" eldoc-mode "eldoc" :toggle t)
+    ("t p" flymake-popon-mode "popon tooltips" :toggle t))))
 #+end_src
 
 * Markdown
@@ -4410,27 +4053,6 @@ If completion fails in the future, check these:
 (use-package nix-ts-mode
   :defer t
   :mode "\\.nix\\'")
-#+end_src
-
-** Python
-
-#+begin_src emacs-lisp
-;; (use-package python-pytest
-;;   :defer t
-;;   :after python
-;;   :custom
-;;   (python-pytest-confirm t))
-
-;; (with-eval-after-load 'eglot
-;;   (add-to-list 'eglot-server-programs
-;;                '((python-mode python-ts-mode) "basedpyright-langserver" "--stdio")))
-
-;; (use-package flymake-ruff
-;;   :hook (eglot-managed-mode . flymake-ruff-load))
-
-;; (with-eval-after-load 'apheleia
-;;   (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
-;;   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
 #+end_src
 
 * Utils
@@ -4644,6 +4266,21 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
     "!" '(shell-command :wk "Shell cmd")
     "X" '(org-capture :wk "Org capture"))
 
+  ;; File operations (SPC f)
+  (ar/global-leader
+    "f" '(:ignore t :wk "file")
+    "f f" '(find-file :wk "Find file")
+    "f r" '(consult-recent-file :wk "Recent files")
+    "f s" '(save-buffer :wk "Save file")
+    "f S" '(write-file :wk "Save as")
+    "f E" '(sudo-edit :wk "Sudo edit")
+    "f l" '(reload-init-file :wk "Reload config")
+    "f e" '(:ignore t :wk "emacs")
+    "f e d" '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Open emacs.d")
+    "f e i" '((lambda () (interactive) (find-file user-init-file)) :wk "Open init.el")
+    "f d" '(consult-dir :wk "Change directory")
+    "f j" '(consult-dir-jump-file :wk "Jump to file in dir"))
+
   ;; Buffer operations (SPC b)
   (ar/global-leader
     "b" '(:ignore t :wk "buffer")
@@ -4659,32 +4296,6 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
     "b z" '(bury-buffer :wk "Bury buffer")
     "b [" '(previous-buffer :wk "Previous buffer")
     "b ]" '(next-buffer :wk "Next buffer"))
-
-  ;; Dired/Dirvish operations (Doom-like)
-  (ar/global-leader
-    "d" '(:ignore t :wk "dired")
-    "d d" '(dired-jump :wk "Open dired here")
-    "d D" '(dired :wk "Open dired...")
-    "d s" '(dirvish-side :wk "Dirvish sidebar")
-    "d f" '(dirvish-dwim :wk "Dirvish fullscreen")
-    "d h" '(dirvish-show-history :wk "History")
-    "d a" '(dirvish-quick-access :wk "Quick access")
-    "d j" '(dirvish-fd-jump :wk "Jump fd"))
- 
-  ;; File operations (SPC f)
-  (ar/global-leader
-    "f" '(:ignore t :wk "file")
-    "f f" '(find-file :wk "Find file")
-    "f r" '(consult-recent-file :wk "Recent files")
-    "f s" '(save-buffer :wk "Save file")
-    "f S" '(write-file :wk "Save as")
-    "f E" '(sudo-edit :wk "Sudo edit")
-    "f l" '(reload-init-file :wk "Reload config")
-    "f e" '(:ignore t :wk "emacs")
-    "f e d" '((lambda () (interactive) (find-file user-emacs-directory)) :wk "Open emacs.d")
-    "f e i" '((lambda () (interactive) (find-file user-init-file)) :wk "Open init.el")
-    "f d" '(consult-dir :wk "Change directory")
-    "f j" '(consult-dir-jump-file :wk "Jump to file in dir"))
 
   ;; Search operations (SPC s)
   (ar/global-leader
@@ -4756,7 +4367,17 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
     "t p" '(show-paren-mode :wk "Show paren")
     "t T" '(toggles-hydra/body :wk "Toggles hydra"))
 
- 
+  ;; Dired/Dirvish operations (Doom-like)
+  (ar/global-leader
+    "d" '(:ignore t :wk "dired")
+    "d d" '(dired-jump :wk "Open dired here")
+    "d D" '(dired :wk "Open dired...")
+    "d s" '(dirvish-side :wk "Dirvish sidebar")
+    "d f" '(dirvish-dwim :wk "Dirvish fullscreen")
+    "d h" '(dirvish-show-history :wk "History")
+    "d a" '(dirvish-quick-access :wk "Quick access")
+    "d j" '(dirvish-fd-jump :wk "Jump fd"))
+  
   ;; Open operations (SPC o)
   (ar/global-leader
     "o" '(:ignore t :wk "open")
@@ -5064,9 +4685,6 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
     "x b" '(org-toggle-checkbox :wk "Toggle checkbox")
     "x i" '(org-toggle-item :wk "Toggle item")
     "x p" '(org-set-property :wk "Set property")
-    "x t" '(org-set-tags-command :wk "Set tags"))
-)
-
-
+    "x t" '(org-set-tags-command :wk "Set tags")))
 #+end_src
 
