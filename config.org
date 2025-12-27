@@ -1929,75 +1929,29 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :ensure nil
   :mode (("\\.tsx\\'" . tsx-ts-mode))
   :init
-  ;; 1. Define the target directory.
-  ;; Use 'file-truename' to resolve /var/home symlinks on Silverblue.
   (defvar ar/treesit-grammar-dir
     (file-truename (expand-file-name "tree-sitter/" user-emacs-directory))
     "Target directory for installing tree-sitter grammars.")
 
-  ;; 2. Ensure the directory exists.
   (unless (file-exists-p ar/treesit-grammar-dir)
     (make-directory ar/treesit-grammar-dir t))
 
-  ;; 3. Register in load-path immediately so Emacs finds existing grammars.
-  ;; Setting this as the FIRST item ensures 'treesit-install-language-grammar'
-  ;; uses it as the default output directory if no argument is provided.
-  (defvar treesit-extra-load-path nil)
   (add-to-list 'treesit-extra-load-path ar/treesit-grammar-dir)
 
   :config
   (setq treesit-font-lock-level 4)
 
-  ;; 4. Define Sources
   (setq treesit-language-source-alist
         '((python "https://github.com/tree-sitter/tree-sitter-python")
-          (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
-          (c "https://github.com/tree-sitter/tree-sitter-c")
+          (bash "https://github.com/tree-sitter/tree-sitter-bash")
           (dockerfile "https://github.com/camdencheek/tree-sitter-dockerfile.git")
           (json "https://github.com/tree-sitter/tree-sitter-json")
           (nix "https://github.com/nix-community/tree-sitter-nix")
           (typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
           (tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")))
 
-  ;; 5. Auto-Install Helper (Runs on hook)
-  ;; Checks for MISSING grammars and installs them silently.
-  (defun ar/setup-install-grammars ()
-    "Install Tree-sitter grammars if they are missing."
-    (interactive)
-    (dolist (grammar treesit-language-source-alist)
-      (let ((lang (car grammar)))
-        (unless (treesit-language-available-p lang)
-          (treesit-install-language-grammar lang ar/treesit-grammar-dir)))))
-
-  ;; 6. Update Helper (Interactive)
-  ;; Forces re-installation/compilation from source to get updates.
-  (defun ar/treesit-update-grammars (languages)
-    "Update Tree-sitter grammars for LANGUAGES.
-    If called interactively, prompt for languages to update.
-    Press RET without selection to update ALL grammars."
-    (interactive (list
-                  (let ((choices (mapcar #'car treesit-language-source-alist)))
-                    (let ((selected (completing-read-multiple "Update grammars (empty for all): " choices)))
-                      (if (or (null selected) (string= (car selected) ""))
-                          choices ;; Default to all if empty
-                        (mapcar #'intern selected))))))
-    (dolist (lang languages)
-      (message "Updating tree-sitter grammar for %s..." lang)
-      (condition-case err
-          (progn
-            (treesit-install-language-grammar lang ar/treesit-grammar-dir)
-            (message "Successfully updated %s" lang))
-        (error (message "Failed to update %s: %s" lang (error-message-string err))))))
-
-  ;; 7. Hooks & Remaps
-  ;; Ensure we try to install missing grammars when entering a prog-mode
-  (add-hook 'prog-mode-hook #'ar/setup-install-grammars)
-
   (setq major-mode-remap-alist
         '((python-mode . python-ts-mode)
-          (c-mode . c-ts-mode)
-          (c++-mode . c++-ts-mode)
-          (c-or-c++-mode . c-or-c++-ts-mode)
           (json-mode . json-ts-mode)
           (js-mode . js-ts-mode)
           (typescript-mode . typescript-ts-mode)
@@ -3390,9 +3344,6 @@ If completion fails in the future, check these:
 (use-package eglot
   :ensure nil
   :defer t
-  :config
-  (add-to-list 'eglot-stay-out-of 'flymake)
-
   :hook
   ((prog-mode . (lambda ()
                   (unless (derived-mode-p
@@ -3495,12 +3446,12 @@ If completion fails in the future, check these:
   (flymake-no-changes-timeout 0.5)
   (flymake-start-on-save-buffer t)
   :config
-  ;; Integration with hl-todo
-  ;; Adds TODO/FIXME/NOTE items to the Flymake diagnostics list
-  (with-eval-after-load 'hl-todo
-    (add-hook 'flymake-mode-hook
-              (lambda ()
-                (add-hook 'flymake-diagnostic-functions #'hl-todo-flymake nil t))))
+  ;; ;; Integration with hl-todo
+  ;; ;; Adds TODO/FIXME/NOTE items to the Flymake diagnostics list
+  ;; (with-eval-after-load 'hl-todo
+  ;;   (add-hook 'flymake-mode-hook
+  ;;             (lambda ()
+  ;;               (add-hook 'flymake-diagnostic-functions #'hl-todo-flymake nil t))))
 
   ;; UI: Doom Emacs Double-Arrow Fringe Bitmaps
   (define-fringe-bitmap 'ar/flymake-double-arrow
@@ -4433,7 +4384,55 @@ If completion fails in the future, check these:
   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
 #+end_src
 
+
 ** Docker
+#+begin_src emacs-lisp
+(use-package dockerfile-ts-mode
+  :ensure nil
+  :mode "Dockerfile\\'"
+  :mode "\\.dockerfile\\'"
+  :mode "Containerfile\\'"
+  :mode "\\.containerfile\\'"
+  :mode "Dockerfile\\..*"
+  :mode "Containerfile\\..*"
+  
+  :config
+  ;; 2. FIX EGLOT LANGUAGE ID
+  ;; Eglot sends "dockerfile-ts-mode" by default. The server rejects this.
+  ;; We map it to "dockerfile" so the server accepts the connection.
+  (put 'dockerfile-ts-mode 'eglot-language-id "dockerfile")
+
+  ;; 3. DEFINE BASH INJECTION
+  (defun ar/dockerfile-ts-setup-injection ()
+    "Inject Bash grammar into RUN instructions and reset parser."
+    ;; Only attempt injection if Bash grammar is available
+    (when (treesit-ready-p 'bash)
+      ;; Define the rule: Look for 'shell_command' inside 'run_instruction'
+      ;; This correctly skips the --mount flags which are sibling nodes
+      (setq-local treesit-range-settings
+                  (treesit-range-rules
+                   :embed 'bash
+                   :host 'dockerfile
+                   '((run_instruction (shell_command) @injection.content))))
+      
+      (treesit-major-mode-setup)))
+
+  (add-hook 'dockerfile-ts-mode-hook #'ar/dockerfile-ts-setup-injection)
+
+  ;; ;; 4. CONFIGURE LSP SERVER
+  ;; ;; Use 'with-eval-after-load' so this runs after Eglot is loaded
+  (with-eval-after-load 'eglot
+    (add-to-list 'eglot-server-programs
+                 ;; Use "start" because you installed the official binary via Brew
+                 '(dockerfile-ts-mode . ("docker-language-server" "start" "--stdio"))))
+
+  ;; ;; 5. CONFIGURE FORMATTING
+  ;; (with-eval-after-load 'apheleia
+  ;;   (setf (alist-get 'dockerfile-ts-mode apheleia-mode-alist)
+  ;;         '(eglot)))
+
+  )
+#+end_src
 
 * Utils
 ** Which Key
