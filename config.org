@@ -4153,60 +4153,60 @@ If completion fails in the future, check these:
 
 ** Treemacs
 #+begin_src emacs-lisp
-(use-package treemacs
-  :defer t
+;; (use-package treemacs
+;;   :defer t
 
-  :custom-face
-  ;; Matches the border color to your theme's posframe border
-  (cfrs-border-color ((t (:inherit posframe-border))))
-  :custom
-  (treemacs-width 30)
-  (treemacs-position 'left)
-  (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
-  (treemacs-space-between-root-nodes t)
-  (treemacs-silent-refresh t)
-  (treemacs-silent-filewatch t)
-  (treemacs-file-follow-delay 0.2)
-  :config
-  (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
-  (treemacs-filewatch-mode t)   ;; Watch file system for changes
-  (treemacs-fringe-indicator-mode 'always)
+;;   :custom-face
+;;   ;; Matches the border color to your theme's posframe border
+;;   (cfrs-border-color ((t (:inherit posframe-border))))
+;;   :custom
+;;   (treemacs-width 30)
+;;   (treemacs-position 'left)
+;;   (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
+;;   (treemacs-space-between-root-nodes t)
+;;   (treemacs-silent-refresh t)
+;;   (treemacs-silent-filewatch t)
+;;   (treemacs-file-follow-delay 0.2)
+;;   :config
+;;   (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
+;;   (treemacs-filewatch-mode t)   ;; Watch file system for changes
+;;   (treemacs-fringe-indicator-mode 'always)
 
-  ;; Check for python3 and git to determine how to run git integration
-  (pcase (cons (not (null (executable-find "git")))
-               (not (null (executable-find "python3"))))
-    (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
-    (`(t . _) (treemacs-git-mode 'simple))))
+;;   ;; Check for python3 and git to determine how to run git integration
+;;   (pcase (cons (not (null (executable-find "git")))
+;;                (not (null (executable-find "python3"))))
+;;     (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
+;;     (`(t . _) (treemacs-git-mode 'simple))))
 
-;; Consistent icons with the rest of your config
-(use-package treemacs-nerd-icons
-  :after treemacs
-  :functions treemacs-load-theme
-  :config (treemacs-load-theme "nerd-icons"))
+;; ;; Consistent icons with the rest of your config
+;; (use-package treemacs-nerd-icons
+;;   :after treemacs
+;;   :functions treemacs-load-theme
+;;   :config (treemacs-load-theme "nerd-icons"))
 
-;; Magit integration (refresh sidebar on git changes)
-(use-package treemacs-magit
-  :after (treemacs magit)
-  :hook ((magit-post-commit
-          git-commit-post-finish
-          magit-post-stage
-          magit-post-unstage)
-         . treemacs-magit--schedule-update))
+;; ;; Magit integration (refresh sidebar on git changes)
+;; (use-package treemacs-magit
+;;   :after (treemacs magit)
+;;   :hook ((magit-post-commit
+;;           git-commit-post-finish
+;;           magit-post-stage
+;;           magit-post-unstage)
+;;          . treemacs-magit--schedule-update))
 
-;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
-(use-package treemacs-tab-bar
-  :after treemacs
-  :functions treemacs-set-scope-type
-  :config (treemacs-set-scope-type 'Tabs))
+;; ;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
+;; (use-package treemacs-tab-bar
+;;   :after treemacs
+;;   :functions treemacs-set-scope-type
+;;   :config (treemacs-set-scope-type 'Tabs))
 
-;; Evil navigation in the sidebar
-(use-package treemacs-evil
-  :after (treemacs evil)
-  :config
-  (evil-define-key 'normal treemacs-mode-map
-    (kbd "TAB") #'treemacs-TAB-action
-    (kbd "o")   #'treemacs-visit-node-ace
-    (kbd "q")   #'treemacs-quit))
+;; ;; Evil navigation in the sidebar
+;; (use-package treemacs-evil
+;;   :after (treemacs evil)
+;;   :config
+;;   (evil-define-key 'normal treemacs-mode-map
+;;     (kbd "TAB") #'treemacs-TAB-action
+;;     (kbd "o")   #'treemacs-visit-node-ace
+;;     (kbd "q")   #'treemacs-quit))
 #+end_src
 
 * Markdown
@@ -4624,6 +4624,237 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
 
 #+begin_src emacs-lisp
 (use-package vterm :defer t)
+#+end_src
+
+* LaTeX Writing Environment
+** Project Awareness
+#+begin_src emacs-lisp
+(defun ar/get-project-bibliographies ()
+  "Find .bib files in the current project root recursively.
+Returns a list of absolute paths to bibliography files, or nil if none found."
+  (when-let* ((project (project-current nil))
+              (root (project-root project)))
+    (directory-files-recursively root "\\.bib$")))
+
+(defun ar/setup-project-bibliography ()
+  "Create a references.bib file in the project root if it doesn't exist."
+  (interactive)
+  (if-let* ((project (project-current t))
+            (root (project-root project))
+            (bib-file (expand-file-name "references.bib" root)))
+      (if (file-exists-p bib-file)
+          (message "Bibliography already exists: %s" bib-file)
+        (with-temp-file bib-file
+          (insert "% Bibliography for " (file-name-nondirectory (directory-file-name root)) "\n")
+          (insert "% Created: " (format-time-string "%Y-%m-%d") "\n\n"))
+        (message "Created project bibliography: %s" bib-file))
+    (message "Not currently visiting a project.")))
+#+end_src
+
+** Core AUCTeX Backend
+#+begin_src emacs-lisp
+(use-package tex
+  :defer t
+  :ensure (auctex :repo "https://git.savannah.gnu.org/git/auctex.git"
+                  :branch "main"
+                  :pre-build (("make" "elpa"))
+                  :build (:not elpaca--compile-info)
+                  :files ("*.el" "doc/*.info*" "etc" "images" "latex" "style")
+                  :version (lambda (_) (require 'auctex) AUCTeX-version))
+  :defer t
+  :hook ((LaTeX-mode . visual-line-mode)
+         (LaTeX-mode . prettify-symbols-mode)
+         (LaTeX-mode . TeX-source-correlate-mode)
+         (LaTeX-mode . TeX-fold-mode))
+  :custom
+  (TeX-engine 'luatex)
+  (TeX-process-asynchronous t)
+  (TeX-check-TeX nil)
+  (TeX-clean-confirm nil)
+  (TeX-electric-math nil)
+  (TeX-display-help nil)
+  
+  ;; Master File Handling
+  (TeX-master t) ;; Do not prompt for master file
+
+  ;; Folding & Prettification
+  (TeX-fold-auto t)
+  (font-latex-fontify-script 'multi-level)
+  (font-latex-fontify-sectioning 1.2)
+
+  ;; Viewer Configuration (PDF Tools)
+  (TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (TeX-source-correlate-mode t)
+  (TeX-source-correlate-method 'synctex)
+  (TeX-source-correlate-start-server nil)
+  (TeX-PDF-mode t)
+
+  ;; Parsing and Auto-save
+  (TeX-auto-save t)
+  (TeX-parse-self t)
+  (TeX-save-query nil)
+
+  ;; Indentation
+  (LaTeX-indent-level 2)
+  (LaTeX-item-indent 0)
+  (TeX-brace-indent-level 2)
+
+  ;; Use hidden directories for AUCTeX files
+  (TeX-auto-local ".auctex-auto")
+  (TeX-style-local ".auctex-style")
+
+  :config
+  ;; ChkTeX Setup
+  (let ((check-cmd (assoc "Check" TeX-command-list)))
+    (when check-cmd
+      (setcar (cdr check-cmd) "chktex -v6 -H %s")))
+
+  ;; Hooks
+  (add-hook 'TeX-mode-hook
+            (lambda ()
+              (setq-local ispell-parser 'tex)
+              (visual-line-mode 1)
+              (when (fboundp 'texmathp)
+                (setq-local fill-nobreak-predicate
+                            (cons #'texmathp fill-nobreak-predicate)))))
+
+  ;; Latexmk Configurations
+  (add-to-list 'TeX-command-list
+               '("LuaLaTeXmk" "latexmk -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -f -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk with LuaLaTeX") t)
+
+  (add-to-list 'TeX-command-list
+               '("LaTeXmk-Watch" "latexmk -pvc -pdflua -pdflualatex='lualatex -shell-escape -interaction=nonstopmode' -outdir=%o %S"
+                 TeX-run-TeX nil t
+                 :help "Run latexmk in continuous preview mode") t)
+
+  (setq-default TeX-command-default
+                (cond ((eq TeX-engine 'luatex) "LuaLaTeXmk")
+                      ((eq TeX-engine 'xetex) "XeLaTeXmk")
+                      (t "LaTeXmk")))
+
+  ;; Clean intermediate files
+  (setq LaTeX-clean-intermediate-suffixes
+        '("\\.aux" "\\.bbl" "\\.blg" "\\.brf" "\\.fot"
+          "\\.glo" "\\.gls" "\\.idx" "\\.ilg" "\\.ind"
+          "\\.lof" "\\.log" "\\.lot" "\\.nav" "\\.out"
+          "\\.snm" "\\.toc" "\\.url" "\\.synctex\\.gz"
+          "\\.fdb_latexmk" "\\.fls" "\\.xdv"
+          "-blx\\.bib" "\\.run\\.xml"))
+
+  (add-hook 'TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
+  (add-to-list 'auto-mode-alist '("\\.map\\'" . TeX-mode))
+  (setq LaTeX-command-style '(("" "%(latex)"))))
+#+end_src
+
+** Evil Integration for LaTeX
+#+begin_src emacs-lisp
+(use-package evil-tex
+  :defer t
+  :after (tex evil)
+  :hook (LaTeX-mode . evil-tex-mode))
+#+end_src
+
+** Bibliography Management
+*** Citar
+#+begin_src emacs-lisp
+(use-package citar
+  :defer t
+  :custom
+  (citar-bibliography '("~/references.bib")) ;; Fallback
+  (citar-library-paths '("~/Zotero/storage"))
+  (citar-notes-paths (list my/org-roam-directory))
+  (citar-symbols
+   `((file ,(nerd-icons-mdicon "nf-md-file_document") . " ")
+     (note ,(nerd-icons-mdicon "nf-md-note_text") . " ")
+     (link ,(nerd-icons-mdicon "nf-md-link") . " ")))
+  :config
+  ;; === Project.el Integration ===
+  (defun ar/citar-set-local-bibliography ()
+    "Set buffer-local bibliography variables if in a project."
+    (when-let ((bibs (ar/get-project-bibliographies)))
+      (setq-local citar-bibliography bibs)
+      (setq-local org-cite-global-bibliography bibs)))
+
+  (add-hook 'LaTeX-mode-hook #'ar/citar-set-local-bibliography)
+  (add-hook 'org-mode-hook #'ar/citar-set-local-bibliography))
+#+end_src
+
+*** Citar Extensions
+#+begin_src emacs-lisp
+(use-package citar-embark
+  :after (citar embark)
+  :config
+  (citar-embark-mode)
+  (with-eval-after-load 'embark
+    (add-to-list 'embark-keymap-alist '(citar-reference . citar-embark-map))))
+
+(use-package citar-org-roam
+  :after (citar org-roam)
+  :config
+  (citar-org-roam-mode 1)
+  (setq citar-org-roam-subdir "literature"))
+#+end_src
+
+*** Org-Cite Integration
+#+begin_src emacs-lisp
+(use-package oc
+  :ensure nil
+  :after org
+  :config
+  (require 'citar)
+  (setq org-cite-insert-processor 'citar
+        org-cite-follow-processor 'citar
+        org-cite-activate-processor 'citar))
+#+end_src
+
+*** RefTeX
+#+begin_src emacs-lisp
+(use-package reftex
+  :ensure nil
+  :after tex
+  :hook (LaTeX-mode . reftex-mode)
+  :custom
+  (reftex-plug-into-AUCTeX t)
+  (reftex-default-bibliography nil)
+  (reftex-toc-split-windows-horizontally t)
+  (reftex-toc-split-windows-fraction 0.2))
+#+end_src
+
+** Fast LaTeX Input
+#+begin_src emacs-lisp
+(use-package cdlatex
+  :defer t
+  :hook ((LaTeX-mode . cdlatex-mode)
+         (org-mode . org-cdlatex-mode))
+  :custom
+  (cdlatex-math-modify-alist
+   '((?B "\\mathbb" nil t nil nil)
+     (?C "\\mathcal" nil t nil nil)
+     (?F "\\mathfrak" nil t nil nil)
+     (?S "\\mathscr" nil t nil nil)))
+  (cdlatex-env-alist
+   '(("equation*" "\\begin{equation*}\n?\n\\end{equation*}" nil)
+     ("align*" "\\begin{align*}\n?\n\\end{align*}" nil)))
+  :config
+  (define-key cdlatex-mode-map (kbd "TAB") #'cdlatex-tab))
+#+end_src
+
+** Preview LaTeX (AUCTeX)
+#+begin_src emacs-lisp
+(use-package preview
+  :ensure nil
+  :after tex
+  :hook (LaTeX-mode . LaTeX-preview-setup)
+  :custom
+  (preview-auto-cache-preamble t)
+  (preview-fast-conversion t)
+  :config
+  (setq-default preview-scale 1.4
+                preview-scale-function
+                (lambda () (* (/ 10.0 (face-attribute 'default :height))
+                              (face-attribute 'default :height)))))
 #+end_src
 
 * General Keybindings
