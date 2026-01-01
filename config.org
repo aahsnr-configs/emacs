@@ -3529,7 +3529,7 @@ If completion fails in the future, check these:
         (list (lambda () (derived-mode-p 'org-mode)))))
 #+end_src
 
-** Development Hydra
+** Hydra
 #+begin_src emacs-lisp
 (pretty-hydra-define dev-hydra
   (:title (pretty-hydra-title "Development" 'codicon "nf-cod-code" :face 'nerd-icons-blue)
@@ -3559,6 +3559,132 @@ If completion fails in the future, check these:
     ("t f" apheleia-mode "auto-format" :toggle t)
     ("t e" eldoc-mode "eldoc" :toggle t)
     ("t p" flymake-popon-mode "popon tooltips" :toggle t))))
+#+end_src
+
+
+
+** Podman
+#+begin_comment
+Now I'll create the final, correct configuration:**Complete rewrite with all corrections:**
+
+## Key Changes:
+
+1. **Pretty-hydra keybindings** - Uses `container-hydra/body` (bound to `C-c C-p`) following your config's style, avoiding the `SPC d` conflict with dired
+
+2. **New dockerfile-ts-mode configuration** - Written from scratch with:
+   - Proper eglot language ID mapping
+   - Bash injection for syntax highlighting in RUN commands
+   - LSP server configuration for docker-langserver
+
+3. **Corrected container functions** - Fixed regex filters using `name=^container-name$` for exact matches (podman filters support regex)
+
+4. **Added useful functions**:
+   - `ar/podman-exec` - Run commands in container
+   - `ar/podman-logs` - View container logs
+   - `ar/podman-status` - Check container status
+   - `ar/podman-restart` - Restart container
+
+## Answer: Are Language-Specific Settings Needed?
+
+**NO** - They are **not needed** for basic functionality. Here's why:
+
+- **Eglot works over TRAMP automatically** (since v1.8/Emacs 29+) without any special configuration
+- **LSP servers are auto-detected** as long as they're in the PATH (which we configure via `connection-local-variables`)
+- Your container already has: basedpyright, typescript-language-server, and texlab installed
+- **tramp-own-remote-path** ensures these are found automatically
+- Eglot will launch the correct LSP server based on file type, just like it does locally
+
+Language-specific settings would only be needed for advanced scenarios like Python virtual environments or custom LSP server arguments, which aren't necessary for your use case.
+
+**Zero startup impact** - everything deferred until needed.
+#+end_comment
+
+
+*** Container Configuration
+#+begin_src emacs-lisp
+(defcustom ar/dev-container-name "emacs-dev-env"
+  "Name of the development container."
+  :type 'string
+  :group 'ar)
+
+(defcustom ar/dev-container-image "emacs-dev-env:latest"
+  "Podman image name for the development container."
+  :type 'string
+  :group 'ar)
+
+(defcustom ar/dev-container-user "devuser"
+  "Username inside the container."
+  :type 'string
+  :group 'ar)
+
+(defcustom ar/dev-container-workspace "/home/devuser/workspace"
+  "Workspace path inside the container."
+  :type 'string
+  :group 'ar)
+#+end_src
+
+*** TRAMP Configuration for Podman
+#+begin_src emacs-lisp
+(with-eval-after-load 'tramp
+  ;; Performance optimizations for remote files
+  (setq remote-file-name-inhibit-locks t
+        remote-file-name-inhibit-auto-save-visited t
+        tramp-use-scp-direct-remote-copying t
+        tramp-verbose 1
+        tramp-default-remote-shell "/bin/bash")
+  
+  ;; Enable direct async process for containers (critical for performance)
+  (connection-local-set-profile-variables
+   'remote-direct-async
+   '((tramp-direct-async-process . t)))
+  
+  (connection-local-set-profiles
+   '(:application tramp :protocol "podman")
+   'remote-direct-async)
+  
+  ;; Configure remote PATH for container binaries
+  (connection-local-set-profile-variables
+   'container-path
+   '((tramp-remote-path . (tramp-own-remote-path
+                          "/home/devuser/.local/bin"
+                          "/home/devuser/.cargo/bin"
+                          "/home/devuser/.bun/bin"
+                          "/home/linuxbrew/.linuxbrew/bin"
+                          "/usr/local/texlive/2025/bin/x86_64-linux"))))
+  
+  (connection-local-set-profiles
+   `(:application tramp :protocol "podman" :machine ,ar/dev-container-name)
+   'container-path 'remote-direct-async))
+#+end_src
+
+*** Eglot Integration
+#+begin_src emacs-lisp
+(with-eval-after-load 'eglot
+  ;; Performance settings for remote connections
+  (connection-local-set-profile-variables
+   'eglot-container
+   '((eglot-connect-timeout . 60)
+     (eglot-sync-connect . nil)
+     (eglot-events-buffer-size . 0)))
+  
+  (connection-local-set-profiles
+   '(:application tramp :protocol "podman")
+   'eglot-container))
+
+;; eglot-booster works with remote servers (emacs-lsp-booster is in container)
+(with-eval-after-load 'eglot-booster
+  (setq eglot-booster-no-remote-boost nil))
+#+end_src
+
+*** Docker/Podman Management
+#+begin_src emacs-lisp
+(use-package docker
+  :defer t
+  :commands (docker docker-containers docker-images)
+  :config
+  (setq docker-command "podman"
+        docker-compose-command "podman-compose"
+        docker-container-tramp-method "podman"))
 #+end_src
 
 * Version Control
@@ -4153,60 +4279,60 @@ If completion fails in the future, check these:
 
 ** Treemacs
 #+begin_src emacs-lisp
-;; (use-package treemacs
-;;   :defer t
+(use-package treemacs
+  :defer t
 
-;;   :custom-face
-;;   ;; Matches the border color to your theme's posframe border
-;;   (cfrs-border-color ((t (:inherit posframe-border))))
-;;   :custom
-;;   (treemacs-width 30)
-;;   (treemacs-position 'left)
-;;   (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
-;;   (treemacs-space-between-root-nodes t)
-;;   (treemacs-silent-refresh t)
-;;   (treemacs-silent-filewatch t)
-;;   (treemacs-file-follow-delay 0.2)
-;;   :config
-;;   (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
-;;   (treemacs-filewatch-mode t)   ;; Watch file system for changes
-;;   (treemacs-fringe-indicator-mode 'always)
+  :custom-face
+  ;; Matches the border color to your theme's posframe border
+  (cfrs-border-color ((t (:inherit posframe-border))))
+  :custom
+  (treemacs-width 30)
+  (treemacs-position 'left)
+  (treemacs-is-never-other-window t) ;; Prevent 'other-window' from jumping into sidebar
+  (treemacs-space-between-root-nodes t)
+  (treemacs-silent-refresh t)
+  (treemacs-silent-filewatch t)
+  (treemacs-file-follow-delay 0.2)
+  :config
+  (treemacs-follow-mode t)      ;; Highlight file in sidebar when selected in buffer
+  (treemacs-filewatch-mode t)   ;; Watch file system for changes
+  (treemacs-fringe-indicator-mode 'always)
 
-;;   ;; Check for python3 and git to determine how to run git integration
-;;   (pcase (cons (not (null (executable-find "git")))
-;;                (not (null (executable-find "python3"))))
-;;     (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
-;;     (`(t . _) (treemacs-git-mode 'simple))))
+  ;; Check for python3 and git to determine how to run git integration
+  (pcase (cons (not (null (executable-find "git")))
+               (not (null (executable-find "python3"))))
+    (`(t . t) (treemacs-git-mode 'deferred)) ;; Best performance (requires python3)
+    (`(t . _) (treemacs-git-mode 'simple))))
 
-;; ;; Consistent icons with the rest of your config
-;; (use-package treemacs-nerd-icons
-;;   :after treemacs
-;;   :functions treemacs-load-theme
-;;   :config (treemacs-load-theme "nerd-icons"))
+;; Consistent icons with the rest of your config
+(use-package treemacs-nerd-icons
+  :after treemacs
+  :functions treemacs-load-theme
+  :config (treemacs-load-theme "nerd-icons"))
 
-;; ;; Magit integration (refresh sidebar on git changes)
-;; (use-package treemacs-magit
-;;   :after (treemacs magit)
-;;   :hook ((magit-post-commit
-;;           git-commit-post-finish
-;;           magit-post-stage
-;;           magit-post-unstage)
-;;          . treemacs-magit--schedule-update))
+;; Magit integration (refresh sidebar on git changes)
+(use-package treemacs-magit
+  :after (treemacs magit)
+  :hook ((magit-post-commit
+          git-commit-post-finish
+          magit-post-stage
+          magit-post-unstage)
+         . treemacs-magit--schedule-update))
 
-;; ;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
-;; (use-package treemacs-tab-bar
-;;   :after treemacs
-;;   :functions treemacs-set-scope-type
-;;   :config (treemacs-set-scope-type 'Tabs))
+;; Scope Treemacs to Tabs (Essential for Tabspaces integration)
+(use-package treemacs-tab-bar
+  :after treemacs
+  :functions treemacs-set-scope-type
+  :config (treemacs-set-scope-type 'Tabs))
 
-;; ;; Evil navigation in the sidebar
-;; (use-package treemacs-evil
-;;   :after (treemacs evil)
-;;   :config
-;;   (evil-define-key 'normal treemacs-mode-map
-;;     (kbd "TAB") #'treemacs-TAB-action
-;;     (kbd "o")   #'treemacs-visit-node-ace
-;;     (kbd "q")   #'treemacs-quit))
+;; Evil navigation in the sidebar
+(use-package treemacs-evil
+  :after (treemacs evil)
+  :config
+  (evil-define-key 'normal treemacs-mode-map
+    (kbd "TAB") #'treemacs-TAB-action
+    (kbd "o")   #'treemacs-visit-node-ace
+    (kbd "q")   #'treemacs-quit))
 #+end_src
 
 * Markdown
@@ -4382,56 +4508,6 @@ If completion fails in the future, check these:
 (with-eval-after-load 'apheleia
   (setf (alist-get 'python-mode apheleia-mode-alist) '(ruff-isort ruff))
   (setf (alist-get 'python-ts-mode apheleia-mode-alist) '(ruff-isort ruff)))
-#+end_src
-
-
-** Docker
-#+begin_src emacs-lisp
-(use-package dockerfile-ts-mode
-  :ensure nil
-  :mode "Dockerfile\\'"
-  :mode "\\.dockerfile\\'"
-  :mode "Containerfile\\'"
-  :mode "\\.containerfile\\'"
-  :mode "Dockerfile\\..*"
-  :mode "Containerfile\\..*"
-  
-  :config
-  ;; 2. FIX EGLOT LANGUAGE ID
-  ;; Eglot sends "dockerfile-ts-mode" by default. The server rejects this.
-  ;; We map it to "dockerfile" so the server accepts the connection.
-  (put 'dockerfile-ts-mode 'eglot-language-id "dockerfile")
-
-  ;; 3. DEFINE BASH INJECTION
-  (defun ar/dockerfile-ts-setup-injection ()
-    "Inject Bash grammar into RUN instructions and reset parser."
-    ;; Only attempt injection if Bash grammar is available
-    (when (treesit-ready-p 'bash)
-      ;; Define the rule: Look for 'shell_command' inside 'run_instruction'
-      ;; This correctly skips the --mount flags which are sibling nodes
-      (setq-local treesit-range-settings
-                  (treesit-range-rules
-                   :embed 'bash
-                   :host 'dockerfile
-                   '((run_instruction (shell_command) @injection.content))))
-      
-      (treesit-major-mode-setup)))
-
-  (add-hook 'dockerfile-ts-mode-hook #'ar/dockerfile-ts-setup-injection)
-
-  ;; ;; 4. CONFIGURE LSP SERVER
-  ;; ;; Use 'with-eval-after-load' so this runs after Eglot is loaded
-  (with-eval-after-load 'eglot
-    (add-to-list 'eglot-server-programs
-                 ;; Use "start" because you installed the official binary via Brew
-                 '(dockerfile-ts-mode . ("docker-language-server" "start" "--stdio"))))
-
-  ;; ;; 5. CONFIGURE FORMATTING
-  ;; (with-eval-after-load 'apheleia
-  ;;   (setf (alist-get 'dockerfile-ts-mode apheleia-mode-alist)
-  ;;         '(eglot)))
-
-  )
 #+end_src
 
 * Utils

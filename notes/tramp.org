@@ -1,0 +1,67 @@
+* Container Support (Podman)
+** Core TRAMP Configuration
+We must configure TRAMP *before* loading podman specific packages to ensure Eglot (LSP) works inside containers.
+
+#+begin_src emacs-lisp
+(use-package tramp
+  :ensure nil
+  :defer t
+  :config
+  ;; CRITICAL: Allow TRAMP to see the CONTAINER'S internal PATH environment variable.
+  ;; Without this, Eglot will not find language servers installed inside the container
+  ;; (e.g., in ~/.local/bin or via npm/pip inside the container).
+  (add-to-list 'tramp-remote-path 'tramp-own-remote-path)
+
+  ;; Performance tuning for remote connections (prevents hanging on large outputs)
+  (setq tramp-verbose 1
+        tramp-chunksize 2000)
+  
+  ;; Move tramp autosaves to a separate directory to avoid cluttering the container
+  (setq tramp-auto-save-directory (expand-file-name "tramp-autosave/" user-emacs-directory))
+
+  ;; Speed up Magit over TRAMP by disabling some heavy VC checks
+  ;; (Git operations inside containers can be slow otherwise)
+  (setq vc-ignore-dir-regexp
+        (format "\\(%s\\)\\|\\(%s\\)"
+                vc-ignore-dir-regexp
+                tramp-file-name-regexp)))
+#+end_src
+
+** Podman TRAMP Method
+Enables the file syntax: =/podman:container_name:/path/to/file=
+
+#+begin_src emacs-lisp
+(use-package podman-tramp
+  :ensure t
+  :after tramp
+  :config
+  ;; Optimization: Don't check for existence of remote files on every keystroke
+  (setq remote-file-name-inhibit-cache 60))
+#+end_src
+
+** Docker/Podman UI Management
+A Magit-like interface for managing images and containers.
+We explicitly tell it to use the `podman` binary instead of `docker`.
+
+#+begin_src emacs-lisp
+(use-package docker
+  :ensure t
+  :defer t
+  :custom
+  (docker-command "podman")                 ; Use Podman binary
+  (docker-compose-command "podman-compose") ; If using compose
+  (docker-container-shell-command "bash")   ; Default shell for 'docker-open-shell'
+  :config
+  ;; Integration with your existing General/Leader setup
+  ;; Adds "SPC o c" (open container) to your existing leader menu
+  (with-eval-after-load 'general
+    (ar/global-leader
+      "o c" '(docker :wk "Containers")))
+
+  ;; Add icons if nerd-icons is active (matches your config style)
+  (when (icons-displayable-p)
+    (setq docker-image-icon (nerd-icons-faicon "nf-fa-docker" :face 'font-lock-type-face)
+          docker-container-icon (nerd-icons-faicon "nf-fa-cube" :face 'font-lock-keyword-face)
+          docker-volume-icon (nerd-icons-faicon "nf-fa-database" :face 'font-lock-constant-face)
+          docker-network-icon (nerd-icons-faicon "nf-fa-network_wired" :face 'font-lock-string-face))))
+#+end_src
