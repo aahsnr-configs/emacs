@@ -962,6 +962,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+end_src
 
 * Editor Behaviour
+** Documentation
 #+begin_src comment
 =============================================================================
   ELDOC ARCHITECTURE & BREADCRUMB INTEGRATION GUIDE
@@ -1251,6 +1252,192 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
   (advice-add 'move-text-up :after #'ar/indent-after-move-text)
   (advice-add 'move-text-down :after #'ar/indent-after-move-text))
+#+end_src
+
+** Terminal
+#+begin_src emacs-lisp
+(use-package eshell
+  :ensure nil
+  :defer t
+  :commands (eshell ar/eshell-toggle ar/eshell-new)
+  :hook ((eshell-mode . (lambda ()
+                          ;; Disable line numbers
+                          (when (bound-and-true-p display-line-numbers-mode)
+                            (display-line-numbers-mode -1))
+                          ;; Corfu manual completion only
+                          (setq-local corfu-auto nil))))
+  :custom
+  ;; Kill processes without confirmation
+  (eshell-kill-processes-on-exit t)
+  (eshell-destroy-buffer-when-process-dies nil)
+  
+  ;; Remove banner
+  (eshell-banner-message "")
+  
+  ;; Scrolling
+  (eshell-scroll-to-bottom-on-input 'this)
+  (eshell-scroll-show-maximum-output t)
+  (eshell-scroll-to-bottom-on-output nil)
+  
+  ;; History
+  (eshell-history-size 10000)
+  (eshell-hist-ignoredups t)
+  (eshell-save-history-on-exit t)
+  
+  ;; Buffer management
+  (eshell-buffer-maximum-lines 20000)
+  
+  ;; Visual commands (programs requiring terminal emulation)
+  (eshell-visual-commands
+   '("top" "htop" "btop" "less" "more" "vim" "vi" "nano" "emacs"
+     "ssh" "tail" "watch" "ncdu" "ranger" "htop" "tmux" "screen"
+     "python" "ipython" "node" "ruby" "irb"))
+  (eshell-visual-subcommands
+   '(("git" "log" "diff" "show" "help")
+     ("docker" "run" "exec" "logs" "attach")
+     ("podman" "run" "exec" "logs" "attach")))
+  (eshell-visual-options
+   '(("git" "--help" "--paginate")))
+  
+  ;; Prefer Lisp implementations
+  (eshell-prefer-lisp-functions t)
+  (eshell-prefer-lisp-variables t)
+  
+  :config
+  ;; Suppress PAGER
+  (setenv "PAGER" "cat")
+  
+  ;; === TOGGLE FUNCTION ===
+  (defun ar/eshell-toggle ()
+    "Toggle eshell popup window. Works from any Evil state."
+    (interactive)
+    (let* ((eshell-buffer-name "*eshell*")
+           (eshell-buffer (get-buffer eshell-buffer-name))
+           (eshell-window (and eshell-buffer (get-buffer-window eshell-buffer))))
+      (if eshell-window
+          ;; If visible, hide it
+          (progn
+            (delete-window eshell-window)
+            (message "Eshell hidden"))
+        ;; Otherwise, show it
+        (let ((display-buffer-alist
+               '(("\\*eshell\\*"
+                  (display-buffer-at-bottom)
+                  (window-height . 0.33)
+                  (dedicated . t)))))
+          (if eshell-buffer
+              (pop-to-buffer eshell-buffer)
+            (eshell))
+          (message "Eshell opened")))))
+  
+  ;; === NEW ESHELL INSTANCE ===
+  (defun ar/eshell-new ()
+    "Create a new eshell buffer."
+    (interactive)
+    (let ((buf (generate-new-buffer "*eshell*")))
+      (with-current-buffer buf
+        (eshell-mode))
+      (pop-to-buffer buf)))
+  
+  ;; === CLEAR BUFFER ===
+  (defun ar/eshell-clear ()
+    "Clear the eshell buffer."
+    (interactive)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (eshell-send-input)))
+  
+  ;; === ALIASES ===
+  (defalias 'eshell/clear #'ar/eshell-clear)
+  (defalias 'eshell/ff #'find-file)
+  (defalias 'eshell/fo #'find-file-other-window)
+  (defalias 'eshell/d #'dired)
+  (defalias 'eshell/e #'find-file)
+  (defalias 'eshell/eh #'find-file-other-window)
+  (defalias 'eshell/v #'view-file)
+  (defalias 'eshell/l #'eshell/ls)
+  (defalias 'eshell/ll #'eshell/ls)
+  
+  ;; === GIT BRANCH HELPER ===
+  (defun ar/eshell-git-branch ()
+    "Get current git branch if in repository."
+    (when (and (not (file-remote-p default-directory))
+               (executable-find "git")
+               (locate-dominating-file default-directory ".git"))
+      (let ((branch (string-trim
+                     (shell-command-to-string 
+                      "git rev-parse --abbrev-ref HEAD 2>/dev/null"))))
+        (if (and branch (not (string-empty-p branch)))
+            (concat " " (propertize (concat "(" branch ")")
+                                   'face '(:foreground "#7aa2f7")))
+          ""))))
+  
+  ;; === CUSTOM PROMPT ===
+  (setq eshell-prompt-function
+        (lambda ()
+          (concat
+           (propertize (abbreviate-file-name (eshell/pwd))
+                      'face '(:foreground "#bb9af7"))
+           (ar/eshell-git-branch)
+           (propertize (if (zerop (user-uid)) " # " " $ ")
+                      'face '(:foreground "#9ece6a" :weight bold)))))
+  
+  (setq eshell-prompt-regexp "^[^#$\n]* [#$] "))
+
+;; === GLOBAL TOGGLE KEYBINDING (works in ALL states) ===
+(global-set-key (kbd "C-c e") #'ar/eshell-toggle)
+
+;; === COMPLETION WITH CAPE ===
+(with-eval-after-load 'eshell
+  (with-eval-after-load 'cape
+    (defun ar/eshell-setup-completion ()
+      "Setup completion for eshell."
+      (setq-local completion-at-point-functions
+                  (list (cape-capf-super
+                         #'pcomplete-completions-at-point
+                         #'cape-file))))
+    (add-hook 'eshell-mode-hook #'ar/eshell-setup-completion)))
+
+;; === HISTORY WITH CONSULT ===
+(with-eval-after-load 'eshell
+  (with-eval-after-load 'consult
+    (defun ar/eshell-consult-history ()
+      "Browse eshell history with Consult."
+      (interactive)
+      (require 'em-hist)
+      (let* ((start-pos (save-excursion (eshell-bol) (point)))
+             (end-pos (point))
+             (input (buffer-substring-no-properties start-pos end-pos))
+             (history (delete-dups
+                      (mapcar (lambda (x) (substring-no-properties x))
+                              (ring-elements eshell-history-ring)))))
+        (let ((selected (consult--read history
+                                      :prompt "History: "
+                                      :initial input
+                                      :sort nil
+                                      :category 'eshell-history)))
+          (when selected
+            (delete-region start-pos end-pos)
+            (insert selected)))))))
+
+;; === EVIL INTEGRATION ===
+(with-eval-after-load 'evil
+  (with-eval-after-load 'eshell
+    ;; Insert state bindings
+    (evil-define-key 'insert eshell-mode-map
+      (kbd "C-r") #'ar/eshell-consult-history
+      (kbd "M-r") #'ar/eshell-consult-history
+      (kbd "C-d") #'eshell-delchar-or-maybe-eof
+      (kbd "C-a") #'eshell-bol
+      (kbd "C-e") #'end-of-line
+      (kbd "C-u") #'eshell-kill-input)
+    
+    ;; Normal state bindings
+    (evil-define-key 'normal eshell-mode-map
+      (kbd "C-r") #'ar/eshell-consult-history
+      (kbd "M-r") #'ar/eshell-consult-history
+      (kbd "C-d") #'eshell-life-is-too-much
+      (kbd "C-l") #'ar/eshell-clear)))
 #+end_src
 
 * UI and Theming
@@ -3788,15 +3975,31 @@ If completion fails in the future, check these:
                                         ar/dev-container-name
                                         ar/dev-container-workspace)))))))
 
+;; ;; Uses 'vterm' to open in the running container
+;; (defun ar/podman-shell ()
+;;   "Open Vterm in the running container."
+;;   (interactive)
+;;   (if (ar/podman--running-p)
+;;       (let ((default-directory (format "/podman:%s@%s:%s"
+;;                                       ar/dev-container-user
+;;                                       ar/dev-container-name
+;;                                       ar/dev-container-workspace)))
+;;         ;; Opens vterm. If a vterm buffer exists, it opens a new one.
+;;         (vterm (format "*vterm-%s*" ar/dev-container-name)))
+;;     (user-error "Container '%s' is not running." ar/dev-container-name)))
+
+
+;; Uses 'eshell' to open in the running container
 (defun ar/podman-shell ()
-  "Open shell in the running container."
+  "Open Eshell in the running container."
   (interactive)
   (if (ar/podman--running-p)
       (let ((default-directory (format "/podman:%s@%s:%s"
                                       ar/dev-container-user
                                       ar/dev-container-name
                                       ar/dev-container-workspace)))
-        (shell (format "*shell-%s*" ar/dev-container-name)))
+        ;; Pass 't' to create a new eshell buffer if one exists
+        (eshell t))
     (user-error "Container '%s' is not running." ar/dev-container-name)))
 
 (defun ar/podman-exec (command)
@@ -4838,12 +5041,6 @@ Displays: Narrowed, Read-only, Macro recording, Evil state."
   (advice-add 'save-place-to-alist :around #'saveplace-pdf-view-to-alist-advice))
 #+end_src
 
-* Terminal
-
-#+begin_src emacs-lisp
-(use-package vterm :defer t)
-#+end_src
-
 * LaTeX Writing Environment
 ** Project Awareness
 #+begin_src emacs-lisp
@@ -5075,6 +5272,336 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
                               (face-attribute 'default :height)))))
 #+end_src
 
+* Window
+** Winner
+#+begin_src emacs-lisp
+(use-package winner
+  :ensure nil
+  :commands (winner-undo winner-redo)
+  :hook (elpaca-after-init . winner-mode)
+  :init (setq winner-boring-buffers '("*Completions*"
+                                      "*Compile-Log*"
+                                      "*inferior-lisp*"
+                                      "*Fuzzy Completions*"
+                                      "*Apropos*"
+                                      "*Help*"
+                                      "*cvs*"
+                                      "*Buffer List*"
+                                      "*Ibuffer*"
+                                      "*esh command on file*")))
+#+end_src
+
+** Ace window
+#+begin_src emacs-lisp
+(use-package ace-window
+  :defer t
+  :commands (toggle-window-split) 
+  :pretty-hydra
+  ((:title (pretty-hydra-title "Window Management" 'faicon "nf-fa-th")
+    :foreign-keys warn :quit-key ("q" "C-g"))
+   ("Actions"
+    (("TAB" other-window "switch")
+     ("x" ace-delete-window "delete")
+     ("X" ace-delete-other-windows "delete other" :exit t)
+     ("s" ace-swap-window "swap")
+     ("a" ace-select-window "select" :exit t)
+     ("m" toggle-frame-maximized "maximize" :exit t)
+     ("u" toggle-frame-fullscreen "fullscreen" :exit t))
+    "Resize"
+    (("h" shrink-window-horizontally "←")
+     ("j" enlarge-window "↓")
+     ("k" shrink-window "↑")
+     ("l" enlarge-window-horizontally "→")
+     ("n" balance-windows "balance"))
+    "Split"
+    (("r" split-window-right "horizontally")
+     ("R" split-window-horizontally-instead "horizontally instead")
+     ("v" split-window-below "vertically")
+     ("V" split-window-vertically-instead "vertically instead")
+     ("t" toggle-window-split "toggle"))
+    "Zoom"
+    (("+" text-scale-increase "in")
+     ("=" text-scale-increase "in")
+     ("-" text-scale-decrease "out")
+     ("0" (text-scale-increase 0) "reset"))
+    "Misc"
+    (("o" set-frame-font "frame font")
+     ("f" make-frame-command "new frame")
+     ("d" delete-frame "delete frame")
+     ("<left>" winner-undo "winner undo")
+     ("<right>" winner-redo "winner redo"))))
+  :custom-face
+  (aw-leading-char-face ((t (:inherit font-lock-keyword-face :foreground unspecified :bold t :height 3.0))))
+  (aw-minibuffer-leading-char-face ((t (:inherit font-lock-keyword-face :bold t :height 1.0))))
+  (aw-mode-line-face ((t (:inherit mode-line-emphasis :bold t))))
+  :bind (([remap other-window] . ace-window)
+         ("C-c w" . ace-window-hydra/body)
+         ("C-x |" . split-window-horizontally-instead)
+         ("C-x _" . split-window-vertically-instead))
+  ;; REMOVED: :hook (emacs-startup . ace-window-display-mode)
+  ;; This prevents the "1" from appearing in the modeline.
+  :config
+  (defun toggle-window-split ()
+    (interactive)
+    (if (= (count-windows) 2)
+        (let* ((this-win-buffer (window-buffer))
+               (next-win-buffer (window-buffer (next-window)))
+               (this-win-edges (window-edges (selected-window)))
+               (next-win-edges (window-edges (next-window)))
+               (this-win-2nd (not (and (<= (car this-win-edges)
+                                           (car next-win-edges))
+                                       (<= (cadr this-win-edges)
+                                           (cadr next-win-edges)))))
+               (splitter
+                (if (= (car this-win-edges)
+                       (car (window-edges (next-window))))
+                    'split-window-horizontally
+                  'split-window-vertically)))
+          (delete-other-windows)
+          (let ((first-win (selected-window)))
+            (funcall splitter)
+            (if this-win-2nd (other-window 1))
+            (set-window-buffer (selected-window) this-win-buffer)
+            (set-window-buffer (next-window) next-win-buffer)
+            (select-window first-win)
+            (if this-win-2nd (other-window 1))))
+      (user-error "`toggle-window-split' only supports two windows")))
+
+  ;; Bind hydra to dispatch list
+  (add-to-list 'aw-dispatch-alist '(?w ace-window-hydra/body) t)
+
+  ;; Select window via `M-1'...`M-9'
+  (defun aw--select-window (number)
+    "Select the specified window."
+    (when (numberp number)
+      (let ((found nil))
+        (dolist (win (aw-window-list))
+          (when (and (window-live-p win)
+                     (eq number
+                         (string-to-number
+                          (window-parameter win 'ace-window-path))))
+            (setq found t)
+            (aw-switch-to-window win)))
+        (unless found
+          (message "No specified window: %d" number)))))
+  (dotimes (n 9)
+    (bind-key (format "M-%d" (1+ n))
+              (lambda ()
+                (interactive)
+                (aw--select-window (1+ n))))))
+#+end_src
+
+** Popper
+#+begin_src emacs-lisp
+(use-package popper
+  :custom
+  (popper-group-function #'popper-group-by-directory)
+  (popper-echo-dispatch-actions t)
+  :hook (elpaca-after-init . popper-echo-mode)
+  :init
+  (setq popper-mode-line ""
+        popper-reference-buffers
+        '("\\*Messages\\*$"
+          "\\*Warnings\\*$"
+          "Output\\*$"
+          "\\*Pp Eval Output\\*$"
+          "\\*Pp Macroexpand Output\\*$"
+          "^\\*eldoc.*\\*$"
+          "\\*Compile-Log\\*$"
+          "\\*compilation\\*$"
+          "\\*Completions\\*$"
+          "\\*Async Shell Command\\*$"
+          "\\*Shell Command Output\\*$"
+          "\\*Apropos\\*$"
+          "\\*Backtrace\\*$"
+          "\\*Calendar\\*$"
+          "\\*Calculator\\*$"
+          "\\*Calc Trail\\*$"
+          "\\*Fd\\*$"
+          "\\*Find\\*$"
+          "\\*Finder\\*$"
+          "\\*Kill Ring\\*$"
+          "\\*Occur\\*$"
+          "\\*xref\\*$"
+          "\\*Embark \\(Collect\\|Live\\|Export\\):.*\\*$"
+          "\\*Embark Actions\\*$"
+          "\\*Org Select\\*$"
+          "\\*Org Agenda.*\\*$"
+          "\\*Agenda Commands\\*$"
+          "\\*Capture\\*$"
+          "^CAPTURE-.*\\.org*"
+          "\\*Local variables\\*$"
+          "\\*Org-Babel Error Output\\*$"
+          "\\*Org Export Dispatcher\\*$"
+          "\\*Org Note\\*$"
+
+          ;; Helpful, Help, Info
+          bookmark-bmenu-mode
+          comint-mode
+          compilation-mode
+          help-mode
+          helpful-mode
+          tabulated-list-mode
+          Buffer-menu-mode
+          Info-mode
+          Custom-mode
+          special-mode
+
+          ;; Flycheck/Flymake
+          flymake-diagnostics-buffer-mode
+          flymake-project-diagnostics-mode
+          flycheck-error-list-mode
+          flycheck-verify-mode
+
+          ;; Dictionary and translation
+          gnus-article-mode
+          devdocs-mode
+          dictionary-mode
+          youdao-dictionary-mode
+          osx-dictionary-mode
+          fanyi-mode
+          "^\\*gt-result\\*$"
+          "^\\*gt-log\\*$"
+          "^\\*DeepL\\*$"
+          "^\\*Google Translate\\*$"
+
+          ;; Search results
+          grep-mode
+          occur-mode
+          rg-mode
+          deadgrep-mode
+          ag-mode
+          pt-mode
+          ivy-occur-grep-mode
+          ivy-occur-mode
+
+          ;; Process and environment
+          "^\\*Process List\\*$"
+          process-menu-mode
+          list-environment-mode
+          cargo-process-mode
+
+          ;; Terminals
+          "^\\*.*eat.*\\*.*$"
+          "^\\*.*eshell.*\\*.*$"
+          "^\\*.*shell.*\\*.*$"
+          "^\\*.*terminal.*\\*.*$"
+          "^\\*.*vterm[inal]*.*\\*.*$"
+          "^\\*.*ansi-term.*\\*.*$"
+
+          ;; Development tools
+          "\\*DAP Templates\\*$"
+          dap-server-log-mode
+          "^\\*dap-ui.*\\*$"
+          "\\*ELP Profiling Results\\*$"
+          profiler-report-mode
+          "\\*package update results\\*$"
+          "\\*Package-Lint\\*$"
+          "\\*Packages\\*$"
+          "\\*Native-compile-Log\\*$"
+          "\\*Paradox Report\\*$"
+          "^\\*straight-.*\\*$"
+          "^\\*elpaca-.*\\*$"
+
+          ;; Documentation
+          "\\*[Wo]*Man.*\\*$"
+          woman-mode
+          Man-mode
+
+          ;; Testing
+          "\\*ert\\*$"
+          overseer-buffer-mode
+          "^\\*Buttercup\\*$"
+          "\\*cider-test-report\\*$"
+
+          ;; Debugging
+          "\\*gud-debug\\*$"
+          "\\*LLDB.*\\*$"
+          "\\*breakpoints of.*\\*$"
+          "\\*gdb-.*\\*$"
+
+          ;; LSP
+          "\\*lsp-help\\*$"
+          "\\*lsp session\\*$"
+          "\\*lsp-log\\*$"
+          "\\*lsp-ui-doc\\*$"
+          "\\*lsp-ui-imenu\\*$"
+          "\\*LSP Error\\*$"
+          "\\*eglot.*\\*$"
+
+          ;; Misc development
+          "\\*quickrun\\*$"
+          "\\*tldr\\*$"
+          "\\*vc-.*\\*$"
+          "\\*vc-diff\\*$"
+          "\\*vc-change-log\\*$"
+          "\\*diff-hl\\*$"
+          "^\\*macro expansion\\*$"
+          "^\\*Macrostep\\*$"
+          "\\*ediff-.*\\*$"
+          "\\*grep\\*$"
+          "\\*nosetests\\*$"
+          "\\*pytest\\*$"
+
+          ;; Language-specific
+          "\\*Gofmt Errors\\*$"
+          "\\*Go Test\\*$"
+          godoc-mode
+          "\\*rustfmt\\*$"
+          "\\*cargo-.*\\*$"
+          rustic-compilation-mode
+          rustic-cargo-clippy-mode
+          rustic-cargo-outdated-mode
+          rustic-cargo-run-mode
+          rustic-cargo-test-mode
+          "\\*Python\\*$"
+          "\\*inferior-python.*\\*$"
+          inferior-python-mode
+          inf-ruby-mode
+          swift-repl-mode
+          "\\*prolog\\*$"
+          "\\*sly-.*\\*$"
+          "\\*slime-.*\\*$"
+
+          ;; Docker
+          "\\*docker-.+\\*"
+          "\\*docker-compose.*\\*$"
+          "\\*dockerfile.*\\*$"
+
+          ;; Miscellaneous
+          "\\*Semantic SymRef\\*$"
+          "\\*Messages\\*$"
+          "\\*Warnings\\*$"
+          "\\*Error\\*$"
+          "\\*Flycheck.*\\*$"
+          "\\*Format All Errors\\*$"
+          "\\*Pp Eval Output\\*$"))
+  :config
+  (with-no-warnings
+    (defun my-popper-fit-window-height (win)
+      "Adjust the height of popup window WIN to fit the buffer's content."
+      (let ((desired-height (floor (/ (frame-height) 3))))
+        (fit-window-to-buffer win desired-height desired-height)))
+    (setq popper-window-height #'my-popper-fit-window-height)
+
+    (defun popper-close-window-hack (&rest _args)
+      "Close popper window via `C-g'."
+      (when (and (not (region-active-p))
+                 popper-open-popup-alist)
+        (let ((window (caar popper-open-popup-alist))
+              (buffer (cdar popper-open-popup-alist)))
+          (when (and (window-live-p window)
+                     (buffer-live-p buffer)
+                     (not (with-current-buffer buffer
+                            (derived-mode-p 'eshell-mode
+                                            'shell-mode
+                                            'term-mode
+                                            'vterm-mode
+                                            'eat-mode))))
+            (delete-window window)))))
+    (advice-add #'keyboard-quit :before #'popper-close-window-hack)))
+#+end_src
+
 * General Keybindings
 #+begin_src emacs-lisp
 (use-package general
@@ -5218,7 +5745,9 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
     "o" '(:ignore t :wk "open")
     "o c" '(container-hydra/body :wk "Container menu")
     "o p" '(treemacs :wk "Treemacs")
-    "o e" '(eshell :wk "Eshell")
+    "o e" '(ar/eshell-toggle :wk "Toggle eshell")
+    "o E" '(ar/eshell-new :wk "Eshell (new)")
+    "o t" '(vterm :wk "Vterm")
     "o s" '(shell :wk "Shell")
     "o d" '(dired :wk "Dired")
     "o D" '((lambda () (interactive) (switch-to-buffer "*dashboard*")) :wk "Dashboard")
@@ -5521,9 +6050,6 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
     "x b" '(org-toggle-checkbox :wk "Toggle checkbox")
     "x i" '(org-toggle-item :wk "Toggle item")
     "x p" '(org-set-property :wk "Set property")
-    "x t" '(org-set-tags-command :wk "Set tags"))
-)
-
-
+    "x t" '(org-set-tags-command :wk "Set tags")))
 #+end_src
 
