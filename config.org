@@ -3886,32 +3886,36 @@ If completion fails in the future, check these:
 *** Container Management Functions
 #+begin_src emacs-lisp
 (defun ar/podman--exists-p ()
-  "Check if container exists (running or stopped)."
-  (zerop (call-process "podman" nil nil nil "ps" "-a" "-q" "-f"
-                       (format "name=^%s$" ar/dev-container-name))))
+  "Check if container exists (running or stopped).
+Checks if 'podman ps -a' returns a non-empty string."
+  (with-temp-buffer
+    (call-process "podman" nil t nil "ps" "-a" "-q" "-f" (format "name=^%s$" ar/dev-container-name))
+    (> (length (string-trim (buffer-string))) 0)))
 
 (defun ar/podman--running-p ()
-  "Check if container is currently running."
-  (zerop (call-process "podman" nil nil nil "ps" "-q" "-f"
-                       (format "name=^%s$" ar/dev-container-name))))
+  "Check if container is currently running.
+Checks if 'podman ps' returns a non-empty string."
+  (with-temp-buffer
+    (call-process "podman" nil t nil "ps" "-q" "-f" (format "name=^%s$" ar/dev-container-name))
+    (> (length (string-trim (buffer-string))) 0)))
 
 (defun ar/podman-build ()
   "Build the container image. Prefers 'build-podman.sh' if available."
   (interactive)
   (let* ((dockerfile-dir (locate-dominating-file default-directory "Dockerfile"))
-         (build-script (expand-file-name "build-podman.sh" dockerfile-dir)))
+         (build-script (and dockerfile-dir (expand-file-name "build-podman.sh" dockerfile-dir))))
     (unless dockerfile-dir
       (user-error "No Dockerfile found in project hierarchy"))
     
     (let ((default-directory dockerfile-dir)
-          (compile-command (if (file-exists-p build-script)
+          (compile-command (if (and build-script (file-exists-p build-script))
                                (format "./%s" (file-name-nondirectory build-script))
                              (format "podman build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -t %s ." 
                                      ar/dev-container-image))))
       (compile compile-command))))
 
 (defun ar/podman-run ()
-  "Create and run a new persistent development container."
+  "Create and run a new persistent development container. Prefers 'run-podman.sh'."
   (interactive)
   (if (ar/podman--exists-p)
       (user-error "Container '%s' exists. Use 'ar/podman-start' or remove it first"
@@ -3919,13 +3923,18 @@ If completion fails in the future, check these:
     (let* ((project-root (if (project-current)
                              (project-root (project-current))
                            (read-directory-name "Project root: ")))
-           (command (format "podman run -d --name %s --hostname devbox --userns=keep-id -v %s:%s -p 3000:3000 -p 8080:8080 %s tail -f /dev/null"
-                           ar/dev-container-name
-                           (expand-file-name project-root)
-                           ar/dev-container-workspace
-                           ar/dev-container-image)))
-      (async-shell-command command "*podman-run*")
-      (message "Creating container '%s'..." ar/dev-container-name))))
+           (run-script (expand-file-name "run-podman.sh" project-root)))
+      
+      (let ((command (if (file-exists-p run-script)
+                         (format "./%s" (file-name-nondirectory run-script))
+                       (format "podman run -d --name %s --hostname devbox --userns=keep-id -v %s:%s -p 3000:3000 -p 8080:8080 %s tail -f /dev/null"
+                               ar/dev-container-name
+                               (expand-file-name project-root)
+                               ar/dev-container-workspace
+                               ar/dev-container-image))))
+        (let ((default-directory project-root))
+          (async-shell-command command "*podman-run*")
+          (message "Creating container '%s'..." ar/dev-container-name))))))
 
 (defun ar/podman-start () 
   "Start the persistent container."
@@ -3958,7 +3967,8 @@ If completion fails in the future, check these:
   (async-shell-command (format "podman restart %s" ar/dev-container-name) "*podman-restart*"))
 
 (defun ar/podman-open ()
-  "Open workspace in container via TRAMP."
+  "Open workspace in container via TRAMP.
+Includes TRAMP cleanup to fix connection errors if container was restarted."
   (interactive)
   (if (ar/podman--running-p)
       (find-file (format "/podman:%s@%s:%s"
@@ -3967,6 +3977,12 @@ If completion fails in the future, check these:
                         ar/dev-container-workspace))
     (when (y-or-n-p (format "Container '%s' is not running. Start it? "
                            ar/dev-container-name))
+      ;; Cleanup TRAMP cache to prevent 'Error: can only create exec sessions'
+      (tramp-cleanup-connection 
+       (tramp-dissect-file-name (format "/podman:%s@%s:" 
+                                      ar/dev-container-user 
+                                      ar/dev-container-name)) 
+       nil nil)
       (ar/podman-start)
       (run-with-timer 2 nil
                      (lambda ()
