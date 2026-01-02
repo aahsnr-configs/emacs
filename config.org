@@ -1,7 +1,7 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+DESCRIPTION: Personal Minimal Emacs Configuration
-#+VERSION: 0.3
+#+VERSION: 0.4
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
@@ -3327,12 +3327,6 @@ If completion fails in the future, check these:
 #+end_src
 
 * Development Tools
-** envrc
-#+begin_src emacs-lisp
-(use-package envrc
-  :hook (elpaca-after-init . envrc-global-mode))
-#+end_src
-
 ** LSP
 #+begin_src emacs-lisp
 (use-package eglot-booster
@@ -3632,7 +3626,7 @@ If completion fails in the future, check these:
    'eglot-container))
 
 ;; Enable Eglot Booster for remote connections
-;; Requires 'emacs-lsp-booster'
+;; Requires 'emacs-lsp-booster' installed in the container
 (with-eval-after-load 'eglot-booster
   (setq eglot-booster-no-remote-boost nil))
 #+end_src
@@ -3669,51 +3663,41 @@ If completion fails in the future, check these:
 #+begin_src emacs-lisp
 (use-package docker
   :defer t
-  :commands (docker docker-containers docker-images container-hydra/body)
+  :commands (docker docker-containers docker-images)
   :bind ("C-c C-p" . container-hydra/body)
-  :pretty-hydra
-  ((:title (pretty-hydra-title "Container Management" 'devicon "nf-dev-docker" :face 'nerd-icons-blue)
-    :color amaranth :quit-key ("q" "C-g"))
-   ("Container Lifecycle"
-    (("b" ar/podman-build "build image" :exit t)
-     ("r" ar/podman-run "run new container" :exit t)
-     ("s" ar/podman-start "start container")
-     ("S" ar/podman-stop "stop container")
-     ("k" ar/podman-kill "kill container")
-     ("x" ar/podman-remove "remove container"))
-    
-    "Access"
-    (("o" ar/podman-open "open workspace" :exit t)
-     ("t" ar/podman-shell "shell" :exit t)
-     ("e" ar/podman-exec "exec command" :exit t))
-    
-    "Management"
-    (("c" docker-containers "list containers" :exit t)
-     ("i" docker-images "list images" :exit t)
-     ("d" docker "docker menu" :exit t)
-     ("l" ar/podman-logs "view logs" :exit t))
-    
-    "Status"
-    (("?" ar/podman-status "container status")
-     ("R" ar/podman-restart "restart container"))))
   :config
+  ;; Force docker.el to use Podman
   (setq docker-command "podman"
         docker-compose-command "podman-compose"
-        docker-container-tramp-method "podman"))
+        docker-container-tramp-method "podman")
+  
+  ;; Define the Hydra explicitly here to avoid 'use-package' keyword errors
+  (pretty-hydra-define container-hydra
+    (:title (pretty-hydra-title "Container Management" 'devicon "nf-dev-docker" :face 'nerd-icons-blue)
+     :color amaranth :quit-key ("q" "C-g"))
+    ("Lifecycle"
+     (("r" ar/podman-run "create new (run)" :exit t)
+      ("s" ar/podman-start "resume (start)")
+      ("S" ar/podman-stop "pause (stop)")
+      ("R" ar/podman-restart "restart")
+      ("k" ar/podman-kill "kill")
+      ("x" ar/podman-remove "destroy (rm)"))
+     
+     "Access"
+     (("o" ar/podman-open "open workspace" :exit t)
+      ("t" ar/podman-shell "terminal" :exit t)
+      ("e" ar/podman-exec "exec command" :exit t)
+      ("l" ar/podman-logs "view logs" :exit t))
+     
+     "Images & Info"
+     (("b" ar/podman-build "build image" :exit t)
+      ("c" docker-containers "list containers" :exit t)
+      ("i" docker-images "list images" :exit t)
+      ("?" ar/podman-status "status check")))))
 #+end_src
 
 *** Container Management Functions
 #+begin_src emacs-lisp
-(defun ar/podman-build ()
-  "Build the development container image from Dockerfile."
-  (interactive)
-  (let ((dockerfile-dir (locate-dominating-file default-directory "Dockerfile")))
-    (unless dockerfile-dir
-      (user-error "No Dockerfile found in project hierarchy"))
-    (let ((default-directory dockerfile-dir)
-          (compile-command (format "podman build -t %s ." ar/dev-container-image)))
-      (compile compile-command))))
-
 (defun ar/podman--exists-p ()
   "Check if container exists (running or stopped)."
   (zerop (call-process "podman" nil nil nil "ps" "-a" "-q" "-f"
@@ -3724,16 +3708,31 @@ If completion fails in the future, check these:
   (zerop (call-process "podman" nil nil nil "ps" "-q" "-f"
                        (format "name=^%s$" ar/dev-container-name))))
 
+(defun ar/podman-build ()
+  "Build the container image. Prefers 'build-podman.sh' if available."
+  (interactive)
+  (let* ((dockerfile-dir (locate-dominating-file default-directory "Dockerfile"))
+         (build-script (expand-file-name "build-podman.sh" dockerfile-dir)))
+    (unless dockerfile-dir
+      (user-error "No Dockerfile found in project hierarchy"))
+    
+    (let ((default-directory dockerfile-dir)
+          (compile-command (if (file-exists-p build-script)
+                               (format "./%s" (file-name-nondirectory build-script))
+                             (format "podman build --build-arg USER_UID=$(id -u) --build-arg USER_GID=$(id -g) -t %s ." 
+                                     ar/dev-container-image))))
+      (compile compile-command))))
+
 (defun ar/podman-run ()
-  "Create and run a new development container."
+  "Create and run a new persistent development container."
   (interactive)
   (if (ar/podman--exists-p)
       (user-error "Container '%s' exists. Use 'ar/podman-start' or remove it first"
                   ar/dev-container-name)
-    (let* ((project-root (or (and (project-current)
-                                 (project-root (project-current)))
-                            (read-directory-name "Project root: ")))
-           (command (format "podman run -d --name %s -v %s:%s:Z %s tail -f /dev/null"
+    (let* ((project-root (if (project-current)
+                             (project-root (project-current))
+                           (read-directory-name "Project root: ")))
+           (command (format "podman run -d --name %s --hostname devbox --userns=keep-id -v %s:%s -p 3000:3000 -p 8080:8080 %s tail -f /dev/null"
                            ar/dev-container-name
                            (expand-file-name project-root)
                            ar/dev-container-workspace
@@ -3741,65 +3740,35 @@ If completion fails in the future, check these:
       (async-shell-command command "*podman-run*")
       (message "Creating container '%s'..." ar/dev-container-name))))
 
-(defun ar/podman-start ()
-  "Start the development container."
-  (interactive)
-  (cond
-   ((not (ar/podman--exists-p))
-    (when (y-or-n-p (format "Container '%s' doesn't exist. Create it? "
-                           ar/dev-container-name))
-      (call-interactively #'ar/podman-run)))
-   ((ar/podman--running-p)
-    (message "Container '%s' is already running" ar/dev-container-name))
-   (t
-    (async-shell-command (format "podman start %s" ar/dev-container-name)
-                        "*podman-start*")
-    (message "Starting container '%s'..." ar/dev-container-name))))
+(defun ar/podman-start () 
+  "Start the persistent container."
+  (interactive) 
+  (if (ar/podman--running-p)
+      (message "Container '%s' is already running." ar/dev-container-name)
+    (async-shell-command (format "podman start %s" ar/dev-container-name) "*podman-start*")))
 
-(defun ar/podman-stop ()
-  "Stop the development container."
+(defun ar/podman-stop () 
+  "Stop the persistent container."
+  (interactive) 
+  (if (ar/podman--running-p)
+      (async-shell-command (format "podman stop %s" ar/dev-container-name) "*podman-stop*")
+    (message "Container '%s' is not running." ar/dev-container-name)))
+
+(defun ar/podman-kill () 
+  (interactive) 
+  (when (yes-or-no-p (format "Force kill '%s'?" ar/dev-container-name))
+    (async-shell-command (format "podman kill %s" ar/dev-container-name) "*podman-kill*")))
+
+(defun ar/podman-remove () 
   (interactive)
   (if (ar/podman--running-p)
-      (progn
-        (async-shell-command (format "podman stop %s" ar/dev-container-name)
-                            "*podman-stop*")
-        (message "Stopping container '%s'..." ar/dev-container-name))
-    (message "Container '%s' is not running" ar/dev-container-name)))
-
-(defun ar/podman-kill ()
-  "Force kill the development container."
-  (interactive)
-  (if (ar/podman--running-p)
-      (when (y-or-n-p (format "Force kill container '%s'? "
-                             ar/dev-container-name))
-        (async-shell-command (format "podman kill %s" ar/dev-container-name)
-                            "*podman-kill*")
-        (message "Killing container '%s'..." ar/dev-container-name))
-    (message "Container '%s' is not running" ar/dev-container-name)))
-
-(defun ar/podman-remove ()
-  "Remove the development container."
-  (interactive)
-  (cond
-   ((not (ar/podman--exists-p))
-    (message "Container '%s' doesn't exist" ar/dev-container-name))
-   ((ar/podman--running-p)
-    (user-error "Container is running. Stop it first with 'ar/podman-stop'"))
-   (t
-    (when (y-or-n-p (format "Remove container '%s'? " ar/dev-container-name))
-      (async-shell-command (format "podman rm %s" ar/dev-container-name)
-                          "*podman-rm*")
-      (message "Removing container '%s'..." ar/dev-container-name)))))
+      (user-error "Stop container first.")
+    (when (yes-or-no-p (format "Remove container '%s'?" ar/dev-container-name))
+      (async-shell-command (format "podman rm %s" ar/dev-container-name) "*podman-rm*"))))
 
 (defun ar/podman-restart ()
-  "Restart the development container."
   (interactive)
-  (if (ar/podman--running-p)
-      (progn
-        (async-shell-command (format "podman restart %s" ar/dev-container-name)
-                            "*podman-restart*")
-        (message "Restarting container '%s'..." ar/dev-container-name))
-    (user-error "Container '%s' is not running" ar/dev-container-name)))
+  (async-shell-command (format "podman restart %s" ar/dev-container-name) "*podman-restart*"))
 
 (defun ar/podman-open ()
   "Open workspace in container via TRAMP."
@@ -3828,8 +3797,7 @@ If completion fails in the future, check these:
                                       ar/dev-container-name
                                       ar/dev-container-workspace)))
         (shell (format "*shell-%s*" ar/dev-container-name)))
-    (user-error "Container '%s' is not running. Start it with 'ar/podman-start'"
-               ar/dev-container-name)))
+    (user-error "Container '%s' is not running." ar/dev-container-name)))
 
 (defun ar/podman-exec (command)
   "Execute COMMAND in the running container."
@@ -3859,7 +3827,6 @@ If completion fails in the future, check these:
     (message "Container '%s' is RUNNING" ar/dev-container-name))
    (t
     (message "Container '%s' exists but is STOPPED" ar/dev-container-name))))
-
 #+end_src
 
 * Version Control
@@ -5249,6 +5216,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
   ;; Open operations (SPC o)
   (ar/global-leader
     "o" '(:ignore t :wk "open")
+    "o c" '(container-hydra/body :wk "Container menu")
     "o p" '(treemacs :wk "Treemacs")
     "o e" '(eshell :wk "Eshell")
     "o s" '(shell :wk "Shell")
