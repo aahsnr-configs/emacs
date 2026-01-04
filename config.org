@@ -1,7 +1,7 @@
 #+TITLE: Emacs Configuration
 #+AUTHOR: Ahsanur Rahman
 #+DESCRIPTION: Personal Minimal Emacs Configuration
-#+VERSION: 0.4
+#+VERSION: 0.45
 #+STARTUP: overview
 #+PROPERTY: header-args:emacs-lisp :tangle ./init.el :mkdirp yes
 
@@ -293,6 +293,9 @@ Profile startup time with detailed breakdown
 #+begin_src emacs-lisp
 ;; Move backup files to dedicated directory
 (setq backup-directory-alist `(("." . ,(expand-file-name ".backup" user-emacs-directory))))
+
+;; FIX: Explicitly disable bzr, svn, hg to prevent TRAMP errors
+(setq vc-handled-backends '(Git))
 
 ;; Confirmation settings
 (setq confirm-kill-processes nil)  ;; Auto-kill processes on exit
@@ -3536,7 +3539,11 @@ If completion fails in the future, check these:
   :ensure (:host github :repo "jdtsmith/eglot-booster")
   :after eglot
   :config
-  (eglot-booster-mode))
+  (eglot-booster-mode)
+  
+  ;; IMPORTANT: Set this to nil to enable boosting over TRAMP
+  ;; The Dockerfile already installs emacs-lsp-booster in the container
+  (setq eglot-booster-no-remote-boost t))
 
 (use-package eglot
   :ensure nil
@@ -3797,20 +3804,16 @@ If completion fails in the future, check these:
    'remote-direct-async
    '((tramp-direct-async-process . t)))
 
-  ;; Configure PATH to find container tools
-  ;; This ensures Emacs sees the tools installed in your Dockerfile
+  ;; CRITICAL FIX: Add all paths where LSP servers are installed
   (connection-local-set-profile-variables
    'container-path
-   '((tramp-remote-path . (tramp-own-remote-path
-                          "/home/devuser/.local/bin"         ; uv (Python)
-                          "/home/devuser/.cargo/bin"         ; Rust
-                          "/home/devuser/.bun/bin"           ; Bun
-                          "/home/linuxbrew/.linuxbrew/bin"   ; Homebrew
-                          "/usr/local/texlive/2025/bin/x86_64-linux")))) ; TeX Live
+   '((tramp-remote-path . (tramp-own-remote-path    ; Use remote $PATH
+                           "/usr/local/bin"          ; Where texlab symlink is
+                           "/home/devuser/.cargo/bin" ; Original texlab location
+                           tramp-default-remote-path))))
 
-  ;; Apply these profiles specifically to the "dev-env" container
   (connection-local-set-profiles
-   `(:application tramp :protocol "podman" :machine ,ar/dev-container-name)
+   '(:application tramp :protocol "podman")
    'container-path 'remote-direct-async))
 #+end_src
 
@@ -3822,16 +3825,12 @@ If completion fails in the future, check these:
    'eglot-container
    '((eglot-connect-timeout . 60)      ; Give container time to respond
      (eglot-sync-connect . nil)        ; Don't block Emacs UI
-     (eglot-events-buffer-size . 0)))  ; Disable heavy logging
+     ;; FIX: Use new config format to suppress "obsolete variable" warning
+     (eglot-events-buffer-config . (:size 0))))
 
   (connection-local-set-profiles
    '(:application tramp :protocol "podman")
    'eglot-container))
-
-;; Enable Eglot Booster for remote connections
-;; Requires 'emacs-lsp-booster' installed in the container
-(with-eval-after-load 'eglot-booster
-  (setq eglot-booster-no-remote-boost nil))
 #+end_src
 
 *** Dockerfile Editing Support
@@ -4064,6 +4063,19 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
     (message "Container '%s' exists but is STOPPED" ar/dev-container-name))))
 #+end_src
 
+*** Debugging
+#+begin_src emacs-lisp
+;; Temporarily increase TRAMP verbosity to see what's happening
+(setq tramp-verbose 6)
+
+;; Check if texlab is findable
+(defun ar/check-texlab ()
+  "Check if texlab is findable in the current context."
+  (interactive)
+  (message "texlab found at: %s" 
+           (executable-find "texlab" t)))
+#+end_src
+
 * Version Control
 ** Magit: The Git Porcelain
 #+begin_src emacs-lisp
@@ -4071,7 +4083,25 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
 
 (use-package magit
   :defer t
-  :commands (magit-status magit-blame magit-log-buffer-file)
+  :commands (magit-status 
+             magit-blame 
+             magit-log-buffer-file
+             magit-stage-file
+             magit-unstage-file
+             magit-stage
+             magit-unstage
+             magit-commit
+             magit-push-current-to-pushremote
+             magit-pull-from-upstream
+             magit-fetch
+             magit-run-git
+             magit-branch
+             magit-merge
+             magit-rebase
+             magit-diff-unstaged
+             magit-diff-staged
+             magit-stash
+             magit-dispatch)
   :custom
   ;; Display settings
   (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
@@ -4094,6 +4124,8 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
   (magit-diff-highlight-trailing t)
   
   :config
+  ;; Only use Git. Disables bzr, svn, hg, etc. to prevent TRAMP errors.
+  (setq vc-handled-backends '(Git))
   ;; Enable gravatars if desired (requires imagemagick)
   (when (and (display-graphic-p)
              (image-type-available-p 'imagemagick))
@@ -4272,6 +4304,15 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
   (git-gutter-fr:deleted  ((t (:foreground "#f7768e")))))
 #+end_src
 
+** Magit Custom Functions
+#+begin_src emacs-lisp
+(defun ar/magit-stage-all ()
+  "Stage all changes in the project (equivalent to 'git add .')."
+  (interactive)
+  (magit-run-git "add" ".")
+  (message "Staged all changes."))
+#+end_src
+
 ** Comprehensive VC Hydra
 #+begin_src emacs-lisp
 (with-eval-after-load 'hydra
@@ -4282,8 +4323,8 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
     
     ("Magit Core"
      (("s" magit-status "status" :exit t)
+      ("a" ar/magit-stage-all "stage all") 
       ("c" magit-commit "commit" :exit t)
-      ("C" magit-commit-amend "amend" :exit t)
       ("p" magit-push-current-to-pushremote "push")
       ("P" magit-pull-from-upstream "pull")
       ("f" magit-fetch "fetch")
@@ -4303,27 +4344,6 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
       ("S" magit-stage-file "stage file")
       ("u" magit-unstage-file "unstage file")
       ("U" magit-unstage-all "unstage all"))
-     
-     "File History"
-     (("t" git-timemachine-toggle "timemachine" :toggle git-timemachine-mode)
-      ("n" git-timemachine-show-next-revision "next revision" :exit t)
-      ("N" git-timemachine-show-previous-revision "prev revision" :exit t)
-      ("w" git-timemachine-kill-abbreviated-revision "copy hash")
-      ("W" git-timemachine-kill-revision "copy full hash")
-      ("y" git-timemachine-show-commit "show commit" :exit t))
-     
-     "Hunk Navigation"
-     (("j" ar/git-gutter-next-hunk "next hunk")
-      ("k" ar/git-gutter-previous-hunk "prev hunk")
-      ("h" git-gutter:popup-hunk "preview")
-      ("a" git-gutter:stage-hunk "stage")
-      ("v" git-gutter:revert-hunk "revert"))
-     
-     "Blame & Messages"
-     (("A" ar/magit-blame-addition "blame" :exit t)
-      ("M" git-messenger:popup-message "message" :exit t)
-      ("o" browse-at-remote "open remote" :exit t)
-      ("O" git-link "get link" :exit t))
      
      "Advanced"
      (("z" magit-stash "stash" :exit t)
@@ -5112,45 +5132,37 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
   (TeX-clean-confirm nil)
   (TeX-electric-math nil)
   (TeX-display-help nil)
-  
-  ;; Master File Handling
-  (TeX-master t) ;; Do not prompt for master file
-
-  ;; Folding & Prettification
+  (TeX-master t)
   (TeX-fold-auto t)
   (font-latex-fontify-script 'multi-level)
   (font-latex-fontify-sectioning 1.2)
-
-  ;; Viewer Configuration (PDF Tools)
   (TeX-view-program-selection '((output-pdf "PDF Tools")))
   (TeX-source-correlate-mode t)
   (TeX-source-correlate-method 'synctex)
   (TeX-source-correlate-start-server nil)
   (TeX-PDF-mode t)
-
-  ;; Parsing and Auto-save
   (TeX-auto-save t)
   (TeX-parse-self t)
   (TeX-save-query nil)
-
-  ;; Indentation
   (LaTeX-indent-level 2)
   (LaTeX-item-indent 0)
   (TeX-brace-indent-level 2)
-
-  ;; Use hidden directories for AUCTeX files
   (TeX-auto-local ".auctex-auto")
   (TeX-style-local ".auctex-style")
 
   :config
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               `((latex-mode LaTeX-mode tex-mode)
+                 . ,(lambda (&optional interactive)
+                      ;; Find texlab dynamically (works for both local and remote)
+                      (list (or (executable-find "texlab" t) ; t = check remote too
+                                "/usr/local/bin/texlab"))))))
+
   ;; ChkTeX Setup
   (let ((check-cmd (assoc "Check" TeX-command-list)))
     (when check-cmd
       (setcar (cdr check-cmd) "chktex -v6 -H %s")))
-
-  (with-eval-after-load 'eglot
-    (add-to-list 'eglot-server-programs
-                 '((latex-mode LaTeX-mode tex-mode) "texlab")))
   
   ;; Hooks
   (add-hook 'TeX-mode-hook
