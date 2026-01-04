@@ -1531,7 +1531,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+begin_src emacs-lisp
 (use-package hide-mode-line
   :autoload turn-off-hide-mode-line-mode
-  :hook (((eat-mode
+  :hook (((eat-mode org-agenda-mode
            eshell-mode shell-mode
            term-mode vterm-mode
            embark-collect-mode lsp-ui-imenu-mode
@@ -2107,6 +2107,22 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
 ;; Override the internal Org function
 (advice-add 'org-src--construct-edit-buffer-name :override #'ar/org-src-simplify-buffer-name)
+#+end_src
+
+** Org Pomodoro
+#+begin_src emacs-lisp
+(use-package org-pomodoro
+  :defer t
+  :config
+  ;; configure pomodoro alerts to use growl or libnotify
+  (alert-add-rule :category "org-pomodoro"
+                  :style (cond (alert-growl-command
+                                'growl)
+                               (alert-notifier-command
+                                'notifier)
+                               (alert-libnotify-command
+                                'libnotify)
+                               (alert-default-style))))
 #+end_src
 
 * Treesitter/Folding
@@ -4339,32 +4355,6 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
   (insert-directory-program "/usr/bin/ls")
   (dired-listing-switches "-l --almost-all --human-readable --time-style=long-iso --group-directories-first --no-group"))
 
-(use-package dired-x
-  :ensure nil
-  :hook (dired-mode . dired-omit-mode)
-  :config
-  (setq dired-omit-verbose nil
-        dired-omit-files
-        (concat "^\\.?#\\|^\\.$\\|^\\.\\.$"
-                "\\|^\\.DS_Store\\'"
-                "\\|^flycheck_.*"
-                "\\|^\\.project\\(?:ile\\)?\\'"
-                "\\|^\\.\\(?:svn\\|git\\)\\'"
-                "\\|^\\.ccls-cache\\'"
-                "\\|\\(?:\\.js\\)?\\.meta\\'"
-                "\\|\\.\\(?:elc\\|o\\|pyo\\|swp\\|class\\)\\'"))
- 
-  (setq dired-clean-confirm-killing-deleted-buffers nil))
-
-(use-package diredfl
-  :hook (dired-mode . diredfl-mode))
-
-(use-package wdired
-  :ensure nil
-  :after dired
-  :custom
-  (wdired-allow-to-change-permissions t)
-  (wdired-create-parent-directories t))
 #+end_src
 
 ** Dirvish
@@ -4395,10 +4385,10 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
      ("o" ,my/org-directory "Org")
      ("c" "~/.config/" "Config")
      ("t" "~/.local/share/Trash/files/" "Trash")))
-  
-  ;; Attributes
+
+ ;; Attributes
   (dirvish-attributes
-   '(nerd-icons file-time file-size collapse subtree-state vc-state git-msg))
+   '(subtree-state nerd-icons collapse vc-state))
   
   ;; Doom-like UI: Headers and Mode lines
   (dirvish-use-header-line t)
@@ -4429,43 +4419,60 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
    '(image gif video audio epub archive pdf))
   
   :config
-  (require 'dirvish-side)
+  (setq dirvish-mode-line-format
+        '(:left (sort symlink) :right (omit yank index)))
+  ;; open large directory (over 20000 files) asynchronously with `fd' command
+  (setq dirvish-large-directory-threshold 20000)
   (require 'dirvish-fd)
   (require 'dirvish-emerge)
+
+  (require 'dirvish-side)
   
   ;; Side window configuration (Restored to Left side)
   (setq dirvish-side-width 35
-        dirvish-side-follow-buffer-file t
-        dirvish-side-display-alist '((side . left) (slot . -1)))
-        
-  ;; Enhanced Evil Bindings with ARROW KEYS
-  ;; We use evil-define-key instead of :bind so they persist properly in Evil states
-  (with-eval-after-load 'evil
-    (evil-define-key 'normal dirvish-mode-map
-      ;; Navigation (Arrow Keys)
-      (kbd "<left>")  'dired-up-directory    ; Go up one directory
-      (kbd "<right>") 'dired-find-file       ; Enter directory / Open file
-      (kbd "<up>")    'dired-previous-line   ; Move up
-      (kbd "<down>")  'dired-next-line       ; Move down
-      
-      (kbd "q") 'dirvish-quit
-      (kbd "TAB") 'dirvish-subtree-toggle
-      
-      ;; Layout & History
-      (kbd "M-t") 'dirvish-layout-switch     ; Restored your cycle layout binding
-      (kbd "F")   'dirvish-layout-toggle     ; Toggle fullscreen
-      (kbd "b")   'dirvish-history-go-backward
-      (kbd "f")   'dirvish-history-go-forward
-      
-      ;; Menus & Actions
-      (kbd "?")   'dirvish-dispatch
-      (kbd "a")   'dirvish-quick-access
-      (kbd "s")   'dirvish-quicksort
-      (kbd "y")   'dirvish-yank-menu
-      (kbd "v")   'dirvish-vc-menu
-      (kbd "M-e") 'dirvish-emerge-menu       ; Restored emerge menu
-      (kbd "M-j") 'dirvish-fd-jump           ; Restored FD jump
-      (kbd "M-s") 'dirvish-setup-menu)))
+        dirvish-side-follow-buffer-file t)
+        dirvish-side-display-alist '((side . bottom) (slot . -1))
+
+
+        )      
+#+end_src
+
+
+** File Management Extensions
+#+begin_src emacs-lisp
+(use-package dired-x
+  :ensure nil
+  :hook (dired-mode . dired-omit-mode)
+  :config
+  (setq dired-omit-verbose nil
+        dired-omit-files
+        (concat "^\\.?#\\|^\\.$\\|^\\.\\.$"
+                "\\|^\\.DS_Store\\'"
+                "\\|^flycheck_.*"
+                "\\|^\\.project\\(?:ile\\)?\\'"
+                "\\|^\\.\\(?:svn\\|git\\)\\'"
+                "\\|^\\.ccls-cache\\'"
+                "\\|\\(?:\\.js\\)?\\.meta\\'"
+                "\\|\\.\\(?:elc\\|o\\|pyo\\|swp\\|class\\)\\'"))
+ 
+  (setq dired-clean-confirm-killing-deleted-buffers nil))
+
+(use-package diredfl
+  :hook
+  ((dired-mode . diredfl-mode)
+   ;; highlight parent and directory preview as well
+   (dirvish-directory-view-mode . diredfl-mode))
+  :config
+  (set-face-attribute 'diredfl-dir-name nil :bold t))
+
+
+(use-package wdired
+  :ensure nil
+  :after dired
+  :custom
+  (wdired-allow-to-change-permissions t)
+  (wdired-create-parent-directories t))
+
 #+end_src
 
 ** iBuffer
@@ -5096,7 +5103,8 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
          (LaTeX-mode . TeX-source-correlate-mode)
-         (LaTeX-mode . TeX-fold-mode))
+         (LaTeX-mode . TeX-fold-mode)
+         (LaTeX-mode . eglot-ensure))
   :custom
   (TeX-engine 'luatex)
   (TeX-process-asynchronous t)
@@ -5140,6 +5148,10 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
     (when check-cmd
       (setcar (cdr check-cmd) "chktex -v6 -H %s")))
 
+  (with-eval-after-load 'eglot
+    (add-to-list 'eglot-server-programs
+                 '((latex-mode LaTeX-mode tex-mode) "texlab")))
+  
   ;; Hooks
   (add-hook 'TeX-mode-hook
             (lambda ()
@@ -5287,6 +5299,120 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
                 (lambda () (* (/ 10.0 (face-attribute 'default :height))
                               (face-attribute 'default :height)))))
 #+end_src
+
+** Org Mode LaTeX Integration
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  ;; LaTeX preview process configuration for LuaLaTeX with dvisvgm
+  ;; CRITICAL: LuaLaTeX needs --output-format=dvi to work with dvisvgm
+  (add-to-list 'org-preview-latex-process-alist
+               '(luamagick
+                 :programs ("lualatex" "magick")
+                 :description "pdf > png"
+                 :message "you need to install lualatex and imagemagick."
+                 :use-xcolor t
+                 :image-input-type "pdf"
+                 :image-output-type "png"
+                 :image-size-adjust (1.0 . 1.0)
+                 :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+                 :image-converter ("magick convert -density 130 -trim -antialias %f -quality 100 %O")))
+
+  ;; Alternative: LuaLaTeX with ImageMagick (PNG) - uncomment if dvisvgm issues
+  ;; (add-to-list 'org-preview-latex-process-alist
+  ;;              '(lualatex-png
+  ;;                :programs ("lualatex" "convert")
+  ;;                :description "pdf > png (LuaLaTeX)"
+  ;;                :message "You need to install lualatex and imagemagick."
+  ;;                :image-input-type "pdf"
+  ;;                :image-output-type "png"
+  ;;                :image-size-adjust (1.0 . 1.0)
+  ;;                :latex-compiler ("lualatex -interaction=nonstopmode -output-directory=%o %f")
+  ;;                :image-converter ("convert -density %D -trim -antialias %f -quality 100 %O")))
+
+  ;; Set default preview process
+  (setq org-preview-latex-default-process 'luamagick)
+
+  ;; Preview appearance settings
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :scale 2.0))
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :foreground 'default))
+  (setq org-format-latex-options
+        (plist-put org-format-latex-options :background 'default))
+
+  ;; Directory for preview images
+  (setq org-preview-latex-image-directory "ltximg/")
+
+  ;; LaTeX packages for preview
+  ;; These are added to org-latex-packages-alist in the LaTeX section
+  ;; but we ensure they're available for preview too
+  (setq org-latex-packages-alist
+        '(("" "fontspec" t ("lualatex" "xelatex"))
+          ("" "unicode-math" t ("lualatex" "xelatex"))
+          ("" "amsmath" t)
+          ("" "amssymb" t)
+          ("" "mathtools" nil)))
+
+  ;; Don't start with previews enabled (can be slow on large files)
+  (setq org-startup-with-latex-preview nil))
+#+end_src
+
+#+begin_src emacs-lisp
+;; (with-eval-after-load 'org
+;;   (require 'ox-latex)
+;;   (setq org-latex-compiler "lualatex")
+;;   (setq org-pretty-entities-include-sub-superscripts nil)
+
+;;   (setq org-image-actual-width nil)
+
+;;   (defun my/org-latex-preview-scale ()
+;;     "Force the scale of latex previews."
+;;     (setq org-format-latex-options
+;;           (plist-put org-format-latex-options :scale 2.5)))
+
+;;   (add-hook 'org-mode-hook #'my/org-latex-preview-scale)
+
+;;   (setq org-format-latex-options
+;;         (plist-put org-format-latex-options :background "Transparent"))
+;;   (setq org-format-latex-options
+;;         (plist-put org-format-latex-options :foreground "Auto"))
+
+;;   (add-to-list 'org-preview-latex-process-alist
+;;                '(lualatex-png
+;;                  :programs ("lualatex" "magick")
+;;                  :description "pdf > png (LuaLaTeX with proper transparency)"
+;;                  :image-input-type "pdf"
+;;                  :image-output-type "png"
+;;                  :image-size-adjust (1.0 . 1.0)
+;;                  :latex-compiler ("lualatex -interaction nonstopmode -output-directory %o %f")
+;;                  :image-converter ("magick %f -density %D -trim +repage -transparent white -colorspace sRGB -quality 100 %O")))
+
+;;   ;; Set default process
+;;   (setq org-preview-latex-default-process 'lualatex-png))
+
+(use-package org-fragtog
+  :defer t
+  :hook (org-mode . org-fragtog-mode))
+#+end_src
+
+** Completions: LSP + AUCTeX + Cape
+#+begin_src emacs-lisp
+(defun ar/latex-setup-completion ()
+  "Configure super-powered completion for LaTeX: LSP + AUCTeX + Dabbrev."
+  (require 'cape)
+  (setq-local completion-at-point-functions
+              (list (cape-capf-super
+                     #'eglot-completion-at-point      ; LSP intelligence (citations, refs)
+                     #'LaTeX-completion-at-point    ; AUCTeX specific macros
+                     #'TeX--completion-at-point)    ; TeX primitives
+                    #'cape-dabbrev                  ; Words in buffer
+                    #'cape-file)))                 ; File paths
+
+;; Hook into LaTeX mode to activate this setup
+(add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
+#+end_src
+
 
 * Window
 ** Winner
@@ -5985,6 +6111,36 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
    "(" 'dired-hide-details-mode
    ")" 'dired-omit-mode)
 
+  ;; Dirvish specific bindings (Moved from use-package dirvish)
+  (general-define-key
+   :states 'normal
+   :keymaps 'dirvish-mode-map
+   ;; Navigation (Arrow Keys)
+   "<left>"  'dired-up-directory
+   "<right>" 'dired-find-file
+   "<up>"    'dired-previous-line
+   "<down>"  'dired-next-line
+   
+   ;; Core Actions
+   "q"   'dirvish-quit
+   "TAB" 'dirvish-subtree-toggle
+   "?"   'dirvish-dispatch
+   
+   ;; Layout & History
+   "M-t" 'dirvish-layout-switch
+   "F"   'dirvish-layout-toggle
+   "b"   'dirvish-history-go-backward
+   "f"   'dirvish-history-go-forward
+   
+   ;; Menus & Tools
+   "a"   'dirvish-quick-access
+   "s"   'dirvish-quicksort
+   "y"   'dirvish-yank-menu
+   "v"   'dirvish-vc-menu
+   "M-e" 'dirvish-emerge-menu
+   "M-j" 'dirvish-fd-jump
+   "M-s" 'dirvish-setup-menu)
+  
   (general-define-key
    :states 'normal
    :keymaps 'helpful-mode-map
