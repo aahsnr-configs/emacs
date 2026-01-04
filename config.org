@@ -3765,8 +3765,8 @@ If completion fails in the future, check these:
     ("t p" flymake-popon-mode "popon tooltips" :toggle t))))
 #+end_src
 
-** Podman
-*** Container Configuration
+* Podman
+** Container Configuration
 #+begin_src emacs-lisp
 (defcustom ar/dev-container-name "dev-env"
   "Name of the development container."
@@ -3789,10 +3789,9 @@ If completion fails in the future, check these:
   :group 'ar)
 #+end_src
 
-*** TRAMP Configuration for Podman
+** TRAMP Configuration for Podman
 #+begin_src emacs-lisp
 (with-eval-after-load 'tramp
-  ;; Performance settings for remote connections
   (setq remote-file-name-inhibit-locks t
         remote-file-name-inhibit-auto-save-visited t
         tramp-use-scp-direct-remote-copying t
@@ -3804,12 +3803,12 @@ If completion fails in the future, check these:
    'remote-direct-async
    '((tramp-direct-async-process . t)))
 
-  ;; CRITICAL FIX: Add all paths where LSP servers are installed
+  ;; Add all paths where LSP servers are installed
   (connection-local-set-profile-variables
    'container-path
-   '((tramp-remote-path . (tramp-own-remote-path    ; Use remote $PATH
-                           "/usr/local/bin"          ; Where texlab symlink is
-                           "/home/devuser/.cargo/bin" ; Original texlab location
+   '((tramp-remote-path . (tramp-own-remote-path
+                           "/usr/local/bin"
+                           "/home/devuser/.cargo/bin"
                            tramp-default-remote-path))))
 
   (connection-local-set-profiles
@@ -3817,15 +3816,14 @@ If completion fails in the future, check these:
    'container-path 'remote-direct-async))
 #+end_src
 
-*** Eglot Integration
+** Eglot Integration
 #+begin_src emacs-lisp
 (with-eval-after-load 'eglot
   ;; Optimize Eglot for TRAMP
   (connection-local-set-profile-variables
    'eglot-container
-   '((eglot-connect-timeout . 60)      ; Give container time to respond
-     (eglot-sync-connect . nil)        ; Don't block Emacs UI
-     ;; FIX: Use new config format to suppress "obsolete variable" warning
+   '((eglot-connect-timeout . 60)
+     (eglot-sync-connect . nil)
      (eglot-events-buffer-config . (:size 0))))
 
   (connection-local-set-profiles
@@ -3833,7 +3831,7 @@ If completion fails in the future, check these:
    'eglot-container))
 #+end_src
 
-*** Dockerfile Editing Support
+** Dockerfile Editing Support
 #+begin_src emacs-lisp
 (use-package dockerfile-ts-mode
   :ensure nil
@@ -3861,7 +3859,7 @@ If completion fails in the future, check these:
   (add-hook 'dockerfile-ts-mode-hook #'ar/dockerfile-inject-bash))
 #+end_src
 
-*** Docker/Podman Management
+** Docker/Podman Management
 #+begin_src emacs-lisp
 (use-package docker
   :defer t
@@ -3898,7 +3896,7 @@ If completion fails in the future, check these:
       ("?" ar/podman-status "status check")))))
 #+end_src
 
-*** Container Management Functions
+** Container Management Functions
 #+begin_src emacs-lisp
 (defun ar/podman--exists-p ()
   "Check if container exists (running or stopped).
@@ -4063,7 +4061,7 @@ Includes TRAMP cleanup to fix connection errors if container was restarted."
     (message "Container '%s' exists but is STOPPED" ar/dev-container-name))))
 #+end_src
 
-*** Debugging
+** Debugging
 #+begin_src emacs-lisp
 ;; Temporarily increase TRAMP verbosity to see what's happening
 (setq tramp-verbose 6)
@@ -5151,14 +5149,13 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
   (TeX-style-local ".auctex-style")
 
   :config
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs
-               `((latex-mode LaTeX-mode tex-mode)
-                 . ,(lambda (&optional interactive)
-                      ;; Find texlab dynamically (works for both local and remote)
-                      (list (or (executable-find "texlab" t) ; t = check remote too
-                                "/usr/local/bin/texlab"))))))
-
+  (with-eval-after-load 'eglot
+    (add-to-list 'eglot-server-programs
+                 `((latex-mode LaTeX-mode tex-mode)
+                   . ,(lambda (&optional interactive)
+                        (list (or (executable-find "texlab" t)
+                                  "/usr/local/bin/texlab"))))))
+  
   ;; ChkTeX Setup
   (let ((check-cmd (assoc "Check" TeX-command-list)))
     (when check-cmd
@@ -5424,7 +5421,6 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 ;; Hook into LaTeX mode to activate this setup
 (add-hook 'LaTeX-mode-hook #'ar/latex-setup-completion)
 #+end_src
-
 
 * Window
 ** Winner
