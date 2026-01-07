@@ -2229,16 +2229,16 @@ Standard native folding, kept as fallback; disabling for now
 
 ** Vimish Fold
 #+begin_src emacs-lisp
-(use-package vimish-fold
-  :after evil
-  :config (vimish-fold-global-mode 1))
+;; (use-package vimish-fold
+;;   :after evil
+;;   :config (vimish-fold-global-mode 1))
 
-(use-package evil-vimish-fold
-  :after vimish-fold
-  :init
-  (setq evil-vimish-fold-mode-lighter " ⮒")
-  (setq evil-vimish-fold-target-modes '(prog-mode conf-mode text-mode))
-  :config (global-evil-vimish-fold-mode))
+;; (use-package evil-vimish-fold
+;;   :after vimish-fold
+;;   :init
+;;   (setq evil-vimish-fold-mode-lighter " ⮒")
+;;   (setq evil-vimish-fold-target-modes '(prog-mode conf-mode text-mode))
+;;   :config (global-evil-vimish-fold-mode))
 #+end_src
 
 * Highlight
@@ -3533,6 +3533,12 @@ If completion fails in the future, check these:
 #+end_src
 
 * Development Tools
+** Direnv
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (after-init . envrc-global-mode))
+#+end_src
+
 ** LSP
 #+begin_src emacs-lisp
 (use-package eglot-booster
