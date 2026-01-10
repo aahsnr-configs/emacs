@@ -3643,7 +3643,7 @@ If completion fails in the future, check these:
 #+begin_src emacs-lisp
 (use-package flymake
   :ensure nil
-  :hook ((prog-mode text-mode) . flymake-mode)
+  :hook (prog-mode . flymake-mode)
   :custom
   ;; Doom-inspired behavior: better navigation and visual density
   (flymake-fringe-indicator-position 'right-fringe)
@@ -5154,6 +5154,14 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
               (when (fboundp 'texmathp)
                 (setq-local fill-nobreak-predicate
                             (cons #'texmathp fill-nobreak-predicate)))))
+  
+  ;; Delay flymake in LaTeX to avoid sentinel errors
+  (add-hook 'LaTeX-mode-hook
+            (lambda ()
+              (run-with-idle-timer 0.5 nil
+                                   (lambda ()
+                                     (when (derived-mode-p 'LaTeX-mode)
+                                       (flymake-mode 1))))))
 
   ;; Latexmk Configurations
   (add-to-list 'TeX-command-list
