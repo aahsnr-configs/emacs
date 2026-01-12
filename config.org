@@ -2128,6 +2128,52 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
                                (alert-default-style))))
 #+end_src
 
+** Org GTD
+#+begin_src emacs-lisp
+(use-package org-gtd
+  :ensure t
+  :after org
+  :demand t
+  :init
+  ;; Suppress upgrade warnings (must be set before package loads)
+  (setq org-gtd-update-ack "4.0.0")
+  ;; Where org-gtd will keep its files (defaults to ~/gtd/)
+  ;; (setq org-gtd-directory "~/my-gtd/")
+
+  :custom
+  ;; Configure TODO keyword states (options like "TODO(t)" or "DONE(d!)" are fine)
+  (org-todo-keywords '((sequence "TODO" "NEXT" "WAIT" "|" "DONE" "CNCL")))
+
+  ;; Map GTD semantic states to your keywords
+  (org-gtd-keyword-mapping '((todo . "TODO")
+                             (next . "NEXT")
+                             (wait . "WAIT")
+                             (canceled . "CNCL")))
+
+  :config
+  ;; REQUIRED: Enable org-edna for project dependencies
+  (org-edna-mode 1)
+
+  ;; Add org-gtd files to your agenda (must be in :config so org-gtd-directory is defined)
+  (setq org-agenda-files (list org-gtd-directory))
+
+  :bind
+  ;; Global keybindings (work anywhere in Emacs)
+  (("C-c d c" . org-gtd-capture)
+   ("C-c d e" . org-gtd-engage)
+   ("C-c d p" . org-gtd-process-inbox)
+   ("C-c d n" . org-gtd-show-all-next)
+   ("C-c d s" . org-gtd-reflect-stuck-projects)
+
+   ;; Keybinding for organizing items (only works in clarify buffers)
+   :map org-gtd-clarify-mode-map
+   ("C-c c" . org-gtd-organize)
+
+   ;; Quick actions on tasks in agenda views (optional but recommended)
+   :map org-agenda-mode-map
+   ("C-c ." . org-gtd-agenda-transient)))
+#+end_src
+
 * Treesitter/Folding
 ** Treesit
 #+begin_src emacs-lisp
@@ -2652,27 +2698,27 @@ Use this if you want maximum prettification."
 
 ** Shell/Bash
 #+begin_src emacs-lisp
-(defun ar/prettify-symbols-shell-setup ()
-  "Configure prettify-symbols for shell scripts."
-  (setq prettify-symbols-alist
-        (append
-         ar/prettify-symbols-base-alist
-         '(;; Test operators (be conservative here)
-           ("-eq" . ?=)            ; Keep simple for readability
-           ("-ne" . ?≠)            ; U+2260 NOT EQUAL TO
-           ("-le" . ?≤)            ; U+2264 LESS-THAN OR EQUAL TO
-           ("-ge" . ?≥)            ; U+2265 GREATER-THAN OR EQUAL TO
+;; (defun ar/prettify-symbols-shell-setup ()
+;;   "Configure prettify-symbols for shell scripts."
+;;   (setq prettify-symbols-alist
+;;         (append
+;;          ar/prettify-symbols-base-alist
+;;          '(;; Test operators (be conservative here)
+;;            ("-eq" . ?=)            ; Keep simple for readability
+;;            ("-ne" . ?≠)            ; U+2260 NOT EQUAL TO
+;;            ("-le" . ?≤)            ; U+2264 LESS-THAN OR EQUAL TO
+;;            ("-ge" . ?≥)            ; U+2265 GREATER-THAN OR EQUAL TO
            
-           ;; Logical operators
-           ("&&" . ?∧)             ; U+2227 LOGICAL AND
-           ("||" . ?∨)             ; U+2228 LOGICAL OR
+;;            ;; Logical operators
+;;            ("&&" . ?∧)             ; U+2227 LOGICAL AND
+;;            ("||" . ?∨)             ; U+2228 LOGICAL OR
            
-           ;; Don't prettify pipe | - it's too fundamental to shell syntax
-           ))))
+;;            ;; Don't prettify pipe | - it's too fundamental to shell syntax
+;;            ))))
 
-;; Apply to shell modes
-(add-hook 'sh-mode-hook #'ar/prettify-symbols-shell-setup)
-(add-hook 'bash-ts-mode-hook #'ar/prettify-symbols-shell-setup)
+;; ;; Apply to shell modes
+;; (add-hook 'sh-mode-hook #'ar/prettify-symbols-shell-setup)
+;; (add-hook 'bash-ts-mode-hook #'ar/prettify-symbols-shell-setup)
 #+end_src
 
 ** C/C++
