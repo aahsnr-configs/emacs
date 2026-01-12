@@ -2089,6 +2089,40 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
    ("C-c ." . org-gtd-agenda-transient)))
 #+end_src
 
+* Dashboard
+
+#+begin_src emacs-lisp
+(use-package dashboard
+  :config
+  (dashboard-setup-startup-hook)
+  (setq initial-buffer-choice (lambda () (get-buffer-create dashboard-buffer-name)))
+  ;; Content is not centered by default. To center, set
+  (setq dashboard-center-content t)
+  ;; vertically center content
+  (setq dashboard-vertically-center-content t)
+  
+  ;; To disable shortcut "jump" indicators for each section, set
+  (setq dashboard-show-shortcuts nil)
+  (setq dashboard-items '((recents   . 5)
+                          (bookmarks . 5)
+                          (projects  . 5)
+                          (agenda    . 5)
+                          (registers . 5)))
+  (setq dashboard-navigation-cycle t)
+  (setq dashboard-heading-shorcut-format " [%s]")
+  (setq dashboard-item-shortcuts '((recents   . "r")
+                                   (bookmarks . "m")
+                                   (projects  . "p")
+                                   (agenda    . "a")
+                                   (registers . "e")))
+  (setq dashboard-item-names '(("Recent Files:"               . "Recently opened files:")
+                               ("Agenda for today:"           . "Today's agenda:")
+                               ("Agenda for the coming week:" . "Agenda:")))
+  (setq dashboard-display-icons-p t)     ; display icons on both GUI and terminal
+  (setq dashboard-icon-type 'nerd-icons) ; use `nerd-icons' package
+  )
+#+end_src
+
 * Treesitter/Folding
 ** Treesit
 #+begin_src emacs-lisp
