@@ -25,7 +25,7 @@ Lower this if you experience freezing, raise if stuttering.")
   "GC percentage of heap to trigger collection.")
 
 ;; Restore GC settings after startup
-(add-hook 'elpaca-after-init-hook
+(add-hook 'emacs-startup-hook
           (lambda ()
             (setq gc-cons-threshold better-gc-cons-threshold
                   gc-cons-percentage better-gc-cons-percentage)
@@ -42,7 +42,7 @@ Lower this if you experience freezing, raise if stuttering.")
           100) ;; Run late to ensure accurate timing
 
 ;; Increase GC threshold in minibuffer to prevent slowdowns during completion
-(add-hook 'elpaca-after-init-hook
+(add-hook 'emacs-startup-hook
           (lambda ()
             (defun gc-minibuffer-setup-hook ()
               (setq gc-cons-threshold (* better-gc-cons-threshold 2)))
@@ -63,69 +63,30 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ** Package Management
 #+begin_src emacs-lisp
-(defvar elpaca-installer-version 0.11)
-(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
-(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
-(defvar elpaca-repos-directory (expand-file-name "repos/" elpaca-directory))
-(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
-                              :ref nil :depth 1 :inherit ignore
-                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
-                              :build (:not elpaca--activate-package)))
-(let* ((repo  (expand-file-name "elpaca/" elpaca-repos-directory))
-       (build (expand-file-name "elpaca/" elpaca-builds-directory))
-       (order (cdr elpaca-order))
-       (default-directory repo))
-  (add-to-list 'load-path (if (file-exists-p build) build repo))
-  (unless (file-exists-p repo)
-    (make-directory repo t)
-    (when (<= emacs-major-version 28) (require 'subr-x))
-    (condition-case-unless-debug err
-        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
-                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
-                                                  ,@(when-let* ((depth (plist-get order :depth)))
-                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
-                                                  ,(plist-get order :repo) ,repo))))
-                  ((zerop (call-process "git" nil buffer t "checkout"
-                                        (or (plist-get order :ref) "--"))))
-                  (emacs (concat invocation-directory invocation-name))
-                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
-                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
-                  ((require 'elpaca))
-                  ((elpaca-generate-autoloads "elpaca" repo)))
-            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
-          (error "%s" (with-current-buffer buffer (buffer-string))))
-      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
-  (unless (require 'elpaca-autoloads nil t)
-    (require 'elpaca)
-    (elpaca-generate-autoloads "elpaca" repo)
-    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
-(add-hook 'after-init-hook #'elpaca-process-queues)
-(elpaca `(,@elpaca-order))
+(require 'package)
 
+(setq package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
+                         ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+                         ("melpa" . "https://melpa.org/packages/")))
+(package-initialize)
+(unless package-archive-contents
+  (package-refresh-contents))
 
-;; Install use-package support
-(elpaca elpaca-use-package
-  ;; Enable use-package :ensure support for Elpaca.
-  (elpaca-use-package-mode))
-
-(elpaca-wait)
-
-(eval-and-compile
-  (setq use-package-verbose nil
-        use-package-expand-minimally t
-        use-package-compute-statistics nil
-        use-package-always-ensure t
-        use-package-enable-imenu-support t))
-
-(eval-when-compile
-  (require 'use-package))
+(require 'use-package)
 (require 'bind-key)
+
+(setq use-package-verbose nil
+      use-package-expand-minimally t
+      use-package-compute-statistics nil
+      use-package-always-ensure t
+      use-package-enable-imenu-support t)
+
 #+end_src
 
 ** Custom File
 #+begin_src emacs-lisp
 (setq custom-file (expand-file-name "customs.el" user-emacs-directory))
-(add-hook 'elpaca-after-init-hook (lambda () (load custom-file 'noerror)))
+(add-hook 'after-init-hook (lambda () (load custom-file 'noerror)))
 #+end_src
 
 ** Emacs Start Up Profiler
@@ -239,11 +200,11 @@ Profile startup time with detailed breakdown
 
 ** Performance Tuning
 #+begin_src emacs-lisp
-;; (when (fboundp 'pgtk-use-im-context)
-;;   (add-hook 'after-make-frame-functions
-;;             (lambda (frame)
-;;               (with-selected-frame frame
-;;                 (pgtk-use-im-context nil)))))
+(when (fboundp 'pgtk-use-im-context)
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (with-selected-frame frame
+                (pgtk-use-im-context nil)))))
 
 
 (setq-default bidi-display-reordering nil
@@ -337,7 +298,7 @@ Profile startup time with detailed breakdown
 ** Garbage Collector Magic Hack
 #+begin_src emacs-lisp
 (use-package gcmh
-  :hook (elpaca-after-init . gcmh-mode)
+  :hook (after-init . gcmh-mode)
   :init
   (setq gcmh-idle-delay 'auto))
 #+end_src
@@ -375,12 +336,12 @@ Profile startup time with detailed breakdown
 ;; Save place
 (use-package saveplace
   :ensure nil
-  :hook (elpaca-after-init . save-place-mode))
+  :hook (after-init . save-place-mode))
 
 ;; History with symlink resolution
 (use-package recentf
   :ensure nil
-  :hook (elpaca-after-init . recentf-mode)
+  :hook (after-init . recentf-mode)
   :init
   (setq recentf-max-saved-items 300
         recentf-exclude
@@ -412,7 +373,7 @@ Profile startup time with detailed breakdown
 
 (use-package savehist
   :ensure nil
-  :hook (elpaca-after-init . savehist-mode)
+  :hook (after-init . savehist-mode)
   :init
   (setq enable-recursive-minibuffers t
         history-length 1000
@@ -523,7 +484,7 @@ Profile startup time with detailed breakdown
 ;; and restoration of undo history across Emacs sessions, even after restarting.
 (use-package undo-fu-session
   :commands undo-fu-session-global-mode
-  :hook (elpaca-after-init . undo-fu-session-global-mode))
+  :hook (after-init . undo-fu-session-global-mode))
 #+end_src
 
 ** Core Evil
@@ -533,7 +494,7 @@ Profile startup time with detailed breakdown
 ;; Vim emulation
 (use-package evil
   :commands (evil-mode evil-define-key)
-  :hook (elpaca-after-init . evil-mode)
+  :hook (after-init . evil-mode)
 
   :init
   (setq evil-want-integration t)
@@ -585,7 +546,7 @@ Profile startup time with detailed breakdown
 
      (?< . ("<" . ">"))
      (?> . ("<" . ">"))))
-  :hook (elpaca-after-init . global-evil-surround-mode))
+  :hook (after-init . global-evil-surround-mode))
 
 ;; Jump to the last change (Visual Studio/Vim style 'g;')
 (use-package goto-chg
@@ -785,15 +746,13 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 * Hydra Setup
 #+begin_src emacs-lisp
 (use-package hydra
-  :ensure (:wait t)
-  :demand t
+  :defer t
   :hook (emacs-lisp-mode . hydra-add-imenu)
   :init
   (setq hydra-hint-display-type 'lv))
 
 (use-package major-mode-hydra
-  :ensure (:wait t)
-  :demand t
+  :defer t
   :bind ("<f6>" . toggles-hydra/body)
   :hook (emacs-lisp-mode . (lambda ()
                              (add-to-list
@@ -1044,7 +1003,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   :ensure nil
   :defer t
   :commands (eldoc-mode global-eldoc-mode)
-  :hook ((elpaca-after-init . global-eldoc-mode)
+  :hook ((after-init . global-eldoc-mode)
          (emacs-lisp-mode . eldoc-mode)
          (lisp-interaction-mode . eldoc-mode))
   :custom
@@ -1164,14 +1123,14 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+begin_src emacs-lisp
 (use-package autorevert
   :ensure nil
-  :hook (elpaca-after-init . global-auto-revert-mode))
+  :hook (after-init . global-auto-revert-mode))
 #+end_src
 
 ** Avy/Ace
 #+begin_src emacs-lisp
 ;; Jump to things in Emacs tree-style
 (use-package avy
-  :hook (elpaca-after-init . avy-setup-default)
+  :hook (after-init . avy-setup-default)
   :config (setq avy-all-windows nil
                 avy-all-windows-alt t
                 avy-background t
@@ -1183,7 +1142,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
 ;; Quickly follow links
 (use-package ace-link
-  :hook (elpaca-after-init . ace-link-setup-default))
+  :hook (after-init . ace-link-setup-default))
 #+end_src
 
 ** Anzu
@@ -1194,7 +1153,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
          :map isearch-mode-map
          ([remap isearch-query-replace] . anzu-isearch-query-replace)
          ([remap isearch-query-replace-regexp] . anzu-isearch-query-replace-regexp))
-  :hook (elpaca-after-init . global-anzu-mode))
+  :hook (after-init . global-anzu-mode))
 
 (use-package evil-anzu :after evil)
 #+end_src
@@ -1218,7 +1177,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 #+begin_src emacs-lisp
 (use-package elec-pair
   :ensure nil
-  :hook (elpaca-after-init . electric-pair-mode)
+  :hook (after-init . electric-pair-mode)
   :init (setq electric-pair-inhibit-predicate 'electric-pair-conservative-inhibit))
 #+end_src
 
@@ -1456,7 +1415,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
   (set-face-attribute 'font-lock-keyword-face nil :slant 'italic))
 
 (if (daemonp)
-    (add-hook 'elpaca-after-init-hook
+    (add-hook 'emacs-startup-hook
               (lambda ()
                 (add-hook 'after-make-frame-functions
                           (lambda (frame)
@@ -1495,10 +1454,10 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 ** Solaire Mode
 #+begin_src emacs-lisp
 (use-package solaire-mode
-  :ensure (:host github 
-           :repo "hlissner/emacs-solaire-mode"
-           :ref "c9334666bd208f3322e6118d30eba1b2438e2bb9") 
-  :hook (elpaca-after-init . solaire-global-mode))
+  ;; :ensure (:host github 
+  ;;          :repo "hlissner/emacs-solaire-mode"
+  ;;          :ref "c9334666bd208f3322e6118d30eba1b2438e2bb9")
+  :hook (after-init . solaire-global-mode))
 #+end_src
 
 ** Modeline
@@ -1508,7 +1467,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 
 (use-package doom-modeline
   :defer 0.1
-  :hook (elpaca-after-init . doom-modeline-mode)
+  :hook (after-init . doom-modeline-mode)
   :hook (doom-modeline-mode . column-number-mode)
   :init
   (setq doom-modeline-bar-width 3
@@ -1617,7 +1576,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 ** Text Scaling
 #+begin_src emacs-lisp
 (use-package default-text-scale
-  :hook (elpaca-after-init . default-text-scale-mode))
+  :hook (after-init . default-text-scale-mode))
 #+end_src
 
 ** Scrolling
@@ -1638,7 +1597,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 (when (fboundp 'pixel-scroll-precision-mode) ;; 29+
   (use-package ultra-scroll
     :functions (hl-todo-mode diff-hl-flydiff-mode)
-    :hook (elpaca-after-init . ultra-scroll-mode)
+    :hook (after-init . ultra-scroll-mode)
     :config
     (add-hook 'ultra-scroll-hide-functions #'diff-hl-flydiff-mode)
     (add-hook 'ultra-scroll-hide-functions #'hl-todo-mode)
@@ -1706,7 +1665,7 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 ** Core Configuration
 #+begin_src emacs-lisp
 (use-package org
-  :ensure nil
+  :ensure t
   :pretty-hydra
   ;; See `org-structure-template-alist'
   ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
@@ -2213,7 +2172,8 @@ Replaces evil-nerd-commenter/evil-commentary with native Emacs behavior. This re
 ** Treesit-Fold
 #+begin_src emacs-lisp
 (use-package treesit-fold
-  :ensure (:host github :repo "emacs-tree-sitter/treesit-fold")
+  :vc (:url "https://github.com/emacs-tree-sitter/treesit-fold"
+       :branch "master")
   :custom
   (treesit-fold-indicators-priority -1)
   :config
@@ -2292,7 +2252,7 @@ Standard native folding, kept as fallback; disabling for now
 #+begin_src emacs-lisp
 (use-package hl-line
   :ensure nil
-  :hook ((elpaca-after-init . global-hl-line-mode)
+  :hook ((after-init . global-hl-line-mode)
          ((dashboard-mode eshell-mode shell-mode term-mode vterm-mode) .
           (lambda () (setq-local global-hl-line-mode nil))))
   :config
@@ -2367,7 +2327,7 @@ Standard native folding, kept as fallback; disabling for now
 #+begin_src emacs-lisp
 (use-package paren
   :ensure nil
-  :hook (elpaca-after-init . show-paren-mode)
+  :hook (after-init . show-paren-mode)
   :custom
   (show-paren-delay 0.1)
   (show-paren-highlight-openparen t)
@@ -2456,7 +2416,7 @@ Standard native folding, kept as fallback; disabling for now
   :custom-face
   (hl-todo ((t (:inherit default :height 0.9 :width condensed :weight bold :underline nil :inverse-video nil))))
   
-  :hook ((elpaca-after-init . global-hl-todo-mode)
+  :hook ((after-init . global-hl-todo-mode)
          (org-mode . hl-todo-mode))
   
   :init
@@ -3147,7 +3107,7 @@ VERTical Interactive COmpletion
          ("RET" . vertico-directory-enter)
          ("DEL" . vertico-directory-delete-char)
          ("M-DEL" . vertico-directory-delete-word))
-  :hook ((elpaca-after-init . vertico-mode)
+  :hook ((after-init . vertico-mode)
          (rfn-eshadow-update-overlay . vertico-directory-tidy)))
 #+end_src
 
@@ -3155,7 +3115,7 @@ VERTical Interactive COmpletion
 Enrich existing commands with completion annotations
 #+begin_src emacs-lisp
 (use-package marginalia
-  :hook (elpaca-after-init . marginalia-mode)
+  :hook (after-init . marginalia-mode)
   :config
   (setq marginalia-max-relative-age 0 ; Always show absolute time
         marginalia-align 'right))
@@ -3372,7 +3332,7 @@ targets."
         ("S-TAB" . corfu-previous)
         ([backtab] . corfu-previous)
         ("M-h" . corfu-info-documentation))
-  :hook ((elpaca-after-init . global-corfu-mode)
+  :hook ((after-init . global-corfu-mode)
          (global-corfu-mode . corfu-history-mode))
   :config
   ;;Quit completion before saving
@@ -3588,13 +3548,14 @@ If completion fails in the future, check these:
 ** LSP
 #+begin_src emacs-lisp
 (use-package eglot-booster
-  :ensure (:host github :repo "jdtsmith/eglot-booster")
+  :vc (:url "https://github.com/jdtsmith/eglot-booster.git"
+       :branch "main")
   :after eglot
   :config
   (eglot-booster-mode))
 
 (use-package eglot
-  :ensure nil
+  :ensure t
   :defer t
   :hook
   ((prog-mode . (lambda ()
@@ -3617,7 +3578,7 @@ If completion fails in the future, check these:
 
 (use-package org-src-context
  :ensure nil ; Relies on lisp/org-src-context.el
- :hook (elpaca-after-init . org-src-context-mode)
+ :hook (after-init . org-src-context-mode)
  :custom
  ;; Visual: Set to 'nil' to see the grayed-out context surrounding your block.
  ;; Set to 't' if you prefer a focused view (narrowed to just your code).
@@ -3747,7 +3708,7 @@ If completion fails in the future, check these:
 ** Formatting
 #+begin_src emacs-lisp
 (use-package apheleia
-  :hook (elpaca-after-init . apheleia-global-mode)
+  :hook (after-init . apheleia-global-mode)
   :custom
   (apheleia-log-only-errors t)
   :config
@@ -4578,7 +4539,7 @@ If completion fails in the future, check these:
 ** Tabspaces
 #+begin_src emacs-lisp
 (use-package tabspaces
-  :hook (elpaca-after-init . tabspaces-mode)
+  :hook (after-init . tabspaces-mode)
   :custom
   (tab-bar-show nil) ;; We use the modeline/consult to visualize tabs
   
@@ -4692,7 +4653,7 @@ If completion fails in the future, check these:
   (run-with-idle-timer 300 t #'my-tabspaces-safe-save)
 
   ;; Attempt restore 2 seconds after startup
-  (add-hook 'elpaca-after-init-hook
+  (add-hook 'after-init-hook
             (lambda ()
               (run-with-idle-timer 2 nil #'my-tabspaces-safe-restore))))
 #+end_src
@@ -4935,7 +4896,7 @@ If completion fails in the future, check these:
 #+begin_src emacs-lisp
 (use-package which-key
   :defer 0.5
-  :hook (elpaca-after-init . which-key-mode)
+  :hook (after-init . which-key-mode)
   :custom
   (which-key-idle-delay 0.1)
   (which-key-separator " → ")
@@ -5145,12 +5106,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 #+begin_src emacs-lisp
 (use-package tex
   :defer t
-  :ensure (auctex :repo "https://git.savannah.gnu.org/git/auctex.git"
-                  :branch "main"
-                  :pre-build (("make" "elpa"))
-                  :build (:not elpaca--compile-info)
-                  :files ("*.el" "doc/*.info*" "etc" "images" "latex" "style")
-                  :version (lambda (_) (require 'auctex) AUCTeX-version))
+  :ensure auctex
   :defer t
   :hook ((LaTeX-mode . visual-line-mode)
          (LaTeX-mode . prettify-symbols-mode)
@@ -5467,7 +5423,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 (use-package winner
   :ensure nil
   :commands (winner-undo winner-redo)
-  :hook (elpaca-after-init . winner-mode)
+  :hook (after-init . winner-mode)
   :init (setq winner-boring-buffers '("*Completions*"
                                       "*Compile-Log*"
                                       "*inferior-lisp*"
@@ -5586,7 +5542,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
   :custom
   (popper-group-function #'popper-group-by-directory)
   (popper-echo-dispatch-actions t)
-  :hook (elpaca-after-init . popper-echo-mode)
+  :hook (after-init . popper-echo-mode)
   :init
   (setq popper-mode-line ""
         popper-reference-buffers
@@ -5795,8 +5751,7 @@ Returns a list of absolute paths to bibliography files, or nil if none found."
 #+begin_src emacs-lisp
 (use-package general
   :after evil
-  :ensure (:wait t)
-  :demand t
+  :defer t
   :config
   ;; Set up leader keys
   (general-create-definer ar/global-leader
