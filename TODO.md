@@ -4,7 +4,8 @@
 
 [NOTE]: All mentioned documents in aahsnr-common/guides repository
 
-- [ ] [Urgent] First study Zettelkasten vs. GTD in workflow-in-general.md file. Then study the org-gtd.md file. Then combine the two workflow approaches to create a unified workflow experience guide. Only write out the changes needed. You may remove any config options that are no longer needed. Only write out the changes needed but make sure the whole workflow guide is optimized for my personal emacs configuration and seamlessly integrated with my personal emacs configuration as well.
+- [ ] [Urgent] First study Zettelkasten vs. GTD in zettelkasten-gtd.md file. Then study the gtg-guide.md file. Then combine the two workflow approaches to create a unified workflow experience for the vanilla emacs config in the attached config.org file. You may remove any config options that are no longer needed. Only write out the changes needed but make sure the whole workflow guide is optimized for my personal emacs configuration and seamlessly integrated with my personal emacs configuration as well.
+
 - [ ] [Urgent] Use the resulting guide to make changes to my emacs config
 - [ ] [important] add org-landing-page.md configs
 - [ ] [Next]: after completing the above 3 tasks, add/remove org files from org directory. org directory should be in Documents folder
