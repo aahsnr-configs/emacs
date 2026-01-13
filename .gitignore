@@ -4,6 +4,7 @@ custom.el
 .backup
 .cache/
 config.el
+custom.el
 customs.el
 log/
 eln-cache/

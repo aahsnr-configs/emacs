@@ -86,7 +86,7 @@ Lower this if you experience freezing, raise if stuttering.")
 
 ** Custom File
 #+begin_src emacs-lisp
-(setq custom-file (expand-file-name "customs.el" user-emacs-directory))
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (add-hook 'after-init-hook (lambda () (load custom-file 'noerror)))
 #+end_src
 
