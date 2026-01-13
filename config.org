@@ -1726,8 +1726,8 @@ If file doesn't exist, creates it with TEMPLATE content."
 #+begin_src emacs-lisp
 (use-package org
   :defer t
-  ;;:ensure nil
-  ;;:commands (org-mode org-agenda org-capture org-store-link)
+  :ensure nil
+  :commands (org-mode org-agenda org-capture org-store-link)
   :pretty-hydra
   ((:title (pretty-hydra-title "Org Template" 'sucicon "nf-custom-orgmode" :face 'nerd-icons-green)
     :color blue :quit-key ("q" "C-g"))
@@ -2195,6 +2195,7 @@ If file doesn't exist, creates it with TEMPLATE content."
   (consult-org-roam-buffer-narrow-key ?r)
   (consult-org-roam-buffer-after-buffers t))
 #+end_src
+
 ** Zettelkasten ↔ GTD Bridges
 #+begin_src emacs-lisp
 (defun ar/gtd-to-zettel ()
